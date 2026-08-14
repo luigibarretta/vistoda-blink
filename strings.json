@@ -1,0 +1,12 @@
+{
+  "config": {
+    "abort": {
+      "blink_not_loaded": "Configure and load Blink before adding this bridge."
+    },
+    "step": {
+      "user": {
+        "description": "Create live camera entities and a private MPEG-TS bridge for the loaded Blink account."
+      }
+    }
+  }
+}

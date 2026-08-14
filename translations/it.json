@@ -1,0 +1,12 @@
+{
+  "config": {
+    "abort": {
+      "blink_not_loaded": "Configura e carica Blink prima di aggiungere questo bridge."
+    },
+    "step": {
+      "user": {
+        "description": "Crea le telecamere live e un bridge MPEG-TS privato per l'account Blink già caricato."
+      }
+    }
+  }
+}
