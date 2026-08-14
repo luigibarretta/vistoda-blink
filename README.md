@@ -9,7 +9,8 @@ After loading, it initiates Home Assistant integration discovery for Vistoda.
 Accepting that discovery adds only the Vistoda provider device: the existing
 Blink live cameras, private API and single vendor session remain authoritative.
 The camera entities claim the same device-registry identifier as the Vistoda
-Blink provider, so Home Assistant displays them under `Vistoda · BLINK` without
+Blink provider. Home Assistant 2026.8 therefore presents their
+`Vistoda · BLINK Live` device as a linked sibling of `Vistoda · BLINK`, without
 creating duplicate entities or vendor sessions.
 
 ## Private API

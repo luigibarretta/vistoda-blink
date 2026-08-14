@@ -41,6 +41,9 @@ class BlinkLiveCamera(CoordinatorEntity[Any], Camera):
         self._attr_unique_id = f"{camera.serial}-live-camera"
         self._attr_device_info = {
             "identifiers": {(VISTODA_DOMAIN, VISTODA_BLINK_IDENTIFIER)},
+            "name": "Vistoda · BLINK Live",
+            "manufacturer": "Blink",
+            "model": "Shared live media adapter",
         }
 
     @property
