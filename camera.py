@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import API_PREFIX, DOMAIN
+from .const import API_PREFIX, DOMAIN, VISTODA_BLINK_IDENTIFIER, VISTODA_DOMAIN
 from .runtime import BridgeRuntime
 
 
@@ -39,6 +39,9 @@ class BlinkLiveCamera(CoordinatorEntity[Any], Camera):
         self._attr_name = f"{camera.name} Live"
         self._attr_suggested_object_id = f"{alias}_live"
         self._attr_unique_id = f"{camera.serial}-live-camera"
+        self._attr_device_info = {
+            "identifiers": {(VISTODA_DOMAIN, VISTODA_BLINK_IDENTIFIER)},
+        }
 
     @property
     @override

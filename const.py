@@ -4,6 +4,8 @@ from homeassistant.const import Platform
 
 DOMAIN = "blink_live_bridge"
 BLINK_DOMAIN = "blink"
+VISTODA_DOMAIN = "media_bridge"
+VISTODA_BLINK_IDENTIFIER = "blink:blink"
 CONF_TOKEN = "token"
 API_PREFIX = f"/api/{DOMAIN}"
 PLATFORMS = (Platform.CAMERA,)

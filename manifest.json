@@ -7,5 +7,5 @@
   "documentation": "https://github.com/home-assistant/core/pull/160708",
   "integration_type": "service",
   "iot_class": "cloud_push",
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
