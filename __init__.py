@@ -2,6 +2,7 @@
 
 import voluptuous as vol
 
+from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -44,6 +45,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         register_views(hass)
         data["views_registered"] = True
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if not data.get("vistoda_discovery_started"):
+        data["vistoda_discovery_started"] = True
+        hass.async_create_task(_discover_vistoda(hass))
     return True
 
 
@@ -55,3 +59,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if runtime:
         await runtime.relays.stop()
     return True
+
+
+async def _discover_vistoda(hass: HomeAssistant) -> None:
+    """Offer the local relay to Vistoda without blocking Blink startup."""
+    vistoda_domain = "media_bridge"
+    if any(
+        entry.data.get("provider") == "blink"
+        for entry in hass.config_entries.async_entries(vistoda_domain)
+    ):
+        return
+    await hass.config_entries.flow.async_init(
+        vistoda_domain,
+        context={"source": config_entries.SOURCE_INTEGRATION_DISCOVERY},
+        data={"provider": "blink"},
+    )

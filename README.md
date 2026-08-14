@@ -5,6 +5,10 @@ creating another Blink login. It reuses the single loaded Core `blink` config
 entry and exposes the same stream to native HA camera entities and private
 workload clients such as SceneTrove.
 
+After loading, it initiates Home Assistant integration discovery for Vistoda.
+Accepting that discovery adds only the Vistoda provider device: the existing
+Blink live cameras, private API and single vendor session remain authoritative.
+
 ## Private API
 
 The API is mounted below `/api/blink_live_bridge`:
