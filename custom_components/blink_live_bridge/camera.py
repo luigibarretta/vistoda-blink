@@ -90,6 +90,7 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
 
     async def save_video(self, filename: str) -> None:
         self._validate_path(filename)
+        await self.coordinator.async_request_refresh()
         clips = self._camera_clips()
         if not clips:
             raise HomeAssistantError("No Blink clip is available for this camera")
@@ -98,6 +99,7 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
 
     async def save_recent_clips(self, file_path: str) -> None:
         self._validate_path(file_path)
+        await self.coordinator.async_request_refresh()
         directory = Path(file_path)
         for index, clip in enumerate(self._camera_clips(), start=1):
             content = await self.runtime.client.bytes(f"/v1/clips/{clip['id']}")

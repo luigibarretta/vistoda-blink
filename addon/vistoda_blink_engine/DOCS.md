@@ -13,4 +13,5 @@ with a key derived from the separately managed workload token.
 
 The `token` option is managed as a secret by the production deployment. It must
 contain exactly 64 lowercase hexadecimal characters. Do not publish it or add a
-host port for the engine. Keep app and adapter versions identical.
+host port for the engine. Production pins engine and adapter versions
+independently so an adapter-only fix does not rebuild the Rust app.

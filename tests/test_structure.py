@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.3.3"
+    assert manifest["version"] == "0.3.4"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -33,6 +33,20 @@ def test_private_media_contract_stays_compatible() -> None:
     assert '"video/mp2t"' in source
     assert "alias: str" in source
     assert "stream_format: str" in source
+
+
+def test_clip_services_refresh_provider_state_before_selection() -> None:
+    """A newly recorded clip must not be hidden by stale coordinator data."""
+    source = (COMPONENT / "camera.py").read_text()
+    save_video = source.split("async def save_video", 1)[1].split("async def save_recent_clips", 1)[
+        0
+    ]
+    save_recent = source.split("async def save_recent_clips", 1)[1].split("async def _command", 1)[
+        0
+    ]
+    refresh = "await self.coordinator.async_request_refresh()"
+    assert save_video.index(refresh) < save_video.index("self._camera_clips()")
+    assert save_recent.index(refresh) < save_recent.index("self._camera_clips()")
 
 
 def test_every_maintained_file_stays_bounded() -> None:
