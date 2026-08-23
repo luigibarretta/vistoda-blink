@@ -6,7 +6,7 @@ from typing import Any, override
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .client import EngineError
@@ -45,7 +45,31 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
     @property
     @override
     def extra_state_attributes(self) -> dict[str, Any]:
-        return self.camera
+        camera = self.camera
+        clips = self._camera_clips()
+        latest = clips[0] if clips else None
+        temperature = camera.get("temperature_f")
+        return {
+            **camera,
+            "battery": camera.get("battery_state"),
+            "camera_id": camera["id"],
+            "last_record": latest.get("created_at") if latest else None,
+            "motion_enabled": camera.get("enabled"),
+            "name": camera["name"],
+            "recent_clips": [self._clip_attributes(clip) for clip in clips],
+            "sync_module": self._network_name(),
+            "sync_signal_strength": None,
+            "temperature": temperature,
+            "temperature_c": round((temperature - 32) * 5 / 9, 1)
+            if isinstance(temperature, int | float)
+            else None,
+            "temperature_calibrated": None,
+            "thumbnail": camera.get("thumbnail_url"),
+            "type": camera.get("product_type"),
+            "version": camera.get("firmware"),
+            "video": self._clip_url(latest) if latest else None,
+            "wifi_strength": camera.get("wifi_dbm"),
+        }
 
     @property
     @override
@@ -93,7 +117,7 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
         await self.coordinator.async_request_refresh()
         clips = self._camera_clips()
         if not clips:
-            raise HomeAssistantError("No Blink clip is available for this camera")
+            return
         content = await self.runtime.client.bytes(f"/v1/clips/{clips[0]['id']}")
         await self.hass.async_add_executor_job(Path(filename).write_bytes, content)
 
@@ -123,16 +147,38 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
     def _camera_clips(self) -> list[dict[str, Any]]:
         clips = self.coordinator.data.get("clips", [])
         camera = self.camera
-        return [
-            clip
-            for clip in clips
-            if not clip.get("deleted")
-            and (
-                str(clip.get("camera_id")) == str(camera["id"])
-                if clip.get("camera_id") is not None
-                else clip["camera_name"] == camera["name"]
-            )
-        ]
+        return sorted(
+            (
+                clip
+                for clip in clips
+                if not clip.get("deleted")
+                and (
+                    str(clip.get("camera_id")) == str(camera["id"])
+                    if clip.get("camera_id") is not None
+                    else clip["camera_name"] == camera["name"]
+                )
+            ),
+            key=lambda clip: clip["created_at"],
+            reverse=True,
+        )
+
+    def _clip_attributes(self, clip: dict[str, Any]) -> dict[str, str]:
+        return {"time": clip["created_at"], "clip": self._clip_url(clip)}
+
+    def _clip_url(self, clip: dict[str, Any]) -> str:
+        return f"{API_PREFIX}/v1/clips/{clip['id']}"
+
+    def _network_name(self) -> str | None:
+        network_id = str(self.camera["network_id"])
+        network = next(
+            (
+                item
+                for item in self.coordinator.data.get("networks", [])
+                if str(item["id"]) == network_id
+            ),
+            None,
+        )
+        return network.get("name") if network else None
 
     def _validate_path(self, path: str) -> None:
         if not self.hass.config.is_allowed_path(path):

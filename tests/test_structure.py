@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.3.4"
+    assert manifest["version"] == "0.3.5"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -47,6 +47,22 @@ def test_clip_services_refresh_provider_state_before_selection() -> None:
     refresh = "await self.coordinator.async_request_refresh()"
     assert save_video.index(refresh) < save_video.index("self._camera_clips()")
     assert save_recent.index(refresh) < save_recent.index("self._camera_clips()")
+    assert "if not clips:\n            return" in save_video
+
+
+def test_camera_declares_the_official_blink_attribute_surface() -> None:
+    """Preserve attributes used by dashboards during official-provider removal."""
+    source = (COMPONENT / "camera.py").read_text()
+    for name in (
+        "camera_id",
+        "last_record",
+        "recent_clips",
+        "sync_module",
+        "temperature_c",
+        "thumbnail",
+        "video",
+    ):
+        assert f'"{name}"' in source
 
 
 def test_every_maintained_file_stays_bounded() -> None:
