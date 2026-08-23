@@ -24,6 +24,18 @@ jobs:
       - run: python -m compileall -q custom_components tests scripts
       - run: python scripts/check_loc.py
       - run: python -m pytest
+      - uses: dtolnay/rust-toolchain@1.88
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: addon/vistoda_blink_engine
+      - run: cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
+      - run: cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --all-targets --all-features -- -D warnings
+      - run: cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked
+      - run: cargo build --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --release
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+        with:
+          token: ${{ github.token }}
+          working-directory: addon/vistoda_blink_engine
   hassfest:
     runs-on: ubuntu-latest
     steps:

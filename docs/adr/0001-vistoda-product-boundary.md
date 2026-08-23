@@ -1,6 +1,6 @@
 # 0001 — Vistoda product identity with stable HA contracts
 
-Status: accepted, 2026-08-23.
+Status: superseded in part by ADR 0002, 2026-08-23.
 
 ## Context
 
@@ -25,10 +25,11 @@ The following compatibility identifiers remain stable:
 - API prefix `/api/blink_live_bridge`;
 - Vistoda provider identifier `blink:blink`;
 - existing camera unique IDs and aliases;
-- the single official Blink coordinator as vendor-session owner.
+- the initial official Blink coordinator as vendor-session owner.
 
-Vistoda for Home Assistant adopts the connector's existing provider device. It
-does not duplicate cameras or authenticate to Blink again.
+ADR 0002 supersedes only that session-ownership decision: the standalone Rust
+engine now owns the Blink session. The compatibility identifiers and product
+boundary in this ADR remain accepted.
 
 ## Consequences
 

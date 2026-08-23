@@ -1,15 +1,18 @@
-"""Vistoda Blink setup with stable Home Assistant contracts."""
+"""Standalone Vistoda Blink setup with stable Home Assistant contracts."""
 
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.typing import ConfigType
 
+from .client import EngineClient, EngineError
 from .const import CONF_TOKEN, DOMAIN, PLATFORMS
 from .http import register_views
-from .relay import RelayManager
-from .runtime import BridgeRuntime, camera_aliases, loaded_blink_coordinator
+from .migration import async_import_official_credentials
+from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
+from .services import async_setup_services
 
 CONFIG_SCHEMA = vol.Schema(
     {vol.Required(DOMAIN): vol.Schema({vol.Required(CONF_TOKEN): vol.Match(r"^[0-9a-f]{64}$")})},
@@ -18,23 +21,23 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Store the workload token before the config entry is created."""
+    """Store only the local workload token."""
+    async_setup_services(hass)
     hass.data.setdefault(DOMAIN, {})[CONF_TOKEN] = config[DOMAIN][CONF_TOKEN]
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Reuse the loaded built-in Blink coordinator."""
+    """Load the Rust provider and all official-parity platforms."""
     data = hass.data.setdefault(DOMAIN, {})
-    coordinator = loaded_blink_coordinator(hass)
-    cameras = camera_aliases(coordinator)
-    runtime = BridgeRuntime(
-        coordinator=coordinator,
-        cameras=cameras,
-        relays=RelayManager(cameras),
-        token=data[CONF_TOKEN],
-    )
-    data["runtime"] = runtime
+    client = EngineClient(hass, data[CONF_TOKEN])
+    status = await _status_or_retry(client)
+    if not status.get("enrolled") and not await async_import_official_credentials(hass, client):
+        raise ConfigEntryNotReady("Vistoda Blink requires standalone enrollment")
+    coordinator = BlinkCoordinator(hass, client, scan_interval(entry.options))
+    await coordinator.async_config_entry_first_refresh()
+    data[entry.entry_id] = BridgeRuntime(client, coordinator, data[CONF_TOKEN])
+    data["runtime"] = data[entry.entry_id]
     if not data.get("views_registered"):
         register_views(hass)
         data["views_registered"] = True
@@ -46,25 +49,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Stop cloud sessions before unloading entities."""
+    """Unload entities without touching the standalone provider session."""
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
-    runtime: BridgeRuntime | None = hass.data[DOMAIN].pop("runtime", None)
-    if runtime:
-        await runtime.relays.stop()
+    hass.data[DOMAIN].pop(entry.entry_id, None)
+    hass.data[DOMAIN].pop("runtime", None)
     return True
 
 
+async def _status_or_retry(client: EngineClient) -> dict[str, object]:
+    try:
+        return await client.get_json("/v1/enrollment/status")
+    except EngineError as error:
+        raise ConfigEntryNotReady("Vistoda Blink engine is unavailable") from error
+
+
 async def _discover_vistoda(hass: HomeAssistant) -> None:
-    """Offer the local relay to Vistoda without blocking Blink startup."""
-    vistoda_domain = "media_bridge"
     if any(
         entry.data.get("provider") == "blink"
-        for entry in hass.config_entries.async_entries(vistoda_domain)
+        for entry in hass.config_entries.async_entries("media_bridge")
     ):
         return
     await hass.config_entries.flow.async_init(
-        vistoda_domain,
+        "media_bridge",
         context={"source": config_entries.SOURCE_INTEGRATION_DISCOVERY},
         data={"provider": "blink"},
     )

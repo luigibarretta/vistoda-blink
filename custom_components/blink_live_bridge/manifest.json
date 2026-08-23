@@ -3,10 +3,10 @@
   "name": "Vistoda Blink",
   "codeowners": ["@luigibarretta"],
   "config_flow": true,
-  "dependencies": ["blink", "stream"],
+  "dependencies": ["stream"],
   "documentation": "https://github.com/luigibarretta/vistoda-blink",
   "issue_tracker": "https://github.com/luigibarretta/vistoda-blink/issues",
   "integration_type": "service",
-  "iot_class": "cloud_push",
-  "version": "0.2.0"
+  "iot_class": "cloud_polling",
+  "version": "0.3.0"
 }

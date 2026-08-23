@@ -1,11 +1,45 @@
 {
   "config": {
-    "abort": {
-      "blink_not_loaded": "Configura e carica l'integrazione Blink ufficiale prima di aggiungere Vistoda Blink."
+    "error": {
+      "cannot_connect": "Blink ha rifiutato l'accesso oppure il provider non riesce a collegarsi.",
+      "engine_unavailable": "Avvia l'app Vistoda Blink Engine prima di continuare.",
+      "invalid_two_factor": "Il codice di verifica è stato rifiutato o è scaduto."
     },
     "step": {
+      "confirm": {
+        "description": "Il provider Rust standalone è già registrato. Aggiungi a Home Assistant telecamere, controlli, sensori e flussi live."
+      },
+      "two_factor": {
+        "data": {
+          "code": "Codice di verifica email o SMS"
+        },
+        "description": "Inserisci il codice temporaneo inviato da Blink. Vistoda non lo memorizza."
+      },
       "user": {
-        "description": "Collega Vistoda all'account Blink già caricato, creando telecamere live e un endpoint MPEG-TS privato senza un altro accesso."
+        "data": {
+          "password": "Password dell'account Blink",
+          "username": "Email dell'account Blink"
+        },
+        "description": "Accedi direttamente tramite Vistoda Blink Engine locale. La password viene usata solo durante la registrazione e non viene memorizzata."
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Password dell'account Blink",
+          "username": "Email dell'account Blink"
+        },
+        "description": "Blink ha rifiutato l'autorizzazione salvata. Accedi di nuovo direttamente tramite Vistoda Blink Engine locale."
+      }
+    },
+    "abort": {
+      "reauth_successful": "L'autorizzazione Blink è stata rinnovata correttamente."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Intervallo di aggiornamento (secondi)"
+        }
       }
     }
   }

@@ -1,0 +1,20 @@
+name: Vistoda Blink Engine
+version: 0.3.0
+slug: vistoda_blink_engine
+description: Standalone Rust Blink provider for Home Assistant and Vistoda
+url: https://github.com/luigibarretta/vistoda-blink
+arch:
+  - amd64
+startup: services
+boot: auto
+init: false
+stage: stable
+watchdog: http://[HOST]:[PORT:8099]/healthz
+ports:
+  8099/tcp: null
+ports_description:
+  8099/tcp: Private Vistoda Blink engine API
+options:
+  token: null
+schema:
+  token: match(^[0-9a-f]{64}$)

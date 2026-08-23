@@ -1,11 +1,45 @@
 {
   "config": {
-    "abort": {
-      "blink_not_loaded": "Configure and load the official Blink integration before adding Vistoda Blink."
+    "error": {
+      "cannot_connect": "Blink rejected the sign-in or the provider could not connect.",
+      "engine_unavailable": "Start the Vistoda Blink Engine app before continuing.",
+      "invalid_two_factor": "The verification code was rejected or expired."
     },
     "step": {
+      "confirm": {
+        "description": "The standalone Rust provider is already enrolled. Add its cameras, controls, sensors and live streams to Home Assistant."
+      },
+      "two_factor": {
+        "data": {
+          "code": "Email or SMS verification code"
+        },
+        "description": "Enter the temporary code sent by Blink. Vistoda never stores this code."
+      },
       "user": {
-        "description": "Connect Vistoda to the loaded Blink account, creating live cameras and a private MPEG-TS endpoint without another login."
+        "data": {
+          "password": "Blink account password",
+          "username": "Blink account email"
+        },
+        "description": "Sign in directly through the local Vistoda Blink Engine. The password is used only for this enrollment and is never stored."
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Blink account password",
+          "username": "Blink account email"
+        },
+        "description": "Blink rejected the stored refresh authorization. Sign in again directly through the local Vistoda Blink Engine."
+      }
+    },
+    "abort": {
+      "reauth_successful": "Blink authorization was renewed successfully."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Refresh interval (seconds)"
+        }
       }
     }
   }

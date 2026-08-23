@@ -1,16 +1,17 @@
-"""Private HTTP API shared by Home Assistant and SceneTrove."""
+"""Authenticated compatibility proxy for Home Assistant and SceneTrove."""
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
 from .auth import require_bridge_auth
-from .const import API_PREFIX, DOMAIN, POWERED_CAMERA_TYPES
+from .client import EngineError
+from .const import API_PREFIX, DOMAIN
 from .runtime import BridgeRuntime
 
 
 class BridgeView(HomeAssistantView):
-    """Common runtime and authorization lookup."""
+    """Common standalone runtime and consumer authorization lookup."""
 
     requires_auth = False
 
@@ -26,7 +27,11 @@ class HealthView(BridgeView):
 
     async def get(self, request: web.Request) -> web.Response:
         runtime = self.runtime(request)
-        return self.json({"status": "ok", "cameras": len(runtime.cameras)})
+        try:
+            value = await runtime.client.get_json("/healthz")
+        except EngineError as error:
+            raise web.HTTPBadGateway(text="standalone provider unavailable") from error
+        return self.json(value)
 
 
 class CamerasView(BridgeView):
@@ -34,20 +39,7 @@ class CamerasView(BridgeView):
     name = f"api:{DOMAIN}:cameras"
 
     async def get(self, request: web.Request) -> web.Response:
-        runtime = self.runtime(request)
-        return self.json(
-            {
-                "cameras": [
-                    {
-                        "alias": alias,
-                        "powered": str(camera.camera_type).casefold() in POWERED_CAMERA_TYPES,
-                        "live_mpegts": True,
-                        "snapshot": camera.image_from_cache is not None,
-                    }
-                    for alias, camera in runtime.cameras.items()
-                ]
-            }
-        )
+        return self.json({"cameras": self.runtime(request).cameras})
 
 
 class SnapshotView(BridgeView):
@@ -55,13 +47,10 @@ class SnapshotView(BridgeView):
     name = f"api:{DOMAIN}:snapshot"
 
     async def get(self, request: web.Request, alias: str) -> web.Response:
-        runtime = self.runtime(request)
-        camera = runtime.cameras.get(alias)
-        if camera is None:
-            raise web.HTTPNotFound()
-        image = camera.image_from_cache
-        if not image:
-            raise web.HTTPServiceUnavailable(text="snapshot unavailable")
+        try:
+            image = await self.runtime(request).client.bytes(f"/v1/cameras/{alias}/snapshot.jpg")
+        except EngineError as error:
+            raise web.HTTPServiceUnavailable(text="snapshot unavailable") from error
         return web.Response(body=image, content_type="image/jpeg")
 
 
@@ -69,11 +58,18 @@ class LiveView(BridgeView):
     url = f"{API_PREFIX}/v1/cameras/{{alias}}/{{stream_format:live\\.(?:ts|mpegts)}}"
     name = f"api:{DOMAIN}:live"
 
-    async def get(self, request: web.Request, alias: str, stream_format: str) -> web.StreamResponse:
+    async def get(
+        self,
+        request: web.Request,
+        alias: str,
+        stream_format: str,
+    ) -> web.StreamResponse:
+        del stream_format
         runtime = self.runtime(request)
-        relay = runtime.relays.relays.get(alias)
-        if relay is None:
-            raise web.HTTPNotFound()
+        try:
+            upstream = await runtime.client.stream(f"/v1/cameras/{alias}/live.ts")
+        except EngineError as error:
+            raise web.HTTPBadGateway(text="live stream unavailable") from error
         response = web.StreamResponse(
             status=200,
             headers={
@@ -84,14 +80,16 @@ class LiveView(BridgeView):
         )
         await response.prepare(request)
         try:
-            async for chunk in relay.subscribe():
+            async for chunk in upstream.content.iter_chunked(64 * 1024):
                 await response.write(chunk)
         except (ConnectionError, RuntimeError):
             pass
+        finally:
+            upstream.close()
         return response
 
 
 def register_views(hass: HomeAssistant) -> None:
-    """Register the bridge API exactly once."""
+    """Register the stable consumer API exactly once."""
     for view in (HealthView, CamerasView, SnapshotView, LiveView):
         hass.http.register_view(view)

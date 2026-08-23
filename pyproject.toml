@@ -1,7 +1,7 @@
 [project]
 name = "vistoda-blink"
-version = "0.2.0"
-description = "Vistoda live media connector for Blink in Home Assistant"
+version = "0.3.0"
+description = "Standalone Rust-first Blink provider for Vistoda and Home Assistant"
 requires-python = ">=3.13"
 license = "MIT"
 

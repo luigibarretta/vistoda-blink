@@ -4,8 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_LINES = 250
-SUFFIXES = {".json", ".md", ".py", ".toml", ".yaml", ".yml"}
-EXCLUDED = {".git", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__"}
+SUFFIXES = {".json", ".md", ".py", ".rs", ".toml", ".yaml", ".yml"}
+EXCLUDED = {".git", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__", "target"}
 
 
 def maintained_files():

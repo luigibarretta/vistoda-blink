@@ -1,0 +1,30 @@
+record:
+  target:
+    entity:
+      integration: blink_live_bridge
+      domain: camera
+trigger_camera:
+  target:
+    entity:
+      integration: blink_live_bridge
+      domain: camera
+save_video:
+  target:
+    entity:
+      integration: blink_live_bridge
+      domain: camera
+  fields:
+    filename:
+      required: true
+      selector:
+        text:
+save_recent_clips:
+  target:
+    entity:
+      integration: blink_live_bridge
+      domain: camera
+  fields:
+    file_path:
+      required: true
+      selector:
+        text:

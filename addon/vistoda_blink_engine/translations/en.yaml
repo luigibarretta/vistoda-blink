@@ -1,0 +1,4 @@
+configuration:
+  token:
+    name: Internal workload token
+    description: Managed secret used only between Home Assistant and the Rust engine.

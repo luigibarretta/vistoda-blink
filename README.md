@@ -1,24 +1,23 @@
 # Vistoda Blink
 
-Vistoda Blink is the Home Assistant-local connector that adds bounded live
-MPEG-TS media to an already authenticated Blink integration. It belongs to the
+Vistoda Blink is a standalone Rust provider that adds complete Blink control,
+state and bounded live MPEG-TS media to Home Assistant. It belongs to the
 Vistoda product family alongside `vistoda-ezviz`, `vistoda-ring` and
 `vistoda-home-assistant`.
 
-The connector deliberately does not create a second Blink login. It reuses the
-single loaded Home Assistant Blink coordinator, publishes native live camera
-entities and shares the same upstream session with approved private consumers
-such as SceneTrove.
+The supervised Rust engine owns Blink OAuth2/2FA, token refresh, discovery,
+polling, controls and media. The small Python custom integration is only the
+native Home Assistant adapter. The official Blink integration is not required;
+it can coexist temporarily as a parity oracle or one-time credential migration
+source.
 
 ## Architecture
 
 ```text
-Blink cloud
-    |
-Home Assistant official Blink integration
-    |
-Vistoda Blink -> native HA cameras
-              -> private MPEG-TS/snapshot API -> SceneTrove
+Blink cloud -> supervised Vistoda Blink Rust engine
+                         |             |
+                         |             +-> private media API -> SceneTrove
+                         +-> thin HA adapter -> native HA entities/services
     |
 Vistoda for Home Assistant adopts the existing provider device
 ```
@@ -29,6 +28,8 @@ private API and Vistoda discovery contract during the product rename.
 
 ## Capabilities
 
+- standalone OAuth2 PKCE enrollment, 2FA and sealed refresh-token storage;
+- complete Home Assistant Blink entity and service parity;
 - one shared Blink cloud live session per camera;
 - H.264/AAC MPEG-TS for Home Assistant and SceneTrove;
 - cached Blink JPEG snapshots;
@@ -36,7 +37,7 @@ private API and Vistoda discovery contract during the product rename.
 - 75-second battery-camera and 600-second powered-camera session limits;
 - bounded subscriber queues and a 4 MiB packet ceiling;
 - Bearer or Basic authentication for approved LAN consumers;
-- no second vendor login, duplicate camera or public listener.
+- no dependency on `blinkpy`, duplicate runtime session or public listener.
 
 ## Private API
 
@@ -58,17 +59,20 @@ do not publish it through Traefik.
 
 Production is SHA-pinned and deployed by the homelab Ansible playbook. For a
 manual development install, copy `custom_components/blink_live_bridge` into
-Home Assistant's `/config/custom_components`, configure the official Blink
-integration first and add the required token through `configuration.yaml`:
+Home Assistant's `/config/custom_components` and add the required token through
+`configuration.yaml`:
 
 ```yaml
 blink_live_bridge:
   token: !secret blink_live_bridge_token
 ```
 
-Restart Core once, add **Vistoda Blink**, then accept the Vistoda provider
-discovery. The powered Blink Mini is the only automatic production media
-canary; battery cameras are never opened by CI or routine deployment checks.
+Install and start the matching **Vistoda Blink Engine** app, restart Core once,
+add **Vistoda Blink**, and complete login/2FA or an approved one-time migration.
+You may remove or disable the official Blink integration after parity has been
+verified; normal Vistoda operation never reads it.
+The powered Blink Mini is the only automatic production media canary; battery
+cameras are never opened by CI or routine deployment checks.
 
 ## Development
 
@@ -79,6 +83,9 @@ python -m ruff check .
 python -m compileall -q custom_components tests scripts
 python scripts/check_loc.py
 python -m pytest
+cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
+cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --all-targets --all-features -- -D warnings
+cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml
 ```
 
 Tests are deterministic and require no Blink account, network or secret.
@@ -86,4 +93,5 @@ Every maintained source, configuration and documentation file is limited to
 250 physical lines.
 
 Architectural decisions are indexed in [`docs/adr/`](docs/adr/README.md).
+The versioned parity matrix is in [`docs/PARITY.md`](docs/PARITY.md).
 Licensed under the MIT License.

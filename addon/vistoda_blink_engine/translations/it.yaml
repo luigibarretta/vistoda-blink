@@ -1,0 +1,4 @@
+configuration:
+  token:
+    name: Token di servizio interno
+    description: Segreto gestito usato solo tra Home Assistant e il motore Rust.
