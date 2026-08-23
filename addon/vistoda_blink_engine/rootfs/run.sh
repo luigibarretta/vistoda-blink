@@ -20,7 +20,10 @@ jq -n --rawfile token "${token_file}" \
     '{token: ($token | gsub("\\s"; ""))}' >"${engine_config}"
 chmod 0600 "${token_file}" "${engine_config}"
 chown bridge:bridge "${token_file}" "${engine_config}"
-test ! -e "${data_dir}/provider.sealed" || chown bridge:bridge "${data_dir}/provider.sealed"
+if test -e "${data_dir}/provider.sealed"; then
+    chown bridge:bridge "${data_dir}/provider.sealed"
+    chmod 0600 "${data_dir}/provider.sealed"
+fi
 
 su-exec bridge:bridge vistoda-blink-engine --config "${engine_config}" &
 child_pid=$!

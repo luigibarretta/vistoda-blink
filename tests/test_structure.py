@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.4.1"
+    assert manifest["version"] == "0.4.2"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -37,6 +37,7 @@ def test_supervisor_discovery_removes_the_yaml_requirement() -> None:
     assert "base_url: str = ENGINE_URL" in client
     runner = (ROOT / "addon/vistoda_blink_engine/rootfs/run.sh").read_text()
     assert 'chown bridge:bridge "${data_dir}"' in runner
+    assert 'chmod 0600 "${data_dir}/provider.sealed"' in runner
 
 
 def test_private_media_contract_stays_compatible() -> None:
