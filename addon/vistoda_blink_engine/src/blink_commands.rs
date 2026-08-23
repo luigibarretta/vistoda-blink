@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use serde_json::Value;
+use tracing::warn;
 
 use crate::{
     blink_api::{self, CameraAction, LiveDescriptor},
@@ -137,20 +138,41 @@ impl BlinkClient {
         let network = value
             .get("network_id")
             .and_then(Value::as_u64)
-            .map(|item| item.to_string())
-            .ok_or(BlinkError::InvalidResponse)?;
+            .map(|item| item.to_string());
+        let Some(network) = network else {
+            return Ok(());
+        };
         for _ in 0..120 {
             let status = self
                 .get_json(context, &blink_api::command(&network, id))
                 .await?;
-            if status.get("status_code").and_then(Value::as_u64) != Some(908) {
-                return Err(BlinkError::InvalidResponse);
+            if !command_is_pending(&status) {
+                return Ok(());
             }
             if status.get("complete").and_then(Value::as_bool) == Some(true) {
                 return Ok(());
             }
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
-        Err(BlinkError::CommandTimeout)
+        warn!("Blink command polling timed out after provider acceptance");
+        Ok(())
+    }
+}
+
+fn command_is_pending(status: &Value) -> bool {
+    status.get("status_code").and_then(Value::as_u64) == Some(908)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::command_is_pending;
+
+    #[test]
+    fn treats_vendor_908_as_the_only_pending_status() {
+        assert!(command_is_pending(&json!({"status_code": 908})));
+        assert!(!command_is_pending(&json!({"status_code": 901})));
+        assert!(!command_is_pending(&json!({})));
     }
 }
