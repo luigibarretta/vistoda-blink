@@ -12,6 +12,7 @@ use crate::{blink_client::BlinkClient, framing::ImmiDecoder, hub::PublisherGuard
 
 const BATTERY_DEADLINE: Duration = Duration::from_secs(75);
 const POWERED_DEADLINE: Duration = Duration::from_secs(600);
+const CONNECT_RETRIES: usize = 30;
 const LATENCY_PACKET: [u8; 33] = [
     0x12, 0, 0, 3, 0xe8, 0, 0, 0, 0x18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0,
@@ -29,6 +30,8 @@ pub enum LiveError {
     Tls(#[from] rustls::Error),
     #[error("Blink IMMI framing failed: {0}")]
     Framing(#[from] crate::framing::FramingError),
+    #[error("Blink IMMI server produced no media")]
+    NoMedia,
 }
 
 pub async fn produce(client: BlinkClient, alias: String, publisher: PublisherGuard) {
@@ -52,6 +55,7 @@ async fn produce_inner(
     } else {
         BATTERY_DEADLINE
     };
+    let serial = camera.serial.as_deref().unwrap_or_default();
     let poll_client = client.clone();
     let poll_camera = camera.clone();
     let command_id = descriptor.command_id;
@@ -68,7 +72,8 @@ async fn produce_inner(
             }
         }
     });
-    let result = tokio::time::timeout(deadline, receive(&descriptor.server, publisher)).await;
+    let result =
+        tokio::time::timeout(deadline, receive(serial, &descriptor.server, publisher)).await;
     poller.abort();
     client.finish_live(&camera, descriptor.command_id).await;
     match result {
@@ -77,18 +82,49 @@ async fn produce_inner(
     }
 }
 
-async fn receive(server: &str, publisher: &PublisherGuard) -> Result<(), LiveError> {
+async fn receive(serial: &str, server: &str, publisher: &PublisherGuard) -> Result<(), LiveError> {
+    let mut last_error = None;
+    for _ in 0..CONNECT_RETRIES {
+        if !publisher.has_subscribers() {
+            return Ok(());
+        }
+        match receive_once(serial, server, publisher).await {
+            Ok(true) => return Ok(()),
+            Ok(false) => {}
+            Err(error @ LiveError::Framing(_)) => return Err(error),
+            Err(error) => last_error = Some(error),
+        }
+        if !publisher.has_subscribers() {
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    }
+    Err(last_error.unwrap_or(LiveError::NoMedia))
+}
+
+async fn receive_once(
+    serial: &str,
+    server: &str,
+    publisher: &PublisherGuard,
+) -> Result<bool, LiveError> {
     let target = Target::parse(server)?;
     let tcp = TcpStream::connect((target.host.as_str(), target.port)).await?;
     let name = ServerName::try_from(target.host.clone()).map_err(|_| LiveError::Address)?;
     let mut tls = connector().connect(name, tcp).await?;
-    tls.write_all(&auth_header(target.client_id, &target.connection_id))
-        .await?;
+    tls.write_all(&auth_header(
+        serial,
+        target.client_id,
+        &target.connection_id,
+    ))
+    .await?;
     let (mut reader, mut writer) = tokio::io::split(tls);
     let keepalive = tokio::spawn(async move {
-        let mut tick = tokio::time::interval(Duration::from_secs(1));
+        let mut tick = tokio::time::interval_at(
+            tokio::time::Instant::now() + Duration::from_secs(1),
+            Duration::from_secs(1),
+        );
         let mut sequence = 0_u32;
-        let mut seconds = 0_u32;
+        let mut seconds = 1_u32;
         loop {
             tick.tick().await;
             if seconds.is_multiple_of(10) {
@@ -107,12 +143,14 @@ async fn receive(server: &str, publisher: &PublisherGuard) -> Result<(), LiveErr
     });
     let mut decoder = ImmiDecoder::default();
     let mut buffer = vec![0_u8; 64 * 1024].into_boxed_slice();
+    let mut media_seen = false;
     loop {
         let read = reader.read(&mut buffer).await?;
         if read == 0 {
             break;
         }
         for frame in decoder.push(&buffer[..read])? {
+            media_seen = true;
             publisher.publish(frame);
         }
         if !publisher.has_subscribers() {
@@ -120,8 +158,10 @@ async fn receive(server: &str, publisher: &PublisherGuard) -> Result<(), LiveErr
         }
     }
     keepalive.abort();
-    decoder.finish()?;
-    Ok(())
+    if media_seen {
+        decoder.finish()?;
+    }
+    Ok(media_seen)
 }
 
 pub(crate) struct Target {
@@ -160,21 +200,17 @@ impl Target {
     }
 }
 
-pub(crate) fn auth_header(client_id: u32, connection_id: &str) -> Vec<u8> {
+pub(crate) fn auth_header(serial: &str, client_id: u32, connection_id: &str) -> Vec<u8> {
     let mut value = Vec::with_capacity(122);
     value.extend([0, 0, 0, 0x28]);
-    reserved_field(&mut value, 16);
+    string_field(&mut value, serial, 16);
     value.extend(client_id.to_be_bytes());
     value.extend([0x01, 0x08]);
-    reserved_field(&mut value, 64);
+    value.extend(64_u32.to_be_bytes());
+    value.extend([0_u8; 64]);
     string_field(&mut value, connection_id, 16);
     value.extend([0, 0, 0, 1]);
     value
-}
-
-fn reserved_field(target: &mut Vec<u8>, width: usize) {
-    target.extend(0_u32.to_be_bytes());
-    target.resize(target.len() + width, 0);
 }
 
 fn string_field(target: &mut Vec<u8>, source: &str, width: usize) {

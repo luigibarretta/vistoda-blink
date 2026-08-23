@@ -126,13 +126,21 @@ pub fn command_done(network: &str, id: u64) -> String {
     format!("/network/{network}/command/{id}/done/")
 }
 
+pub fn live_command(account: &str, network: &str, id: u64) -> String {
+    format!("/accounts/{account}/networks/{network}/commands/{id}")
+}
+
+pub fn live_command_done(account: &str, network: &str, id: u64) -> String {
+    format!("/accounts/{account}/networks/{network}/commands/{id}/done")
+}
+
 const fn default_poll_seconds() -> f64 {
     1.0
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{CameraAction, camera_action};
+    use super::{CameraAction, camera_action, live_command};
     use crate::blink_model::CameraState;
 
     fn camera(kind: &str) -> CameraState {
@@ -180,6 +188,10 @@ mod tests {
             camera_action(&camera("mini"), "9", &CameraAction::Motion(true))
                 .body
                 .is_some()
+        );
+        assert_eq!(
+            live_command("9", "1", 7),
+            "/accounts/9/networks/1/commands/7"
         );
     }
 }

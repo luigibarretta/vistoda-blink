@@ -65,7 +65,11 @@ impl BlinkClient {
             let _ = self
                 .post_json(
                     &context,
-                    &blink_api::command_done(&camera.network_id, command_id),
+                    &blink_api::live_command_done(
+                        &context.account_id,
+                        &camera.network_id,
+                        command_id,
+                    ),
                     None,
                 )
                 .await;
@@ -81,23 +85,10 @@ impl BlinkClient {
         let status = self
             .get_json(
                 &context,
-                &blink_api::command(&camera.network_id, command_id),
+                &blink_api::live_command(&context.account_id, &camera.network_id, command_id),
             )
             .await?;
-        if status.get("status_code").and_then(Value::as_u64) != Some(908) {
-            return Ok(false);
-        }
-        Ok(status
-            .get("commands")
-            .and_then(Value::as_array)
-            .and_then(|commands| {
-                commands
-                    .iter()
-                    .find(|command| command.get("id").and_then(Value::as_u64) == Some(command_id))
-            })
-            .and_then(|command| command.get("state_condition"))
-            .and_then(Value::as_str)
-            .is_none_or(|state| matches!(state, "new" | "running")))
+        Ok(live_command_is_active(&status, command_id))
     }
 
     pub async fn snapshot(&self, alias: &str) -> Result<Bytes, BlinkError> {
@@ -159,6 +150,32 @@ impl BlinkClient {
     }
 }
 
+fn live_command_is_active(status: &Value, command_id: u64) -> bool {
+    if status.get("complete").and_then(Value::as_bool) == Some(true)
+        || matches!(
+            status.get("status").and_then(Value::as_str),
+            Some("complete" | "failed")
+        )
+    {
+        return false;
+    }
+    let legacy_running = status
+        .get("commands")
+        .and_then(Value::as_array)
+        .and_then(|commands| {
+            commands
+                .iter()
+                .find(|command| command.get("id").and_then(Value::as_u64) == Some(command_id))
+        })
+        .and_then(|command| command.get("state_condition"))
+        .and_then(Value::as_str)
+        .is_some_and(|state| matches!(state, "new" | "running"));
+    matches!(
+        status.get("status").and_then(Value::as_str),
+        Some("new" | "running")
+    ) || legacy_running
+}
+
 fn command_is_pending(status: &Value) -> bool {
     status.get("status_code").and_then(Value::as_u64) == Some(908)
 }
@@ -167,12 +184,26 @@ fn command_is_pending(status: &Value) -> bool {
 mod tests {
     use serde_json::json;
 
-    use super::command_is_pending;
+    use super::{command_is_pending, live_command_is_active};
 
     #[test]
     fn treats_vendor_908_as_the_only_pending_status() {
         assert!(command_is_pending(&json!({"status_code": 908})));
         assert!(!command_is_pending(&json!({"status_code": 901})));
         assert!(!command_is_pending(&json!({})));
+    }
+
+    #[test]
+    fn understands_current_and_legacy_live_command_states() {
+        assert!(live_command_is_active(&json!({"status": "running"}), 7));
+        assert!(live_command_is_active(
+            &json!({"commands": [{"id": 7, "state_condition": "new"}]}),
+            7
+        ));
+        assert!(!live_command_is_active(
+            &json!({"status": "complete", "complete": true}),
+            7
+        ));
+        assert!(!live_command_is_active(&json!({"status": "failed"}), 7));
     }
 }
