@@ -52,7 +52,6 @@ async fn produce_inner(
     } else {
         BATTERY_DEADLINE
     };
-    let serial = camera.serial.as_deref().unwrap_or_default();
     let poll_client = client.clone();
     let poll_camera = camera.clone();
     let command_id = descriptor.command_id;
@@ -69,8 +68,7 @@ async fn produce_inner(
             }
         }
     });
-    let result =
-        tokio::time::timeout(deadline, receive(serial, &descriptor.server, publisher)).await;
+    let result = tokio::time::timeout(deadline, receive(&descriptor.server, publisher)).await;
     poller.abort();
     client.finish_live(&camera, descriptor.command_id).await;
     match result {
@@ -79,17 +77,13 @@ async fn produce_inner(
     }
 }
 
-async fn receive(serial: &str, server: &str, publisher: &PublisherGuard) -> Result<(), LiveError> {
+async fn receive(server: &str, publisher: &PublisherGuard) -> Result<(), LiveError> {
     let target = Target::parse(server)?;
     let tcp = TcpStream::connect((target.host.as_str(), target.port)).await?;
     let name = ServerName::try_from(target.host.clone()).map_err(|_| LiveError::Address)?;
     let mut tls = connector().connect(name, tcp).await?;
-    tls.write_all(&auth_header(
-        serial,
-        target.client_id,
-        &target.connection_id,
-    ))
-    .await?;
+    tls.write_all(&auth_header(target.client_id, &target.connection_id))
+        .await?;
     let (mut reader, mut writer) = tokio::io::split(tls);
     let keepalive = tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(1));
@@ -166,17 +160,21 @@ impl Target {
     }
 }
 
-pub(crate) fn auth_header(serial: &str, client_id: u32, connection_id: &str) -> Vec<u8> {
+pub(crate) fn auth_header(client_id: u32, connection_id: &str) -> Vec<u8> {
     let mut value = Vec::with_capacity(122);
     value.extend([0, 0, 0, 0x28]);
-    string_field(&mut value, serial, 16);
+    reserved_field(&mut value, 16);
     value.extend(client_id.to_be_bytes());
     value.extend([0x01, 0x08]);
-    value.extend(64_u32.to_be_bytes());
-    value.extend([0_u8; 64]);
+    reserved_field(&mut value, 64);
     string_field(&mut value, connection_id, 16);
     value.extend([0, 0, 0, 1]);
     value
+}
+
+fn reserved_field(target: &mut Vec<u8>, width: usize) {
+    target.extend(0_u32.to_be_bytes());
+    target.resize(target.len() + width, 0);
 }
 
 fn string_field(target: &mut Vec<u8>, source: &str, width: usize) {

@@ -1,5 +1,5 @@
 name: Vistoda Blink Engine
-version: 0.3.4
+version: 0.3.5
 slug: vistoda_blink_engine
 description: Standalone Rust Blink provider for Home Assistant and Vistoda
 url: https://github.com/luigibarretta/vistoda-blink
