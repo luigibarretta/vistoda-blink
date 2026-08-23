@@ -7,6 +7,7 @@ readonly token_file=/data/workload-token
 readonly engine_config=/data/engine-options.json
 
 umask 077
+chown bridge:bridge "${data_dir}"
 legacy_token="$(jq -r '.token // empty' "${options_file}")"
 if ! test -f "${token_file}" || ! grep -Eq '^[0-9a-f]{64}$' "${token_file}"; then
     if printf '%s' "${legacy_token}" | grep -Eq '^[0-9a-f]{64}$'; then
