@@ -1,4 +1,4 @@
-"""Optional one-time migration from an already loaded official Blink account."""
+"""Optional one-time migration from a configured official Blink account."""
 
 from typing import Any
 
@@ -12,12 +12,14 @@ async def async_import_official_credentials(
     client: EngineClient,
 ) -> bool:
     """Copy a refresh credential once; never retain or call the coordinator."""
-    entries = hass.config_entries.async_loaded_entries("blink")
-    if len(entries) != 1 or entries[0].runtime_data is None:
+    entries = hass.config_entries.async_entries("blink")
+    if len(entries) != 1:
         return False
-    attributes = _login_attributes(entries[0].runtime_data)
+    attributes = dict(entries[0].data)
+    if runtime_attributes := _login_attributes(entries[0].runtime_data):
+        attributes.update(runtime_attributes)
     required = ("refresh_token", "hardware_id", "region_id", "account_id")
-    if not attributes or any(not attributes.get(key) for key in required):
+    if any(not attributes.get(key) for key in required):
         return False
     payload = {key: attributes.get(key) for key in (*required, "user_id", "username")}
     try:

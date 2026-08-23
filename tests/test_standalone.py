@@ -20,6 +20,8 @@ def test_adapter_has_no_blinkpy_or_official_runtime_dependency() -> None:
     migration = (COMPONENT / "migration.py").read_text()
     assert "async_import_official_credentials" in migration
     assert "one-time migration" in migration
+    assert 'async_entries("blink")' in migration
+    assert "dict(entries[0].data)" in migration
     for path in COMPONENT.rglob("*.py"):
         if path.name != "migration.py":
             assert 'async_loaded_entries("blink")' not in path.read_text()
