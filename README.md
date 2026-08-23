@@ -1,66 +1,89 @@
-# Blink Live Bridge
+# Vistoda Blink
 
-This Home Assistant custom integration adds on-demand MPEG-TS live view without
-creating another Blink login. It reuses the single loaded Core `blink` config
-entry and exposes the same stream to native HA camera entities and private
-workload clients such as SceneTrove.
+Vistoda Blink is the Home Assistant-local connector that adds bounded live
+MPEG-TS media to an already authenticated Blink integration. It belongs to the
+Vistoda product family alongside `vistoda-ezviz`, `vistoda-ring` and
+`vistoda-home-assistant`.
 
-After loading, it initiates Home Assistant integration discovery for Vistoda.
-Accepting that discovery adds only the Vistoda provider device: the existing
-Blink live cameras, private API and single vendor session remain authoritative.
-The camera entities claim the same device-registry identifier as the Vistoda
-Blink provider. Home Assistant 2026.8 therefore presents their
-`Vistoda · BLINK Live` device as a linked sibling of `Vistoda · BLINK`, without
-creating duplicate entities or vendor sessions.
+The connector deliberately does not create a second Blink login. It reuses the
+single loaded Home Assistant Blink coordinator, publishes native live camera
+entities and shares the same upstream session with approved private consumers
+such as SceneTrove.
+
+## Architecture
+
+```text
+Blink cloud
+    |
+Home Assistant official Blink integration
+    |
+Vistoda Blink -> native HA cameras
+              -> private MPEG-TS/snapshot API -> SceneTrove
+    |
+Vistoda for Home Assistant adopts the existing provider device
+```
+
+The stable Home Assistant domain remains `blink_live_bridge`. Keeping this
+technical identifier preserves the existing config entry, camera entity IDs,
+private API and Vistoda discovery contract during the product rename.
+
+## Capabilities
+
+- one shared Blink cloud live session per camera;
+- H.264/AAC MPEG-TS for Home Assistant and SceneTrove;
+- cached Blink JPEG snapshots;
+- native HA camera entities attached to the Vistoda Blink provider device;
+- 75-second battery-camera and 600-second powered-camera session limits;
+- bounded subscriber queues and a 4 MiB packet ceiling;
+- Bearer or Basic authentication for approved LAN consumers;
+- no second vendor login, duplicate camera or public listener.
 
 ## Private API
 
-The API is mounted below `/api/blink_live_bridge`:
+The API remains mounted below `/api/blink_live_bridge`:
 
-- `GET /healthz` reports readiness and camera count;
-- `GET /v1/cameras` lists stable, non-secret aliases and power class;
-- `GET /v1/cameras/{alias}/snapshot.jpg` returns the Blink cached JPEG;
-- `GET /v1/cameras/{alias}/live.ts` streams MPEG-TS;
-- `GET /v1/cameras/{alias}/live.mpegts` is an equivalent explicit alias.
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /healthz` | readiness and non-secret camera count |
+| `GET /v1/cameras` | stable aliases and power class |
+| `GET /v1/cameras/{alias}/snapshot.jpg` | cached Blink JPEG |
+| `GET /v1/cameras/{alias}/live.ts` | bounded MPEG-TS stream |
+| `GET /v1/cameras/{alias}/live.mpegts` | explicit MPEG-TS alias |
 
-Loopback requests from Core are trusted so the HA stream worker never embeds a
-credential in entity state or logs. LAN clients must send either
-`Authorization: Bearer TOKEN` or HTTP Basic with the token as password. The
-token is derived by Ansible from the vaulted HA credential with a
-domain-separated SHA-256 expression and is stored only in HA `secrets.yaml`.
+Core loopback is trusted so HA camera state never contains credentials. Other
+clients must send a dedicated high-entropy token. Keep the endpoint private;
+do not publish it through Traefik.
 
-SceneTrove should use a private base URL such as
-`http://it1-prd-iot-01:8123/api/blink_live_bridge/` and the workload token file.
-Its connector must select MPEG-TS for Blink; the existing browser-facing
-fragmented-MP4 packaging remains a SceneTrove responsibility.
+## Installation
 
-## Safety and lifecycle
+Production is SHA-pinned and deployed by the homelab Ansible playbook. For a
+manual development install, copy `custom_components/blink_live_bridge` into
+Home Assistant's `/config/custom_components`, configure the official Blink
+integration first and add the required token through `configuration.yaml`:
 
-- One cloud live session is shared by all local subscribers to the same camera.
-- Powered `owl`/Mini cameras have a 600-second upper bound.
-- Battery cameras have a 75-second upper bound.
-- Slow subscribers use bounded queues; old packets are dropped instead of
-  growing Home Assistant memory.
-- The final subscriber disconnect cancels keepalive/polling and ACKs the Blink
-  command.
-- IMMI headers and payloads use `readexactly`; fragmented TCP reads cannot
-  truncate a packet.
-- Payloads over 4 MiB are rejected.
-
-The deploy and canary are intentionally separate. A media-canary failure keeps
-the healthy loaded candidate for inspection and never triggers an automatic
-second Core restart.
-
-## Verification
-
-Run locally:
-
-```bash
-python3 -m unittest tests.test_blink_live_bridge_protocol
-ansible-lint playbooks/deploy-ha-blink-live-bridge.yml \
-  playbooks/reconcile-ha-blink-live-bridge.yml
+```yaml
+blink_live_bridge:
+  token: !secret blink_live_bridge_token
 ```
 
-Production uses `camera.kitchen_camera_live` as the powered canary and requires
-a non-empty bounded HLS media segment. Battery cameras are not opened by the
-automatic canary.
+Restart Core once, add **Vistoda Blink**, then accept the Vistoda provider
+discovery. The powered Blink Mini is the only automatic production media
+canary; battery cameras are never opened by CI or routine deployment checks.
+
+## Development
+
+```bash
+python -m pip install ".[dev]"
+python -m ruff format --check .
+python -m ruff check .
+python -m compileall -q custom_components tests scripts
+python scripts/check_loc.py
+python -m pytest
+```
+
+Tests are deterministic and require no Blink account, network or secret.
+Every maintained source, configuration and documentation file is limited to
+250 physical lines.
+
+Architectural decisions are indexed in [`docs/adr/`](docs/adr/README.md).
+Licensed under the MIT License.

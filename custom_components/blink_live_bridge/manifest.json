@@ -1,0 +1,12 @@
+{
+  "domain": "blink_live_bridge",
+  "name": "Vistoda Blink",
+  "codeowners": ["@luigibarretta"],
+  "config_flow": true,
+  "dependencies": ["blink", "stream"],
+  "documentation": "https://github.com/luigibarretta/vistoda-blink",
+  "issue_tracker": "https://github.com/luigibarretta/vistoda-blink/issues",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "version": "0.2.0"
+}

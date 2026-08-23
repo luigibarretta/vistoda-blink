@@ -1,0 +1,12 @@
+{
+  "config": {
+    "abort": {
+      "blink_not_loaded": "Configure and load the official Blink integration before adding Vistoda Blink."
+    },
+    "step": {
+      "user": {
+        "description": "Connect Vistoda to the loaded Blink account, creating live cameras and a private MPEG-TS endpoint without another login."
+      }
+    }
+  }
+}

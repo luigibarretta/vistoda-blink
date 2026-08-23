@@ -1,9 +1,9 @@
 """Bounded, shared per-camera Blink live relay."""
 
 import asyncio
-from collections.abc import AsyncIterator
 import contextlib
 import logging
+from collections.abc import AsyncIterator
 from typing import Any
 
 from .const import (

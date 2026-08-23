@@ -1,9 +1,9 @@
 """Robust IMMI framing for Blink MPEG-TS live streams."""
 
 import asyncio
-from collections.abc import AsyncIterator
 import contextlib
 import logging
+from collections.abc import AsyncIterator
 
 from blinkpy.livestream import BlinkLiveStream
 

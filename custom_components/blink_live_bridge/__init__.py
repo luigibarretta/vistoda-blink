@@ -1,11 +1,9 @@
-"""Blink Live Bridge setup."""
+"""Vistoda Blink setup with stable Home Assistant contracts."""
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import CONF_TOKEN, DOMAIN, PLATFORMS
@@ -14,11 +12,7 @@ from .relay import RelayManager
 from .runtime import BridgeRuntime, camera_aliases, loaded_blink_coordinator
 
 CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Required(DOMAIN): vol.Schema(
-            {vol.Required(CONF_TOKEN): vol.Match(r"^[0-9a-f]{64}$")}
-        )
-    },
+    {vol.Required(DOMAIN): vol.Schema({vol.Required(CONF_TOKEN): vol.Match(r"^[0-9a-f]{64}$")})},
     extra=vol.ALLOW_EXTRA,
 )
 

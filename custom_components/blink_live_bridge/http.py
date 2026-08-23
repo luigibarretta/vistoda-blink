@@ -1,7 +1,6 @@
 """Private HTTP API shared by Home Assistant and SceneTrove."""
 
 from aiohttp import web
-
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
@@ -41,8 +40,7 @@ class CamerasView(BridgeView):
                 "cameras": [
                     {
                         "alias": alias,
-                        "powered": str(camera.camera_type).casefold()
-                        in POWERED_CAMERA_TYPES,
+                        "powered": str(camera.camera_type).casefold() in POWERED_CAMERA_TYPES,
                         "live_mpegts": True,
                         "snapshot": camera.image_from_cache is not None,
                     }
@@ -68,12 +66,10 @@ class SnapshotView(BridgeView):
 
 
 class LiveView(BridgeView):
-    url = f"{API_PREFIX}/v1/cameras/{{alias}}/{{format:live\\.(?:ts|mpegts)}}"
+    url = f"{API_PREFIX}/v1/cameras/{{alias}}/{{stream_format:live\\.(?:ts|mpegts)}}"
     name = f"api:{DOMAIN}:live"
 
-    async def get(
-        self, request: web.Request, alias: str, format: str
-    ) -> web.StreamResponse:
+    async def get(self, request: web.Request, alias: str, stream_format: str) -> web.StreamResponse:
         runtime = self.runtime(request)
         relay = runtime.relays.relays.get(alias)
         if relay is None:

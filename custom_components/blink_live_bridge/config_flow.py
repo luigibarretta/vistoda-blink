@@ -1,10 +1,10 @@
-"""Config flow for Blink Live Bridge."""
+"""Config flow for Vistoda Blink."""
 
 from typing import Any
 
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
-import voluptuous as vol
 
 from .const import BLINK_DOMAIN, DOMAIN
 
@@ -21,4 +21,4 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="blink_not_loaded")
         if user_input is None:
             return self.async_show_form(step_id="user", data_schema=vol.Schema({}))
-        return self.async_create_entry(title="Blink Live Bridge", data={})
+        return self.async_create_entry(title="Vistoda · Blink", data={})

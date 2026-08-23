@@ -52,9 +52,7 @@ class BlinkLiveCamera(CoordinatorEntity[Any], Camera):
         return super().available and self._camera is not None
 
     @override
-    def camera_image(
-        self, width: int | None = None, height: int | None = None
-    ) -> bytes | None:
+    def camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
         return self._camera.image_from_cache
 
     @override
