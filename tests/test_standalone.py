@@ -77,6 +77,7 @@ def test_standalone_reauth_and_redacted_diagnostics_are_present() -> None:
     runtime = (COMPONENT / "runtime.py").read_text()
     diagnostics = (COMPONENT / "diagnostics.py").read_text()
     assert "async_step_reauth" in flow
+    assert "VERSION = 1" in flow
     assert "async_update_reload_and_abort" in flow
     assert "ConfigEntryAuthFailed" in runtime
     assert '"serial"' in diagnostics

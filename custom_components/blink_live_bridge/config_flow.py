@@ -13,7 +13,8 @@ from .const import CONF_SCAN_INTERVAL, CONF_TOKEN, DEFAULT_SCAN_INTERVAL, DOMAIN
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Enroll directly with Blink through the local Rust provider."""
 
-    VERSION = 2
+    # Keep the existing config-entry contract; enrollment moved behind it.
+    VERSION = 1
 
     def __init__(self) -> None:
         self._client: EngineClient | None = None
