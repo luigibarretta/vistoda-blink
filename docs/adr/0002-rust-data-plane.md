@@ -41,5 +41,6 @@ it during a measured migration. Refresh credentials are sealed at rest with a
 key derived from the independently managed workload token; passwords and 2FA
 codes are transient. A few small Python files remain because Home Assistant
 custom integrations are Python entry points, but no Blink protocol code does.
-Deployment installs the exact matching HA app before restarting Core with the
-adapter. Rollback restores both prior app and custom component as one unit.
+Deployment independently pins and content-compares the HA app and adapter before
+restarting Core only for changed Python. Rollback material for both components
+remains under the dedicated Home Assistant backup directory.
