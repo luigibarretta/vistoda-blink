@@ -3,6 +3,7 @@ use std::time::Duration;
 use bytes::Bytes;
 use reqwest::{Method, StatusCode};
 use serde_json::Value;
+use tracing::warn;
 
 use crate::blink_client::{BlinkClient, BlinkError, RequestContext};
 
@@ -36,17 +37,32 @@ impl BlinkClient {
         let response = self
             .send_json(method.clone(), context, path, body.as_ref())
             .await?;
-        if response.status() == StatusCode::UNAUTHORIZED {
+        let response = if response.status() == StatusCode::UNAUTHORIZED {
             if let Some(session) = self.inner.session.lock().await.as_mut() {
                 session.access = None;
             }
             let refreshed = self.context().await?;
-            return Ok(self
-                .send_json(method, &refreshed, path, body.as_ref())
+            self.send_json(method, &refreshed, path, body.as_ref())
                 .await?
-                .error_for_status()?
-                .json()
-                .await?);
+        } else {
+            response
+        };
+        if response.status() == StatusCode::UNAUTHORIZED {
+            if let Some(session) = self.inner.session.lock().await.as_mut() {
+                session.access = None;
+            }
+            warn!(
+                endpoint = endpoint_class(path),
+                "Blink cloud rejected refreshed access"
+            );
+            return Err(BlinkError::Authentication);
+        }
+        if !response.status().is_success() {
+            warn!(
+                endpoint = endpoint_class(path),
+                status = response.status().as_u16(),
+                "Blink cloud request failed"
+            );
         }
         Ok(response.error_for_status()?.json().await?)
     }
@@ -91,6 +107,26 @@ impl BlinkClient {
             return Err(BlinkError::MediaTooLarge);
         }
         Ok(bytes)
+    }
+}
+
+fn endpoint_class(path: &str) -> &'static str {
+    if path.contains("homescreen") {
+        "homescreen"
+    } else if path == "/networks" {
+        "networks"
+    } else if path.contains("camera/usage") {
+        "camera_usage"
+    } else if path.contains("media/changed") {
+        "media"
+    } else if path.contains("/command/") {
+        "command"
+    } else if path.contains("/config") {
+        "camera_config"
+    } else if path.contains("/signals") {
+        "camera_signals"
+    } else {
+        "provider"
     }
 }
 

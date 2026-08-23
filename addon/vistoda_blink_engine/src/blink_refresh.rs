@@ -4,7 +4,7 @@ use std::{
 };
 
 use serde_json::Value;
-use time::{OffsetDateTime, format_description::well_known::Iso8601};
+use time::OffsetDateTime;
 
 use crate::{
     blink_api,
@@ -135,9 +135,19 @@ impl BlinkClient {
 }
 
 fn one_hour_ago() -> String {
-    (OffsetDateTime::now_utc() - time::Duration::hours(1))
-        .format(&Iso8601::DEFAULT)
-        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_owned())
+    blink_timestamp(OffsetDateTime::now_utc() - time::Duration::hours(1))
+}
+
+fn blink_timestamp(value: OffsetDateTime) -> String {
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}+0000",
+        value.year(),
+        u8::from(value.month()),
+        value.day(),
+        value.hour(),
+        value.minute(),
+        value.second()
+    )
 }
 
 fn value_id(value: &Value, key: &str) -> Option<String> {
@@ -146,4 +156,18 @@ fn value_id(value: &Value, key: &str) -> Option<String> {
             .map(ToOwned::to_owned)
             .or_else(|| item.as_u64().map(|number| number.to_string()))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::blink_timestamp;
+    use time::OffsetDateTime;
+
+    #[test]
+    fn uses_the_vendor_media_timestamp_contract() {
+        let Ok(epoch) = OffsetDateTime::from_unix_timestamp(0) else {
+            panic!("Unix epoch must be representable");
+        };
+        assert_eq!(blink_timestamp(epoch), "1970-01-01T00:00:00+0000");
+    }
 }
