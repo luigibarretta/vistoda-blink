@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.3.5"
+    assert manifest["version"] == "0.4.0"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -24,6 +24,17 @@ def test_vistoda_discovery_and_device_identity_stay_stable() -> None:
     assert 'VISTODA_DOMAIN = "media_bridge"' in constants
     assert 'data={"provider": "blink"}' in setup
     assert 'VISTODA_BLINK_IDENTIFIER = "blink:blink"' in constants
+
+
+def test_supervisor_discovery_removes_the_yaml_requirement() -> None:
+    flow = (COMPONENT / "config_flow.py").read_text()
+    setup = (COMPONENT / "__init__.py").read_text()
+    client = (COMPONENT / "client.py").read_text()
+    assert "async_step_hassio" in flow
+    assert "CONF_MANAGED_APP: True" in flow
+    assert "vol.Optional(DOMAIN)" in setup
+    assert "entry.data.get(CONF_TOKEN)" in setup
+    assert "base_url: str = ENGINE_URL" in client
 
 
 def test_private_media_contract_stays_compatible() -> None:

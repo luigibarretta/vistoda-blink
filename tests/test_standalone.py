@@ -69,10 +69,20 @@ def test_addon_is_private_and_supervised() -> None:
     config = (ROOT / "addon/vistoda_blink_engine/config.yaml").read_text()
     dockerfile = (ROOT / "addon/vistoda_blink_engine/Dockerfile").read_text()
     assert "startup: services" in config
-    assert "boot: auto" in config
     assert "8099/tcp: null" in config
-    assert "FROM scratch" in dockerfile
-    assert "HEALTHCHECK" not in dockerfile
+    assert "hassio_api: true" in config
+    assert "blink_live_bridge" in config
+    assert "aarch64" in config
+    assert "FROM alpine:3.22" in dockerfile
+    assert "HEALTHCHECK" in dockerfile
+    assert (
+        "su-exec bridge:bridge" in (ROOT / "addon/vistoda_blink_engine/rootfs/run.sh").read_text()
+    )
+    runner = (ROOT / "addon/vistoda_blink_engine/rootfs/run.sh").read_text()
+    assert "http://supervisor/discovery" in runner
+    assert "http://supervisor/addons/self/info" in runner
+    assert "workload-token" in runner
+    assert "api_token" not in runner
 
 
 def test_standalone_reauth_and_redacted_diagnostics_are_present() -> None:

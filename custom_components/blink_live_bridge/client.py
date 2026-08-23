@@ -20,9 +20,10 @@ class EngineError(Exception):
 class EngineClient:
     """Bounded HTTP facade used by config flow, entities and proxy views."""
 
-    def __init__(self, hass: HomeAssistant, token: str) -> None:
+    def __init__(self, hass: HomeAssistant, token: str, base_url: str = ENGINE_URL) -> None:
         self._session = async_get_clientsession(hass)
         self._headers = {"Authorization": f"Bearer {token}"}
+        self._base_url = base_url.rstrip("/")
 
     async def get_json(self, path: str) -> dict[str, Any]:
         response = await self._request("GET", path)
@@ -58,7 +59,7 @@ class EngineClient:
         try:
             response = await self._session.request(
                 method,
-                f"{ENGINE_URL}{path}",
+                f"{self._base_url}{path}",
                 headers=self._headers,
                 json=payload,
                 timeout=ClientTimeout(total=request_timeout),

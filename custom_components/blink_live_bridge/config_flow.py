@@ -5,9 +5,18 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .client import EngineClient, EngineError
-from .const import CONF_SCAN_INTERVAL, CONF_TOKEN, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_MANAGED_APP,
+    CONF_SCAN_INTERVAL,
+    CONF_TOKEN,
+    CONF_URL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    ENGINE_URL,
+)
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -19,15 +28,31 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._client: EngineClient | None = None
         self._enrollment_id: str | None = None
+        self._entry_data: dict[str, Any] = {}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
         return await self._credentials_form(user_input)
 
+    async def async_step_hassio(self, discovery_info: HassioServiceInfo) -> FlowResult:
+        """Adopt the supervised engine without YAML or a user-visible token."""
+        config = discovery_info.config
+        self._entry_data = {
+            CONF_TOKEN: str(config.get(CONF_TOKEN, "")),
+            CONF_URL: str(config.get(CONF_URL, "")),
+            CONF_MANAGED_APP: True,
+        }
+        self._client = EngineClient(
+            self.hass, self._entry_data[CONF_TOKEN], self._entry_data[CONF_URL]
+        )
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured(updates=self._entry_data)
+        return await self._credentials_form(None)
+
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
         """Replace an expired standalone Blink authorization."""
-        del entry_data
+        self._entry_data = dict(entry_data)
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -96,12 +121,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _engine(self) -> EngineClient:
         if self._client is None:
-            token = self.hass.data.get(DOMAIN, {}).get(CONF_TOKEN, "")
-            self._client = EngineClient(self.hass, token)
+            data = self.hass.data.get(DOMAIN, {})
+            token = self._entry_data.get(CONF_TOKEN) or data.get(CONF_TOKEN, "")
+            url = self._entry_data.get(CONF_URL, ENGINE_URL)
+            self._client = EngineClient(self.hass, token, url)
         return self._client
 
     def _entry(self) -> FlowResult:
-        return self.async_create_entry(title="Vistoda · Blink", data={})
+        return self.async_create_entry(title="Vistoda · Blink", data=self._entry_data)
 
     def _finish(self) -> FlowResult:
         entry_id = self.context.get("entry_id")
@@ -109,7 +136,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self._entry()
         entry = self.hass.config_entries.async_get_entry(entry_id)
         if entry is not None:
-            return self.async_update_reload_and_abort(entry, data_updates={})
+            return self.async_update_reload_and_abort(entry, data_updates=self._entry_data)
         return self.async_abort(reason="reauth_successful")
 
 

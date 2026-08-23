@@ -57,18 +57,16 @@ do not publish it through Traefik.
 
 ## Installation
 
-Production is SHA-pinned and deployed by the homelab Ansible playbook. For a
-manual development install, copy `custom_components/blink_live_bridge` into
-Home Assistant's `/config/custom_components` and add the required token through
-`configuration.yaml`:
+[![Install Vistoda Blink through HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luigibarretta&repository=vistoda-blink&category=integration)
 
-```yaml
-blink_live_bridge:
-  token: !secret blink_live_bridge_token
-```
+Install **Vistoda Blink** through HACS, add the shared **Vistoda Apps**
+repository, then install and start the matching Blink app. Supervisor discovery
+connects the adapter without YAML, a bridge URL or a user-managed token. Open
+the discovered integration and complete login/2FA or an approved one-time
+migration.
 
-Install and start the matching **Vistoda Blink Engine** app, restart Core once,
-add **Vistoda Blink**, and complete login/2FA or an approved one-time migration.
+Existing YAML-token installations remain supported and are migrated without
+changing the key used to seal the provider session.
 You may remove or disable the official Blink integration after parity has been
 verified; normal Vistoda operation never reads it.
 The powered Blink Mini is the only automatic production media canary; battery

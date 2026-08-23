@@ -8,14 +8,14 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.typing import ConfigType
 
 from .client import EngineClient, EngineError
-from .const import CONF_TOKEN, DOMAIN, PLATFORMS
+from .const import CONF_TOKEN, CONF_URL, DOMAIN, ENGINE_URL, PLATFORMS
 from .http import register_views
 from .migration import async_import_official_credentials
 from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
 from .services import async_setup_services
 
 CONFIG_SCHEMA = vol.Schema(
-    {vol.Required(DOMAIN): vol.Schema({vol.Required(CONF_TOKEN): vol.Match(r"^[0-9a-f]{64}$")})},
+    {vol.Optional(DOMAIN): vol.Schema({vol.Required(CONF_TOKEN): vol.Match(r"^[0-9a-f]{64}$")})},
     extra=vol.ALLOW_EXTRA,
 )
 
@@ -23,20 +23,25 @@ CONFIG_SCHEMA = vol.Schema(
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Store only the local workload token."""
     async_setup_services(hass)
-    hass.data.setdefault(DOMAIN, {})[CONF_TOKEN] = config[DOMAIN][CONF_TOKEN]
+    data = hass.data.setdefault(DOMAIN, {})
+    if DOMAIN in config:
+        data[CONF_TOKEN] = config[DOMAIN][CONF_TOKEN]
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Load the Rust provider and all official-parity platforms."""
     data = hass.data.setdefault(DOMAIN, {})
-    client = EngineClient(hass, data[CONF_TOKEN])
+    token = entry.data.get(CONF_TOKEN) or data.get(CONF_TOKEN)
+    if not token:
+        raise ConfigEntryNotReady("Vistoda Blink workload credential is unavailable")
+    client = EngineClient(hass, token, entry.data.get(CONF_URL, ENGINE_URL))
     status = await _status_or_retry(client)
     if not status.get("enrolled") and not await async_import_official_credentials(hass, client):
         raise ConfigEntryNotReady("Vistoda Blink requires standalone enrollment")
     coordinator = BlinkCoordinator(hass, client, scan_interval(entry.options))
     await coordinator.async_config_entry_first_refresh()
-    data[entry.entry_id] = BridgeRuntime(client, coordinator, data[CONF_TOKEN])
+    data[entry.entry_id] = BridgeRuntime(client, coordinator, token)
     data["runtime"] = data[entry.entry_id]
     if not data.get("views_registered"):
         register_views(hass)
