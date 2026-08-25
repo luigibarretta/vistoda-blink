@@ -12,9 +12,19 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.4.4"
+    assert manifest["version"] == "0.4.5"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
+
+
+def test_adapter_reuses_the_provider_bootstrap_state_on_first_refresh() -> None:
+    runtime = (COMPONENT / "runtime.py").read_text(encoding="utf-8")
+
+    assert "self._initial_update = True" in runtime
+    assert 'cached = await self.client.get_json("/v1/state")' in runtime
+    assert runtime.index("if self._initial_update") < runtime.index(
+        'await self.client.post("/v1/refresh")'
+    )
 
 
 def test_vistoda_discovery_and_device_identity_stay_stable() -> None:

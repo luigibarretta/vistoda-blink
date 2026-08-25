@@ -26,11 +26,19 @@ class BlinkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=scan_interval),
         )
         self.client = client
+        self._initial_update = True
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
+            if self._initial_update:
+                cached = await self.client.get_json("/v1/state")
+                if cached.get("cameras"):
+                    self._initial_update = False
+                    return cached
             await self.client.post("/v1/refresh")
-            return await self.client.get_json("/v1/state")
+            state = await self.client.get_json("/v1/state")
+            self._initial_update = False
+            return state
         except EngineError as error:
             if error.status == 401:
                 raise ConfigEntryAuthFailed("Blink authorization expired") from error

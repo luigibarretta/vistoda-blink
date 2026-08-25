@@ -1,6 +1,6 @@
 [project]
 name = "vistoda-blink"
-version = "0.4.4"
+version = "0.4.5"
 description = "Standalone Rust-first Blink provider for Vistoda and Home Assistant"
 requires-python = ">=3.13"
 license = "MIT"
