@@ -13,11 +13,11 @@ pub struct Health {
 }
 
 impl Health {
-    fn from_snapshots(snapshots: &[HubSnapshot], enrolled: bool) -> Self {
+    fn from_snapshots(snapshots: &[HubSnapshot], enrolled: bool, cameras: usize) -> Self {
         Self {
             status: "ok",
             version: env!("CARGO_PKG_VERSION"),
-            cameras: snapshots.len(),
+            cameras,
             publishers: snapshots.iter().filter(|value| value.publisher).count(),
             subscribers: snapshots.iter().map(|value| value.subscribers).sum(),
             enrolled,
@@ -27,11 +27,12 @@ impl Health {
 
 impl EngineState {
     pub async fn health(&self) -> Health {
+        let cameras = self.client().state().await.cameras.len();
         let snapshots = {
             let hubs = self.hubs.read().await;
             hubs.values().map(|hub| hub.snapshot()).collect::<Vec<_>>()
         };
-        Health::from_snapshots(&snapshots, self.client().enrolled().await)
+        Health::from_snapshots(&snapshots, self.client().enrolled().await, cameras)
     }
 
     pub async fn metrics(&self) -> String {
@@ -50,5 +51,27 @@ impl EngineState {
              # TYPE vistoda_blink_protocol_errors_total counter\n\
              vistoda_blink_protocol_errors_total {errors}\n"
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Health, HubSnapshot};
+
+    #[test]
+    fn health_counts_provider_inventory_instead_of_active_stream_hubs() {
+        let active_hub = HubSnapshot {
+            publisher: true,
+            subscribers: 2,
+            packets: 10,
+            lagged: 0,
+            protocol_errors: 0,
+        };
+
+        let health = Health::from_snapshots(&[active_hub], true, 5);
+
+        assert_eq!(health.cameras, 5);
+        assert_eq!(health.publishers, 1);
+        assert_eq!(health.subscribers, 2);
     }
 }
