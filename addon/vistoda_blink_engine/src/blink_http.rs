@@ -3,7 +3,7 @@ use std::time::Duration;
 use bytes::Bytes;
 use reqwest::{Method, StatusCode};
 use serde_json::Value;
-use tracing::warn;
+use tracing::{debug, warn};
 
 use crate::blink_client::{BlinkClient, BlinkError, RequestContext};
 
@@ -57,13 +57,7 @@ impl BlinkClient {
             );
             return Err(BlinkError::Authentication);
         }
-        if !response.status().is_success() {
-            warn!(
-                endpoint = endpoint_class(path),
-                status = response.status().as_u16(),
-                "Blink cloud request failed"
-            );
-        }
+        log_failure(response.status(), path);
         Ok(response.error_for_status()?.json().await?)
     }
 
@@ -110,6 +104,25 @@ impl BlinkClient {
     }
 }
 
+fn log_failure(status: StatusCode, path: &str) {
+    if status.is_success() {
+        return;
+    }
+    if status == StatusCode::NOT_FOUND && is_optional_sync_module(path) {
+        debug!(
+            endpoint = endpoint_class(path),
+            status = status.as_u16(),
+            "Blink account has no optional Sync Module endpoint"
+        );
+        return;
+    }
+    warn!(
+        endpoint = endpoint_class(path),
+        status = status.as_u16(),
+        "Blink cloud request failed"
+    );
+}
+
 fn endpoint_class(path: &str) -> &'static str {
     if path.contains("homescreen") {
         "homescreen"
@@ -125,9 +138,15 @@ fn endpoint_class(path: &str) -> &'static str {
         "camera_config"
     } else if path.contains("/signals") {
         "camera_signals"
+    } else if is_optional_sync_module(path) {
+        "sync_module"
     } else {
         "provider"
     }
+}
+
+fn is_optional_sync_module(path: &str) -> bool {
+    path.starts_with("/network/") && path.ends_with("/syncmodules")
 }
 
 pub fn absolute(base: &str, path: &str) -> String {
@@ -135,5 +154,18 @@ pub fn absolute(base: &str, path: &str) -> String {
         path.to_owned()
     } else {
         format!("{base}{path}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{endpoint_class, is_optional_sync_module};
+
+    #[test]
+    fn classifies_optional_sync_module_without_provider_noise() {
+        let path = "/network/123/syncmodules";
+        assert!(is_optional_sync_module(path));
+        assert_eq!(endpoint_class(path), "sync_module");
+        assert!(!is_optional_sync_module("/network/123/camera/456/signals"));
     }
 }
