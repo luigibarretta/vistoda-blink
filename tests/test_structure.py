@@ -46,8 +46,10 @@ def test_supervisor_discovery_removes_the_yaml_requirement() -> None:
     assert "entry.data.get(CONF_TOKEN)" in setup
     assert "base_url: str = ENGINE_URL" in client
     runner = (ROOT / "addon/vistoda_blink_engine/rootfs/run.sh").read_text()
-    assert 'chown bridge:bridge "${data_dir}"' in runner
-    assert 'chmod 0600 "${data_dir}/provider.sealed"' in runner
+    bootstrap = (ROOT / "addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh").read_text()
+    assert 'vistoda_prepare_data_dir bridge:bridge "${data_dir}"' in runner
+    assert 'vistoda_secure_file bridge:bridge "${data_dir}/provider.sealed"' in runner
+    assert "vistoda_prepare_data_dir" in bootstrap
 
 
 def test_private_media_contract_stays_compatible() -> None:

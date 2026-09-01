@@ -17,6 +17,7 @@ RUN apk add --no-cache ca-certificates curl jq su-exec \
     && adduser -D -H -u 10001 -G bridge bridge
 COPY --from=builder /build/target/release/vistoda-blink-engine /usr/local/bin/
 COPY rootfs/run.sh /usr/local/bin/vistoda-app-run
+COPY rootfs/vistoda-app-bootstrap.sh /usr/local/lib/vistoda-app-bootstrap
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl --fail --silent --show-error http://127.0.0.1:8099/healthz || exit 1
 ENTRYPOINT ["/usr/local/bin/vistoda-app-run"]

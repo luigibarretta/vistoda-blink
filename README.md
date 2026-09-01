@@ -89,6 +89,9 @@ cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml
 Tests are deterministic and require no Blink account, network or secret.
 Every maintained source, configuration and documentation file is limited to
 250 physical lines.
+The supervised app bootstrap is vendored from
+[`vistoda-provider-kit`](https://git.luigibarretta.com/luigibarretta/vistoda-provider-kit)
+at the commit in `dependencies/vistoda-provider-kit.sha` and verified byte-for-byte in CI.
 
 Architectural decisions are indexed in [`docs/adr/`](docs/adr/README.md).
 The versioned parity matrix is in [`docs/PARITY.md`](docs/PARITY.md).

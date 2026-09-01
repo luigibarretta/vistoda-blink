@@ -79,8 +79,11 @@ def test_addon_is_private_and_supervised() -> None:
         "su-exec bridge:bridge" in (ROOT / "addon/vistoda_blink_engine/rootfs/run.sh").read_text()
     )
     runner = (ROOT / "addon/vistoda_blink_engine/rootfs/run.sh").read_text()
-    assert "http://supervisor/discovery" in runner
-    assert "http://supervisor/addons/self/info" in runner
+    bootstrap = (ROOT / "addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh").read_text()
+    assert "vistoda_publish_discovery" in runner
+    assert "vistoda_supervisor_app_info" in runner
+    assert "http://supervisor/discovery" in bootstrap
+    assert "http://supervisor/addons/self/info" in bootstrap
     assert "workload-token" in runner
     assert "api_token" not in runner
 
