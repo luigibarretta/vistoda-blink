@@ -90,7 +90,7 @@ Tests are deterministic and require no Blink account, network or secret.
 Every maintained source, configuration and documentation file is limited to
 250 physical lines.
 The supervised app bootstrap is vendored from
-[`vistoda-provider-kit`](https://git.luigibarretta.com/luigibarretta/vistoda-provider-kit)
+[`lib-vistoda-provider-kit`](https://git.luigibarretta.com/luigibarretta/lib-vistoda-provider-kit)
 at the commit in `dependencies/vistoda-provider-kit.sha` and verified byte-for-byte in CI.
 
 Architectural decisions are indexed in [`docs/adr/`](docs/adr/README.md).
