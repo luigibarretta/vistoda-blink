@@ -5,10 +5,19 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 
 from .client import EngineClient, EngineError
-from .const import CONF_TOKEN, CONF_URL, DOMAIN, ENGINE_URL, PLATFORMS
+from .const import (
+    CONF_TOKEN,
+    CONF_URL,
+    DOMAIN,
+    ENGINE_URL,
+    PLATFORMS,
+    VISTODA_BLINK_IDENTIFIER,
+    VISTODA_DOMAIN,
+)
 from .http import register_views
 from .migration import async_import_official_credentials
 from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
@@ -41,7 +50,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("Vistoda Blink requires standalone enrollment")
     coordinator = BlinkCoordinator(hass, client, scan_interval(entry.options))
     await coordinator.async_config_entry_first_refresh()
-    data[entry.entry_id] = BridgeRuntime(client, coordinator, token)
+    parent_device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(VISTODA_DOMAIN, VISTODA_BLINK_IDENTIFIER)},
+        manufacturer="Vistoda",
+        model="Local Home Assistant adapter",
+        name="Vistoda · BLINK Live",
+    )
+    data[entry.entry_id] = BridgeRuntime(
+        client=client,
+        coordinator=coordinator,
+        token=token,
+        parent_device_id=parent_device.id,
+    )
     data["runtime"] = data[entry.entry_id]
     if not data.get("views_registered"):
         register_views(hass)

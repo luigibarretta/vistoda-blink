@@ -13,7 +13,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, VISTODA_BLINK_IDENTIFIER, VISTODA_DOMAIN
+from .const import DOMAIN
 from .runtime import BlinkCoordinator, BridgeRuntime
 
 
@@ -46,7 +46,7 @@ class BlinkAlarm(CoordinatorEntity[BlinkCoordinator], AlarmControlPanelEntity):
             sw_version=network.get("firmware"),
             name=network["name"],
             manufacturer="Blink",
-            via_device=(VISTODA_DOMAIN, VISTODA_BLINK_IDENTIFIER),
+            via_device_id=runtime.parent_device_id,
         )
 
     @property

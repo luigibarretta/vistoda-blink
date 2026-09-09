@@ -28,8 +28,7 @@ class BlinkMotionSwitch(BlinkCameraEntity, SwitchEntity):
     _attr_device_class = SwitchDeviceClass.SWITCH
 
     def __init__(self, runtime: BridgeRuntime, camera: dict[str, Any]) -> None:
-        super().__init__(runtime.coordinator, camera, "motion_enabled")
-        self.runtime = runtime
+        super().__init__(runtime, camera, "motion_enabled")
 
     @property
     def is_on(self) -> bool | None:

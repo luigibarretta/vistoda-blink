@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.4.6"
+    assert manifest["version"] == "0.4.7"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -34,6 +34,22 @@ def test_vistoda_discovery_and_device_identity_stay_stable() -> None:
     assert 'VISTODA_DOMAIN = "media_bridge"' in constants
     assert 'data={"provider": "blink"}' in setup
     assert 'VISTODA_BLINK_IDENTIFIER = "blink:blink"' in constants
+
+
+def test_device_hierarchy_uses_the_single_entry_registry_contract() -> None:
+    """HA 2026.8+ requires an explicit parent ID instead of a global identifier."""
+    setup = (COMPONENT / "__init__.py").read_text()
+    runtime = (COMPONENT / "runtime.py").read_text()
+    entity = (COMPONENT / "entity.py").read_text()
+    alarm = (COMPONENT / "alarm_control_panel.py").read_text()
+
+    assert "async_get_or_create(" in setup
+    assert "config_entry_id=entry.entry_id" in setup
+    assert "parent_device_id=parent_device.id" in setup
+    assert "parent_device_id: str" in runtime
+    assert "via_device_id=parent_device_id" in entity
+    assert "via_device_id=runtime.parent_device_id" in alarm
+    assert "via_device=" not in entity + alarm
 
 
 def test_supervisor_discovery_removes_the_yaml_requirement() -> None:

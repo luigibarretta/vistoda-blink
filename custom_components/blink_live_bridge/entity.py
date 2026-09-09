@@ -5,8 +5,8 @@ from typing import Any
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, VISTODA_BLINK_IDENTIFIER, VISTODA_DOMAIN
-from .runtime import BlinkCoordinator
+from .const import DOMAIN
+from .runtime import BlinkCoordinator, BridgeRuntime
 
 
 class BlinkCameraEntity(CoordinatorEntity[BlinkCoordinator]):
@@ -14,11 +14,12 @@ class BlinkCameraEntity(CoordinatorEntity[BlinkCoordinator]):
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: BlinkCoordinator, camera: dict[str, Any], suffix: str) -> None:
-        super().__init__(coordinator)
+    def __init__(self, runtime: BridgeRuntime, camera: dict[str, Any], suffix: str) -> None:
+        super().__init__(runtime.coordinator)
+        self.runtime = runtime
         self.alias = camera["alias"]
         self._attr_unique_id = f"{identity(camera)}-{suffix}"
-        self._attr_device_info = camera_device(camera)
+        self._attr_device_info = camera_device(camera, runtime.parent_device_id)
 
     @property
     def camera(self) -> dict[str, Any]:
@@ -32,7 +33,7 @@ def identity(camera: dict[str, Any]) -> str:
     return str(camera.get("serial") or f"camera-{camera['id']}")
 
 
-def camera_device(camera: dict[str, Any]) -> DeviceInfo:
+def camera_device(camera: dict[str, Any], parent_device_id: str) -> DeviceInfo:
     """Expose official-equivalent camera metadata under Vistoda's domain."""
     serial = identity(camera)
     return DeviceInfo(
@@ -42,5 +43,5 @@ def camera_device(camera: dict[str, Any]) -> DeviceInfo:
         name=camera["name"],
         manufacturer="Blink",
         model=camera.get("camera_type"),
-        via_device=(VISTODA_DOMAIN, VISTODA_BLINK_IDENTIFIER),
+        via_device_id=parent_device_id,
     )

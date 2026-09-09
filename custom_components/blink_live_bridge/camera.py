@@ -32,7 +32,7 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
     _attr_supported_features = CameraEntityFeature.STREAM
 
     def __init__(self, runtime: BridgeRuntime, camera: dict[str, Any]) -> None:
-        BlinkCameraEntity.__init__(self, runtime.coordinator, camera, "live-camera")
+        BlinkCameraEntity.__init__(self, runtime, camera, "live-camera")
         Camera.__init__(self)
         self.runtime = runtime
         self._image: bytes | None = None
@@ -40,7 +40,7 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
         self._attr_name = f"{camera['name']} Live"
         self._attr_suggested_object_id = f"{camera['alias']}_live"
         self._attr_unique_id = f"{identity(camera)}-live-camera"
-        self._attr_device_info = camera_device(camera)
+        self._attr_device_info = camera_device(camera, runtime.parent_device_id)
 
     @property
     @override

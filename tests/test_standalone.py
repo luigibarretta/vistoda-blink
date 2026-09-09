@@ -49,7 +49,7 @@ def test_rust_owns_every_blink_protocol_responsibility() -> None:
 
 
 def test_official_platform_and_service_parity_is_declared() -> None:
-    """Keep all HA 2026.8.3 official surfaces during future refactors."""
+    """Keep all HA 2026.9.1 official surfaces during future refactors."""
     constants = (COMPONENT / "const.py").read_text()
     for platform in (
         "ALARM_CONTROL_PANEL",

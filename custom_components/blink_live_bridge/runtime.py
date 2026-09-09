@@ -52,6 +52,7 @@ class BridgeRuntime:
     client: EngineClient
     coordinator: BlinkCoordinator
     token: str
+    parent_device_id: str
 
     @property
     def cameras(self) -> list[dict[str, Any]]:

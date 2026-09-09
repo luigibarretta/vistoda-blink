@@ -61,7 +61,7 @@ class BlinkSensor(BlinkCameraEntity, SensorEntity):
     def __init__(
         self, runtime: BridgeRuntime, camera: dict[str, Any], description: Description
     ) -> None:
-        super().__init__(runtime.coordinator, camera, description.key)
+        super().__init__(runtime, camera, description.key)
         self.key = description.key
         self._attr_name = description.name
         self._attr_native_unit_of_measurement = description.unit

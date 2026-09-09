@@ -1,6 +1,6 @@
 # Blink parity contract
 
-The reference is Home Assistant Core 2026.8.3 with `blinkpy` 0.25.9. A release
+The reference is Home Assistant Core 2026.9.1 with `blinkpy` 0.25.9. A release
 cannot claim parity until every row below has a deterministic contract test and
 the applicable rows pass a bounded live canary against the enrolled account.
 
@@ -22,7 +22,7 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Save latest video | entity service | entity service | bounded file/hash or exact no-clip no-op |
 | Save recent clips | entity service | entity service | bounded files or exact empty result |
 | Diagnostics | redacted | redacted | secret-redaction test |
-| Device metadata | serial/model/version | equivalent | registry contract test |
+| Device metadata | serial/model/version | equivalent | HA 2026.8+ parent-ID contract test |
 | Live video | absent | bounded MPEG-TS | parser/fan-out + powered-camera canary |
 | Private consumers | absent | HA + SceneTrove API | auth and stream contract tests |
 
