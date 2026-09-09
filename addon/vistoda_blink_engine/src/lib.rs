@@ -1,4 +1,5 @@
 pub mod api;
+mod api_settings;
 pub mod auth;
 pub mod blink_api;
 pub mod blink_client;
@@ -9,6 +10,9 @@ pub mod blink_model;
 mod blink_network_parse;
 mod blink_parse;
 mod blink_refresh;
+mod blink_setting_fields;
+pub mod blink_settings;
+mod blink_settings_write;
 pub mod config;
 pub mod credentials;
 mod engine_metrics;
@@ -23,6 +27,8 @@ pub mod oauth;
 mod oauth_support;
 #[cfg(test)]
 mod parse_tests;
+#[cfg(test)]
+mod settings_tests;
 mod tls;
 
 pub use api::router;

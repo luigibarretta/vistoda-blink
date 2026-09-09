@@ -30,6 +30,12 @@ pub enum EngineError {
     Cloud,
     #[error("enrollment request is invalid or expired")]
     InvalidEnrollment,
+    #[error("camera setting is invalid or unsupported")]
+    InvalidSetting,
+    #[error("camera settings changed; reload before retrying")]
+    SettingsConflict,
+    #[error("camera setting could not be verified and was restored")]
+    SettingsVerification,
 }
 
 #[derive(Serialize)]
@@ -41,13 +47,16 @@ impl IntoResponse for EngineError {
     fn into_response(self) -> Response {
         let status = match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::InvalidAlias | Self::Protocol(_) | Self::InvalidEnrollment => {
-                StatusCode::UNPROCESSABLE_ENTITY
-            }
-            Self::PublisherBusy => StatusCode::CONFLICT,
+            Self::InvalidAlias
+            | Self::InvalidSetting
+            | Self::Protocol(_)
+            | Self::InvalidEnrollment => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::PublisherBusy | Self::SettingsConflict => StatusCode::CONFLICT,
             Self::NotEnrolled => StatusCode::PRECONDITION_REQUIRED,
             Self::CameraNotFound | Self::NetworkNotFound => StatusCode::NOT_FOUND,
-            Self::Transport(_) | Self::Cloud => StatusCode::BAD_GATEWAY,
+            Self::Transport(_) | Self::Cloud | Self::SettingsVerification => {
+                StatusCode::BAD_GATEWAY
+            }
         };
         (
             status,
@@ -66,6 +75,9 @@ impl From<BlinkError> for EngineError {
             BlinkError::NotEnrolled => Self::NotEnrolled,
             BlinkError::CameraNotFound => Self::CameraNotFound,
             BlinkError::NetworkNotFound => Self::NetworkNotFound,
+            BlinkError::InvalidSetting | BlinkError::SettingsUnsupported => Self::InvalidSetting,
+            BlinkError::SettingsConflict => Self::SettingsConflict,
+            BlinkError::SettingsVerification => Self::SettingsVerification,
             _ => Self::Cloud,
         }
     }

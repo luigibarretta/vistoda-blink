@@ -34,6 +34,8 @@ private API and Vistoda discovery contract during the product rename.
 - H.264/AAC MPEG-TS for Home Assistant and SceneTrove;
 - cached Blink JPEG snapshots;
 - native HA camera entities attached to the Vistoda Blink provider device;
+- redacted, model-aware camera settings with optimistic concurrency,
+  read-back verification and rollback attempts;
 - 75-second battery-camera and 600-second powered-camera session limits;
 - bounded subscriber queues and a 4 MiB packet ceiling;
 - Bearer or Basic authentication for approved LAN consumers;
@@ -50,6 +52,8 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `GET /v1/cameras/{alias}/snapshot.jpg` | cached Blink JPEG |
 | `GET /v1/cameras/{alias}/live.ts` | bounded MPEG-TS stream |
 | `GET /v1/cameras/{alias}/live.mpegts` | explicit MPEG-TS alias |
+| `GET /v1/cameras/{alias}/settings` | typed, redacted settings and revision |
+| `POST /v1/cameras/{alias}/settings` | one validated setting with read-back |
 
 Core loopback is trusted so HA camera state never contains credentials. Other
 clients must send a dedicated high-entropy token. Keep the endpoint private;

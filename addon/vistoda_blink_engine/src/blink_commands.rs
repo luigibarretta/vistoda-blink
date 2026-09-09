@@ -109,7 +109,7 @@ impl BlinkClient {
             .await
     }
 
-    async fn camera(&self, alias: &str) -> Result<CameraState, BlinkError> {
+    pub(crate) async fn camera(&self, alias: &str) -> Result<CameraState, BlinkError> {
         self.state()
             .await
             .cameras

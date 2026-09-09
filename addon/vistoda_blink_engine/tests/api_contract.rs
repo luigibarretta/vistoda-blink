@@ -31,6 +31,12 @@ async fn health_is_public_but_provider_state_requires_the_workload_token()
         .await?;
     assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
 
+    let settings = application
+        .clone()
+        .oneshot(Request::get("/v1/cameras/kitchen/settings").body(Body::empty())?)
+        .await?;
+    assert_eq!(settings.status(), StatusCode::UNAUTHORIZED);
+
     let status = application
         .oneshot(
             Request::get("/v1/enrollment/status")

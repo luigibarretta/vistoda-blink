@@ -67,6 +67,13 @@ pub fn camera_config(camera: &CameraState, account: &str) -> String {
     }
 }
 
+pub fn camera_update(camera: &CameraState, account: &str) -> String {
+    match camera.camera_type.as_str() {
+        "mini" => camera_config(camera, account),
+        _ => format!("/network/{}/camera/{}/update", camera.network_id, camera.id),
+    }
+}
+
 pub fn camera_action(camera: &CameraState, account: &str, action: &CameraAction) -> RequestSpec {
     let (name, body) = match action {
         CameraAction::Motion(enabled) => (

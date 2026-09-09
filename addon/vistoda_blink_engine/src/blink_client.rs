@@ -33,6 +33,7 @@ pub(crate) struct Inner {
     pub http: Client,
     pub store: CredentialStore,
     pub session: Mutex<Option<Session>>,
+    pub settings_lock: Mutex<()>,
     pub state: RwLock<ProviderState>,
 }
 
@@ -49,6 +50,7 @@ impl BlinkClient {
                 http,
                 store,
                 session: Mutex::new(None),
+                settings_lock: Mutex::new(()),
                 state: RwLock::new(ProviderState::default()),
             }),
         })

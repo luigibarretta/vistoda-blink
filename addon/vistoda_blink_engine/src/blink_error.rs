@@ -24,4 +24,12 @@ pub enum BlinkError {
     CommandTimeout,
     #[error("Blink media exceeded its safety limit")]
     MediaTooLarge,
+    #[error("camera settings are not supported for this device")]
+    SettingsUnsupported,
+    #[error("camera setting value is invalid")]
+    InvalidSetting,
+    #[error("camera settings changed before the update")]
+    SettingsConflict,
+    #[error("camera setting verification failed")]
+    SettingsVerification,
 }

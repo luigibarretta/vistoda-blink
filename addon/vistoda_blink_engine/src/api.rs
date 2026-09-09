@@ -38,6 +38,7 @@ pub fn router(state: EngineState) -> Router {
         .route("/v1/cameras/{alias}/commands", post(camera_command))
         .route("/v1/networks/{id}/armed", post(network_armed))
         .route("/v1/clips/{id}", get(clip))
+        .merge(crate::api_settings::routes())
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
@@ -210,7 +211,7 @@ async fn clip(
     Ok(media_response(state.client().clip(&id).await?, "video/mp4"))
 }
 
-fn authorize(state: &EngineState, headers: &HeaderMap) -> Result<(), EngineError> {
+pub(crate) fn authorize(state: &EngineState, headers: &HeaderMap) -> Result<(), EngineError> {
     require_bearer(headers, state.token())
 }
 
@@ -226,7 +227,7 @@ const fn media_headers(content_type: &'static str) -> [(header::HeaderName, &'st
     ]
 }
 
-fn validate_alias(alias: &str) -> Result<(), EngineError> {
+pub(crate) fn validate_alias(alias: &str) -> Result<(), EngineError> {
     if !(1..=64).contains(&alias.len())
         || !alias.bytes().all(|value| {
             value.is_ascii_lowercase() || value.is_ascii_digit() || b"_-".contains(&value)

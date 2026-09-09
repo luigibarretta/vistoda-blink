@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.4.7"
+    assert manifest["version"] == "0.5.0"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -75,6 +75,18 @@ def test_private_media_contract_stays_compatible() -> None:
     assert '"video/mp2t"' in source
     assert "alias: str" in source
     assert "stream_format: str" in source
+
+
+def test_camera_settings_boundary_is_redacted_and_admin_only() -> None:
+    """The panel never receives provider credentials or an untyped write proxy."""
+    source = (COMPONENT / "websocket.py").read_text()
+    manifest = json.loads((COMPONENT / "manifest.json").read_text())
+    assert "websocket_api" in manifest["dependencies"]
+    assert "blink_live_bridge/camera/settings" in source
+    assert "connection.user.is_admin" in source
+    assert '("key", "value", "revision")' in source
+    assert "api_token" not in source
+    assert "Authorization" not in source
 
 
 def test_clip_services_refresh_provider_state_before_selection() -> None:

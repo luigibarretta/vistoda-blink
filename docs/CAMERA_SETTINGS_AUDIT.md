@@ -69,6 +69,26 @@ services.
    the official app until their provider contracts and recovery paths pass live
    canaries.
 
+## Implemented in 0.5.0
+
+The first safe tranche now provides a camera-detail view and a Rust-owned,
+redacted settings endpoint. It recognizes motion detection and sensitivity,
+retrigger time, early notification, recording and audio enablement, clip length,
+video quality, early clip termination and night vision when the enrolled model
+actually returns those fields. IR intensity and temperature-alert values may be
+shown read-only while their exact write ranges remain unproven.
+
+Writes are administrator-only at the Home Assistant boundary. Each request
+changes one allowlisted key, includes a revision of the last read, validates its
+type/range/enum, rereads the provider value and attempts to restore the previous
+value if verification fails. Raw provider configuration, credentials and
+unknown fields are never returned to the browser or persisted.
+
+Activity/privacy zones, camera rename, status LED, Photo Capture, automatic
+thumbnail updates, speaker volume, Blink talk audio and device removal remain
+gated. They must not be presented as available until per-model contracts and
+recovery canaries exist.
+
 ## Uninstall criterion
 
 The official Blink app can be considered optional only after the user's actual
