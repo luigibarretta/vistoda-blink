@@ -42,7 +42,7 @@ pub fn base_url(tier: &str) -> String {
 }
 
 pub fn homescreen(account: &str) -> String {
-    format!("/api/v3/accounts/{account}/homescreen")
+    format!("/api/v4/accounts/{account}/homescreen")
 }
 
 pub const fn networks() -> &'static str {
@@ -170,6 +170,40 @@ pub fn live_command(account: &str, network: &str, id: u64) -> String {
 
 pub fn live_command_done(account: &str, network: &str, id: u64) -> String {
     format!("/accounts/{account}/networks/{network}/commands/{id}/done")
+}
+
+pub fn current_command(account: &str, network: &str, id: u64) -> String {
+    format!("/accounts/{account}/networks/{network}/commands/{id}")
+}
+
+pub fn local_storage_status(account: &str, network: &str, sync: &str) -> String {
+    format!(
+        "/api/v1/accounts/{account}/networks/{network}/sync_modules/{sync}/local_storage/status"
+    )
+}
+
+pub fn local_storage_manifest_request(account: &str, network: &str, sync: &str) -> String {
+    format!(
+        "/api/v1/accounts/{account}/networks/{network}/sync_modules/{sync}/local_storage/manifest/request"
+    )
+}
+
+pub fn local_storage_media(account: &str, network: &str, sync: &str, command: u64) -> String {
+    format!(
+        "/api/v1/accounts/{account}/networks/{network}/sync_modules/{sync}/local_storage/media/{command}"
+    )
+}
+
+pub fn local_storage_clip_request(
+    account: &str,
+    network: &str,
+    sync: &str,
+    manifest: u64,
+    clip: u64,
+) -> String {
+    format!(
+        "/api/v1/accounts/{account}/networks/{network}/sync_modules/{sync}/local_storage/manifest/{manifest}/clip/request/{clip}"
+    )
 }
 
 const fn default_poll_seconds() -> f64 {

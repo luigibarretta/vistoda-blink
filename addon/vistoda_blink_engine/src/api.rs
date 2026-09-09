@@ -41,6 +41,8 @@ pub fn router(state: EngineState) -> Router {
         .merge(crate::api_recordings::routes())
         .merge(crate::api_settings::routes())
         .merge(crate::api_zones::routes())
+        .merge(crate::api_storage::routes())
+        .merge(crate::blink_signaling::routes())
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
@@ -217,7 +219,7 @@ pub(crate) fn authorize(state: &EngineState, headers: &HeaderMap) -> Result<(), 
     require_bearer(headers, state.token())
 }
 
-fn media_response(content: Bytes, content_type: &'static str) -> Response {
+pub(crate) fn media_response(content: Bytes, content_type: &'static str) -> Response {
     (StatusCode::OK, media_headers(content_type), content).into_response()
 }
 

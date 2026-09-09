@@ -34,6 +34,7 @@ private API and Vistoda discovery contract during the product rename.
 - H.264/AAC MPEG-TS for Home Assistant and SceneTrove;
 - cached Blink JPEG snapshots;
 - fixed-duration local live recordings with immutable SHA-256 manifests;
+- read-only Sync Module USB inventory and authenticated clip download;
 - native HA camera entities attached to the Vistoda Blink provider device;
 - redacted, model-aware camera settings with optimistic concurrency,
   read-back verification and rollback attempts;
@@ -65,6 +66,9 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `POST /v1/cameras/{alias}/recordings` | bounded live capture; requires request ID |
 | `GET /v1/recordings/{id}/media` | immutable local MPEG-TS media |
 | `DELETE /v1/recordings/{id}` | remove a completed local recording |
+| `GET /v1/local-storage` | bounded read-only Sync Module USB inventory |
+| `GET /v1/local-storage/{network}/{sync}/{manifest}/{clip}/media` | one USB clip, without provider mutation |
+| `POST /v1/cameras/{alias}/audio/probe` | authenticate native signaling without starting media |
 
 Core loopback is trusted so HA camera state never contains credentials. Other
 clients must send a dedicated high-entropy token. Keep the endpoint private;
@@ -114,4 +118,6 @@ The official-app replacement feasibility review is in
 [`docs/CAMERA_SETTINGS_AUDIT.md`](docs/CAMERA_SETTINGS_AUDIT.md).
 Standalone recording and vendor-storage boundaries are recorded in
 [`ADR-0005`](docs/adr/0005-standalone-recordings-and-vendor-media.md).
+The native signaling discovery boundary is recorded in
+[`ADR-0006`](docs/adr/0006-native-audio-signaling-discovery.md).
 Licensed under the MIT License.

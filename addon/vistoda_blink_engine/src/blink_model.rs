@@ -22,6 +22,8 @@ pub struct NetworkState {
     pub status: Option<String>,
     pub serial: Option<String>,
     pub firmware: Option<String>,
+    #[serde(skip_serializing)]
+    pub sync_module_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -45,6 +47,11 @@ pub struct CameraState {
     pub motion_detected: bool,
     pub thumbnail_url: Option<String>,
     pub powered: bool,
+    #[serde(skip_serializing)]
+    pub ring_device_id: Option<u64>,
+    pub two_way_audio: Option<bool>,
+    pub audio_aec: Option<bool>,
+    pub audio_privacy_enabled: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

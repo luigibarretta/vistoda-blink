@@ -29,7 +29,8 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Speaker volume | official app | Mini/Owl integer 1–8 | Android 59.1 contract + reversible canary |
 | Activity zones | official app | native v1 20×15 grid | model tests + reversible live canary |
 | Privacy zones | official app | native v1 spans, maximum two | model tests + reversible live canary |
-| Blink talk | official app | blocked | IMMIS uplink framing/ACK not proven |
+| Sync Module USB clips | official app | read-only list/download | Android 59.1 routes + bounded live canary |
+| Blink talk | official app | signaling authenticated; media gated | Android 59.1 WebRTC 4.1 + live auth probe; SDP/ICE/uplink still required |
 | Device removal | official app | deliberately deferred | reauth and recovery contract required |
 
 Parity means behavioral coverage, not identical internal implementation. The

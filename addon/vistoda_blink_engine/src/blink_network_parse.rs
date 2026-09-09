@@ -33,6 +33,7 @@ pub fn networks<S: BuildHasher>(
                 status: owned_text(device, "status"),
                 serial: owned_text(device, "serial"),
                 firmware: owned_text(device, "fw_version"),
+                sync_module_id: None,
             });
         }
     }
@@ -44,6 +45,10 @@ fn catalog_networks<S: BuildHasher>(
     homescreen: &Value,
     updates: &HashMap<String, Value, S>,
 ) -> Vec<NetworkState> {
+    let modules = array(homescreen, "sync_modules")
+        .iter()
+        .filter_map(|item| text_or_number(item, "network_id").map(|id| (id, item)))
+        .collect::<HashMap<_, _>>();
     let fallback = array(homescreen, "networks")
         .iter()
         .filter_map(|item| text_or_number(item, "id").map(|id| (id, item)))
@@ -66,7 +71,10 @@ fn catalog_networks<S: BuildHasher>(
         .unwrap_or(fallback);
     summaries
         .into_iter()
-        .map(|(id, summary)| network(id, summary, updates))
+        .map(|(id, summary)| {
+            let module = modules.get(&id).copied();
+            network(id, summary, updates, module)
+        })
         .collect()
 }
 
@@ -74,6 +82,7 @@ fn network<S: BuildHasher>(
     id: String,
     summary: &Value,
     updates: &HashMap<String, Value, S>,
+    homescreen_module: Option<&Value>,
 ) -> NetworkState {
     let update = updates.get(&id);
     let source = update
@@ -81,7 +90,14 @@ fn network<S: BuildHasher>(
         .unwrap_or(summary);
     let module = update
         .and_then(|value| value.get("_vistoda_sync"))
-        .and_then(|value| value.get("syncmodule"));
+        .and_then(|value| value.get("syncmodule"))
+        .and_then(|value| {
+            value
+                .as_array()
+                .and_then(|items| items.first())
+                .or(Some(value))
+        })
+        .or(homescreen_module);
     NetworkState {
         id,
         name: text(source, "name").unwrap_or("Blink system").to_owned(),
@@ -92,6 +108,7 @@ fn network<S: BuildHasher>(
             .or_else(|| module.and_then(|value| owned_text(value, "serial"))),
         firmware: owned_text(source, "fw_version")
             .or_else(|| module.and_then(|value| owned_text(value, "fw_version"))),
+        sync_module_id: module.and_then(|value| text_or_number(value, "id")),
     }
 }
 

@@ -6,8 +6,8 @@ Audit date: 2026-09-09
 
 Vistoda Blink now replaces the official app for routine viewing and the verified
 camera-administration surface used by this installation. It still cannot claim
-complete replacement because Blink two-way audio, destructive device removal
-and Owl/Mini v2 zones do not have a proven recoverable contract.
+complete replacement because Blink two-way media negotiation, destructive
+device removal and Owl/Mini v2 zones do not have a proven recoverable contract.
 
 The references are Home Assistant Core 2026.9.1 with `blinkpy` 0.25.9, the
 supplied official screens, and Blink Android 59.1 build 29797423. The audited
@@ -51,8 +51,8 @@ advanced surface is implemented by the standalone Rust provider.
 | Privacy zones | Available on compatible v1 cameras | Native spans, maximum two, fail-closed validation. |
 | Speaker volume | Available on Mini/Owl | Android 59.1 proves integers 1–8 and `volume_control`. |
 | Temperature alerts | Enable/disable available | Thresholds stay read-only until exact rules are proven. |
-| Two-way Blink audio | Blocked | IMMIS uplink framing and acknowledgement are unproven. |
-| Sync Module USB clips | Protocol identified, UI blocked | Android endpoints are known; manifest/command polling and a live read-only canary are still required. |
+| Two-way Blink audio | Signaling discovered, media gated | Android 59.1 proves shared Ring WebRTC 4.1 and `blink_oauth`; Vistoda can authenticate and close without media, but SDP/ICE/uplink recovery remain unproven. |
+| Sync Module USB clips | Available read-only in 0.9.0 | Status, manifest polling, bounded inventory and authenticated download; no delete/eject/format/mount route exists. |
 | Delete device | Deliberately deferred | Requires reauthentication, typed confirmation and recovery. |
 
 ## Delivery result
@@ -64,10 +64,25 @@ advanced surface is implemented by the standalone Rust provider.
 5. Native v1 activity/privacy editor: complete in 0.7.0; Owl v2 remains gated.
 6. Standalone local archive and checksum-verified NFS backup: complete in 0.8.0
    through the Vistoda Home Assistant control plane.
-7. Blink talk, Sync Module USB management and device removal: intentionally
-   blocked pending exact live protocol, reauthentication and recovery evidence.
+7. Sync Module USB inventory/download: complete in 0.9.0 without destructive
+   provider controls.
+8. Blink talk and device removal: intentionally gated pending media negotiation,
+   reauthentication and recovery evidence.
 
 ## Version history
+
+### 0.9.0
+
+Upgraded discovery to the current v4 homescreen and preserves the private Ring
+device identity and two-way-audio flags without serializing that identifier to
+ordinary state. Added the exact Android 59.1 local-storage status, manifest,
+command-poll and clip-request flow behind a bounded read-only API and a signed
+Home Assistant download path. Destructive USB endpoints are absent by contract.
+
+Added an authenticated signaling-only probe using the official app's shared
+Ring WebRTC endpoint, protocol 4.1, `blink_oauth` and derived client identity.
+The probe starts no live/media session and closes immediately. Full-duplex UI
+remains hidden until a real SDP/ICE, downlink/uplink and teardown canary passes.
 
 ### 0.8.0
 
@@ -118,8 +133,9 @@ the enrolled Mini rejects that route; Vistoda does not guess a translation.
 The official Blink app is optional only when every setting the user needs passes
 live read/write/read-back tests on the enrolled model and the explicitly blocked
 surfaces are acceptable. Today Vistoda is a daily-use and verified-settings
-replacement. Keep the official app for Blink talk, device removal, unsupported
-v2 zones and future fields not returned by an enrolled camera.
+replacement. Keep the official app for Blink talk, destructive USB management,
+device removal, unsupported v2 zones and future fields not returned by an
+enrolled camera.
 
 ## Primary references
 

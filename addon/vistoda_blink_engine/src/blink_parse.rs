@@ -45,6 +45,7 @@ pub fn cameras<S1: BuildHasher, S2: BuildHasher>(
                 .unwrap_or("Blink camera");
             Some(camera(
                 detail,
+                &summary,
                 signal,
                 clips,
                 CameraContext {
@@ -73,6 +74,7 @@ struct CameraContext<'a> {
 
 fn camera(
     source: &Value,
+    summary: &Value,
     signal: Option<&Value>,
     clips: &[MediaClip],
     context: CameraContext<'_>,
@@ -106,6 +108,13 @@ fn camera(
             .any(|clip| clip.camera_name == context.name && recent(&clip.created_at)),
         thumbnail_url,
         powered: context.camera_type == "mini" || product_type == "owl",
+        ring_device_id: unsigned(summary, "ring_device_id")
+            .or_else(|| unsigned(source, "ring_device_id")),
+        two_way_audio: boolean(summary, "two_way_audio")
+            .or_else(|| boolean(source, "two_way_audio")),
+        audio_aec: boolean(summary, "audio_aec").or_else(|| boolean(source, "audio_aec")),
+        audio_privacy_enabled: boolean(summary, "audio_privacy_enabled")
+            .or_else(|| boolean(source, "audio_privacy_enabled")),
     }
 }
 

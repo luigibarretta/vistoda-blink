@@ -121,7 +121,57 @@ class RecordingMediaView(HomeAssistantView):
         return response
 
 
+class LocalStorageMediaView(HomeAssistantView):
+    """Stream one provider-owned USB clip without modifying provider storage."""
+
+    url = (
+        f"{API_PREFIX}/v1/local-storage/{{network:\\d+}}/{{sync:\\d+}}/"
+        "{manifest:\\d+}/{clip:\\d+}/media"
+    )
+    name = f"api:{DOMAIN}:local-storage-media"
+    requires_auth = True
+
+    async def get(
+        self,
+        request: web.Request,
+        network: str,
+        sync: str,
+        manifest: str,
+        clip: str,
+    ) -> web.StreamResponse:
+        runtime: BridgeRuntime = request.app["hass"].data[DOMAIN]["runtime"]
+        path = f"/v1/local-storage/{network}/{sync}/{manifest}/{clip}/media"
+        try:
+            upstream = await runtime.client.stream(path)
+        except EngineError as error:
+            raise web.HTTPNotFound(text="Blink USB clip unavailable") from error
+        response = web.StreamResponse(
+            status=200,
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Type": "video/mp4",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+        await response.prepare(request)
+        try:
+            async for chunk in upstream.content.iter_chunked(64 * 1024):
+                await response.write(chunk)
+        except (ConnectionError, RuntimeError):
+            pass
+        finally:
+            upstream.close()
+        return response
+
+
 def register_views(hass: HomeAssistant) -> None:
     """Register the stable consumer API exactly once."""
-    for view in (HealthView, CamerasView, SnapshotView, LiveView, RecordingMediaView):
+    for view in (
+        HealthView,
+        CamerasView,
+        SnapshotView,
+        LiveView,
+        RecordingMediaView,
+        LocalStorageMediaView,
+    ):
         hass.http.register_view(view)

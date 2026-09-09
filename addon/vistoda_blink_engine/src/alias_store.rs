@@ -107,6 +107,10 @@ mod tests {
             motion_detected: false,
             thumbnail_url: None,
             powered: false,
+            ring_device_id: None,
+            two_way_audio: None,
+            audio_aec: None,
+            audio_privacy_enabled: None,
         }
     }
 

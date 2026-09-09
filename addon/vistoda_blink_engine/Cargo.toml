@@ -1,6 +1,6 @@
 [package]
 name = "vistoda-blink-engine"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Luigi Barretta"]
@@ -27,6 +27,7 @@ thiserror = "2"
 time = { version = "0.3", features = ["formatting", "parsing"] }
 tokio = { version = "1.47", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-rustls = "0.26"
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 tower-http = { version = "0.6", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
@@ -37,7 +38,6 @@ zeroize = { version = "1.8", features = ["derive", "serde"] }
 [dev-dependencies]
 http-body-util = "0.1"
 tempfile = "3.20"
-tokio-tungstenite = "0.28"
 tower = { version = "0.5", features = ["util"] }
 
 [profile.release]

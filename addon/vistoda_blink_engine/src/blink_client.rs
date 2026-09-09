@@ -41,6 +41,7 @@ pub(crate) struct Inner {
     pub aliases: AliasStore,
     pub session: Mutex<Option<Session>>,
     pub settings_lock: Mutex<()>,
+    pub storage_lock: Mutex<()>,
     pub state: RwLock<ProviderState>,
 }
 
@@ -62,6 +63,7 @@ impl BlinkClient {
                 aliases,
                 session: Mutex::new(None),
                 settings_lock: Mutex::new(()),
+                storage_lock: Mutex::new(()),
                 state: RwLock::new(ProviderState::default()),
             }),
         })

@@ -148,6 +148,31 @@ impl BlinkClient {
         warn!("Blink command polling timed out after provider acceptance");
         Ok(())
     }
+
+    pub(crate) async fn wait_current_command(
+        &self,
+        context: &RequestContext,
+        network: &str,
+        value: &Value,
+    ) -> Result<Value, BlinkError> {
+        let id = value
+            .get("id")
+            .and_then(Value::as_u64)
+            .ok_or(BlinkError::InvalidResponse)?;
+        for _ in 0..45 {
+            let status = self
+                .get_json(
+                    context,
+                    &blink_api::current_command(&context.account_id, network, id),
+                )
+                .await?;
+            if status.get("complete").and_then(Value::as_bool) == Some(true) {
+                return Ok(status);
+            }
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+        Err(BlinkError::CommandTimeout)
+    }
 }
 
 fn live_command_is_active(status: &Value, command_id: u64) -> bool {

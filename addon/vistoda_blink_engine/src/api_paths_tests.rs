@@ -1,6 +1,11 @@
 use super::{
     CameraAction, camera_action, camera_legacy_zones, camera_zones, live_command, temperature_alert,
 };
+
+#[test]
+fn uses_the_current_homescreen_contract() {
+    assert_eq!(super::homescreen("9"), "/api/v4/accounts/9/homescreen");
+}
 use crate::blink_model::CameraState;
 
 fn camera(kind: &str) -> CameraState {
@@ -24,6 +29,46 @@ fn camera(kind: &str) -> CameraState {
         motion_detected: false,
         thumbnail_url: None,
         powered: false,
+        ring_device_id: None,
+        two_way_audio: None,
+        audio_aec: None,
+        audio_privacy_enabled: None,
+    }
+}
+
+#[test]
+fn builds_current_read_only_local_storage_paths() {
+    assert_eq!(
+        super::local_storage_status("1", "2", "3"),
+        "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/status"
+    );
+    assert_eq!(
+        super::local_storage_manifest_request("1", "2", "3"),
+        "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/manifest/request"
+    );
+    assert_eq!(
+        super::local_storage_media("1", "2", "3", 4),
+        "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/media/4"
+    );
+    assert_eq!(
+        super::local_storage_clip_request("1", "2", "3", 4, 5),
+        "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/manifest/4/clip/request/5"
+    );
+}
+
+#[test]
+fn provider_storage_contract_contains_no_destructive_endpoint() {
+    let source = concat!(
+        include_str!("blink_api.rs"),
+        include_str!("blink_storage.rs")
+    );
+    for fragments in [
+        ["/del", "ete"],
+        ["/ej", "ect"],
+        ["/for", "mat"],
+        ["/mo", "unt"],
+    ] {
+        assert!(!source.contains(&fragments.concat()));
     }
 }
 

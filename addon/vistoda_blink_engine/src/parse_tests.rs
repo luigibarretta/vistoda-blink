@@ -6,7 +6,11 @@ use crate::blink_model::{cameras, media, networks};
 
 #[test]
 fn parses_official_surface_without_vendor_types() {
-    let home = json!({"networks":[{"id":7,"name":"Casa"}],"owls":[{"id":2,"network_id":7,"name":"Kitchen","type":"owl","enabled":true,"signals":{"battery":3,"temp":72}}]});
+    let home = json!({"networks":[{"id":7,"name":"Casa"}],
+        "sync_modules":[{"id":77,"network_id":7}],
+        "owls":[{"id":2,"network_id":7,"name":"Kitchen","type":"owl","enabled":true,
+        "ring_device_id":22,"two_way_audio":true,"audio_aec":true,
+        "signals":{"battery":3,"temp":72}}]});
     let usage = json!({"networks":[{"network_id":7,"cameras":[{"id":1,"name":"Kitchen"}]}]});
     let clips = media(
         &json!({"media":[{"id":9,"device_name":"Kitchen","created_at":"2026-01-01T00:00:00Z","media":"/clip.mp4"}]}),
@@ -21,11 +25,20 @@ fn parses_official_surface_without_vendor_types() {
         &clips,
     );
     let catalog = json!({"summary":{"7":{"id":7,"name":"Casa","onboarded":true}}});
-    assert_eq!(networks(&catalog, &home, &HashMap::new())[0].id, "7");
+    let networks = networks(&catalog, &home, &HashMap::new());
+    assert_eq!(networks[0].id, "7");
+    assert_eq!(networks[0].sync_module_id.as_deref(), Some("77"));
     assert_eq!(cameras.len(), 2);
     assert_eq!(cameras[0].alias, "kitchen");
     assert_eq!(cameras[1].alias, "kitchen_2");
     assert!(cameras[1].powered);
+    assert_eq!(cameras[1].ring_device_id, Some(22));
+    assert_eq!(cameras[1].two_way_audio, Some(true));
+    assert!(
+        !serde_json::to_string(&cameras[1])
+            .unwrap_or_default()
+            .contains("ring_device_id")
+    );
 }
 
 #[test]

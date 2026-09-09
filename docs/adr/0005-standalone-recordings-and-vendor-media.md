@@ -11,9 +11,9 @@ expected a recording of the live view. Blink Sync Modules may also contain USB
 media, but that is a different vendor-owned archive.
 
 Android 59.1 proves endpoints for manifest requests, local-storage media,
-clip deletion, mount/eject and format. It does not by itself prove the enrolled
-module's asynchronous command payloads, media pagination or safe recovery after
-an interrupted destructive operation.
+clip deletion, mount/eject and format. The read-only status, manifest request,
+command polling, media index and clip request form a separable contract; no
+destructive operation is needed to enumerate or download media.
 
 ## Decision
 
@@ -28,9 +28,11 @@ signed media download and the ordinary user-readable inventory. The Vistoda
 control plane may copy ready media to a separately mounted, checksum-verified
 NFS archive. Deleting local media never deletes its NFS copy.
 
-The Sync Module USB archive remains hidden until a live read-only manifest
-canary proves the exact response and polling contract. Eject, mount, format and
-vendor deletion require separate typed confirmations and rollback evidence.
+The Sync Module USB archive exposes only a bounded status, manifest inventory
+and authenticated clip download. The engine serializes these requests, caps the
+inventory at 1,000 entries and a downloaded clip at 128 MiB. Home Assistant
+shows at most 250 clips and signs each download path for five minutes. Eject,
+mount, format and vendor deletion are absent from both engine and UI contracts.
 
 ## Consequences
 
@@ -38,5 +40,6 @@ vendor deletion require separate typed confirmations and rollback evidence.
 - The archive works independently of a Blink subscription or Sync Module USB.
 - Fixed duration is explicit; arbitrary stop is deferred because battery camera
   session lifetime and interrupted-browser ownership need a durable cancel API.
-- Vistoda does not claim to replace the official app for USB administration or
-  two-way talk until those protocols are independently verified.
+- Vistoda can replace the official app for read-only USB browsing after its
+  live canary passes; destructive USB administration remains official-app-only.
+- Two-way talk remains gated until signaling and media are independently verified.
