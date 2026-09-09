@@ -95,4 +95,6 @@ at the commit in `dependencies/vistoda-provider-kit.sha` and verified byte-for-b
 
 Architectural decisions are indexed in [`docs/adr/`](docs/adr/README.md).
 The versioned parity matrix is in [`docs/PARITY.md`](docs/PARITY.md).
+The official-app replacement feasibility review is in
+[`docs/CAMERA_SETTINGS_AUDIT.md`](docs/CAMERA_SETTINGS_AUDIT.md).
 Licensed under the MIT License.
