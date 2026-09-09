@@ -98,6 +98,14 @@ out of Home Assistant and the browser. The Vistoda UI now also renders boolean
 values explicitly as current states and presents video quality as the three
 described Blink choices instead of ambiguous action buttons or a bare select.
 
+## Implemented in 0.5.3
+
+The capability audit now includes an explicit whitelist of non-secret feature
+values needed for model-aware controls, plus a separate value-redacted schema
+for the provider's v2 activity/privacy-zone response. Arrays are represented by
+their first-item type and nested field shape; zone masks themselves are not
+returned by this diagnostic endpoint.
+
 ## Uninstall criterion
 
 The official Blink app can be considered optional only after the user's actual

@@ -6,8 +6,11 @@ use axum::{
 };
 
 use crate::{
-    blink_capabilities::CameraCapabilities, blink_settings::CameraSettings,
-    blink_settings_write::CameraSettingUpdate, error::EngineError, hub::EngineState,
+    blink_capabilities::{CameraCapabilities, ZoneCapabilities},
+    blink_settings::CameraSettings,
+    blink_settings_write::CameraSettingUpdate,
+    error::EngineError,
+    hub::EngineState,
 };
 
 pub fn routes() -> Router<EngineState> {
@@ -17,6 +20,10 @@ pub fn routes() -> Router<EngineState> {
             get(get_settings).post(update_setting),
         )
         .route("/v1/cameras/{alias}/capabilities", get(get_capabilities))
+        .route(
+            "/v1/cameras/{alias}/zone-capabilities",
+            get(get_zone_capabilities),
+        )
 }
 
 async fn get_capabilities(
@@ -27,6 +34,16 @@ async fn get_capabilities(
     super::api::authorize(&state, &headers)?;
     super::api::validate_alias(&alias)?;
     Ok(Json(state.client().camera_capabilities(&alias).await?))
+}
+
+async fn get_zone_capabilities(
+    State(state): State<EngineState>,
+    headers: HeaderMap,
+    Path(alias): Path<String>,
+) -> Result<Json<ZoneCapabilities>, EngineError> {
+    super::api::authorize(&state, &headers)?;
+    super::api::validate_alias(&alias)?;
+    Ok(Json(state.client().zone_capabilities(&alias).await?))
 }
 
 async fn get_settings(

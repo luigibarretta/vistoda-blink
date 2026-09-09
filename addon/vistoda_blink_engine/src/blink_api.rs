@@ -74,6 +74,18 @@ pub fn camera_update(camera: &CameraState, account: &str) -> String {
     }
 }
 
+pub fn camera_zones(camera: &CameraState, account: &str) -> String {
+    let device = if camera.camera_type == "mini" {
+        "owls"
+    } else {
+        "cameras"
+    };
+    format!(
+        "/api/v2/accounts/{account}/networks/{}/{device}/{}/zones",
+        camera.network_id, camera.id
+    )
+}
+
 pub fn camera_action(camera: &CameraState, account: &str, action: &CameraAction) -> RequestSpec {
     let (name, body) = match action {
         CameraAction::Motion(enabled) => (
@@ -147,7 +159,7 @@ const fn default_poll_seconds() -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{CameraAction, camera_action, live_command};
+    use super::{CameraAction, camera_action, camera_zones, live_command};
     use crate::blink_model::CameraState;
 
     fn camera(kind: &str) -> CameraState {
@@ -199,6 +211,14 @@ mod tests {
         assert_eq!(
             live_command("9", "1", 7),
             "/accounts/9/networks/1/commands/7"
+        );
+        assert_eq!(
+            camera_zones(&camera("default"), "9"),
+            "/api/v2/accounts/9/networks/1/cameras/2/zones"
+        );
+        assert_eq!(
+            camera_zones(&camera("mini"), "9"),
+            "/api/v2/accounts/9/networks/1/owls/2/zones"
         );
     }
 }
