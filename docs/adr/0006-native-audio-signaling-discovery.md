@@ -22,6 +22,8 @@ timeouts and reliable teardown/recovery behavior.
 The engine discovers and retains the private Ring device ID only in memory; it
 is excluded from serialized camera state. The public state may expose only the
 non-secret audio capability flags returned by the v4 homescreen.
+The binary installs rustls's Ring process-level crypto provider before either
+the REST or WebSocket TLS client is constructed.
 
 An authenticated diagnostic endpoint constructs the native 4.1 signaling
 handshake and connects to the fixed production host. It reports only whether

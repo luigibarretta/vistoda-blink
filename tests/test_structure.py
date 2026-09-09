@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 COMPONENT = ROOT / "custom_components/blink_live_bridge"
+ENGINE = ROOT / "addon/vistoda_blink_engine"
 
 
 def test_component_layout_and_identity() -> None:
@@ -12,9 +13,15 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.9.1"
+    assert manifest["version"] == "0.9.2"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
+
+
+def test_engine_installs_one_process_level_tls_provider() -> None:
+    """Native signaling must not panic when reqwest and WebSocket TLS coexist."""
+    source = (ENGINE / "src" / "main.rs").read_text()
+    assert "ring::default_provider().install_default()" in source
 
 
 def test_adapter_reuses_the_provider_bootstrap_state_on_first_refresh() -> None:
