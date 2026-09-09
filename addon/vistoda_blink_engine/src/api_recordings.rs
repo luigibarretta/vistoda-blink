@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use axum::{
     Json, Router,
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -13,7 +13,7 @@ use serde::Deserialize;
 use tokio::io::AsyncReadExt;
 use uuid::Uuid;
 
-use crate::{api::authorize, error::EngineError, hub::EngineState};
+use crate::{api::authorize, error::EngineError, hub::EngineState, pagination};
 
 pub fn routes() -> Router<EngineState> {
     Router::new()
@@ -34,6 +34,14 @@ pub fn routes() -> Router<EngineState> {
 struct RecordingRequest {
     duration_seconds: u64,
     request_id: String,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RecordingPage {
+    page: Option<usize>,
+    page_size: Option<usize>,
+    camera: Option<String>,
 }
 
 async fn create_recording(
@@ -59,10 +67,20 @@ async fn create_recording(
 async fn list_recordings(
     State(state): State<EngineState>,
     headers: HeaderMap,
+    Query(query): Query<RecordingPage>,
 ) -> Result<Json<serde_json::Value>, EngineError> {
     authorize(&state, &headers)?;
+    if let Some(camera) = &query.camera {
+        crate::api::validate_alias(camera)?;
+    }
+    let mut recordings = state.recordings().list().await;
+    if let Some(camera) = query.camera {
+        recordings.retain(|item| item.camera == camera);
+    }
+    let (recordings, pagination) = pagination::page(&recordings, query.page, query.page_size)?;
     Ok(Json(serde_json::json!({
-        "recordings": state.recordings().list().await
+        "recordings": recordings,
+        "pagination": pagination
     })))
 }
 

@@ -27,7 +27,14 @@ def async_register(hass: HomeAssistant) -> None:
     data["recording_websocket_registered"] = True
 
 
-@websocket_api.websocket_command({vol.Required("type"): "blink_live_bridge/recordings/list"})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "blink_live_bridge/recordings/list",
+        vol.Optional("alias"): ALIAS,
+        vol.Optional("page", default=1): vol.All(int, vol.Range(min=1)),
+        vol.Optional("page_size", default=10): vol.All(int, vol.Range(min=1, max=50)),
+    }
+)
 @websocket_api.async_response
 async def ws_list_recordings(
     hass: HomeAssistant,
@@ -40,7 +47,10 @@ async def ws_list_recordings(
         connection.send_error(msg["id"], "unavailable", "Vistoda Blink is not loaded")
         return
     try:
-        result = await runtime.client.get_json("/v1/recordings")
+        camera = f"&camera={msg['alias']}" if msg.get("alias") else ""
+        result = await runtime.client.get_json(
+            f"/v1/recordings?page={msg['page']}&page_size={msg['page_size']}{camera}"
+        )
     except EngineError:
         connection.send_error(msg["id"], "unavailable", "Blink recordings are unavailable")
         return

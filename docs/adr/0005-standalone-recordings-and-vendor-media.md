@@ -29,10 +29,13 @@ control plane may copy ready media to a separately mounted, checksum-verified
 NFS archive. Deleting local media never deletes its NFS copy.
 
 The Sync Module USB archive exposes only a bounded status, manifest inventory
-and authenticated clip download. The engine serializes these requests, caps the
-inventory at 1,000 entries and a downloaded clip at 128 MiB. Home Assistant
-shows at most 250 clips and signs each download path for five minutes. Eject,
-mount, format and vendor deletion are absent from both engine and UI contracts.
+and authenticated clip stream. The engine serializes these requests, caps the
+inventory at 1,000 entries, returns at most 50 items per page and caps a streamed
+clip at 128 MiB. Home Assistant presents ten-item pages and signs playback and
+download paths. It may stream a provider-owned clip into the same fail-closed
+NFS archive, computing its own SHA-256 before atomic publication. The source is
+never acknowledged or modified. Eject, mount, format and vendor deletion are
+absent from both engine and UI contracts.
 The provider's `enabled` compatibility flag is not used as a readability gate:
 like the native app, Vistoda trusts the exact `active` and `memory_full` states.
 
@@ -42,6 +45,7 @@ like the native app, Vistoda trusts the exact `active` and `memory_full` states.
 - The archive works independently of a Blink subscription or Sync Module USB.
 - Fixed duration is explicit; arbitrary stop is deferred because battery camera
   session lifetime and interrupted-browser ownership need a durable cancel API.
-- Vistoda can replace the official app for read-only USB browsing after its
-  live canary passes; destructive USB administration remains official-app-only.
+- Vistoda can replace the official app for paginated USB browsing, playback,
+  download and NFS copy after live canaries pass; destructive USB administration
+  remains official-app-only.
 - Two-way talk remains gated until signaling and media are independently verified.

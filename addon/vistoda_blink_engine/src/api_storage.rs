@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
     response::Response,
     routing::get,
@@ -12,6 +12,14 @@ use crate::{
     error::EngineError,
     hub::EngineState,
 };
+use serde::Deserialize;
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StoragePage {
+    page: Option<usize>,
+    page_size: Option<usize>,
+}
 
 pub fn routes() -> Router<EngineState> {
     Router::new().route("/v1/local-storage", get(list)).route(
@@ -23,9 +31,13 @@ pub fn routes() -> Router<EngineState> {
 async fn list(
     State(state): State<EngineState>,
     headers: HeaderMap,
+    Query(query): Query<StoragePage>,
 ) -> Result<Json<serde_json::Value>, EngineError> {
     authorize(&state, &headers)?;
-    let storages: Vec<LocalStorageInventory> = state.client().local_storage_inventories().await?;
+    let storages: Vec<LocalStorageInventory> = state
+        .client()
+        .local_storage_inventories(query.page, query.page_size)
+        .await?;
     Ok(Json(serde_json::json!({"storages": storages})))
 }
 

@@ -38,6 +38,8 @@ pub enum EngineError {
     SettingsVerification,
     #[error("recording request is invalid")]
     RecordingInvalid,
+    #[error("page or page size is invalid")]
+    InvalidPage,
     #[error("a recording is already active for this camera")]
     RecordingActive,
     #[error("recording quota does not have safe headroom")]
@@ -72,7 +74,7 @@ impl IntoResponse for EngineError {
             Self::Transport(_) | Self::Cloud | Self::SettingsVerification | Self::RecordingIo => {
                 StatusCode::BAD_GATEWAY
             }
-            Self::RecordingInvalid => StatusCode::BAD_REQUEST,
+            Self::RecordingInvalid | Self::InvalidPage => StatusCode::BAD_REQUEST,
         };
         (
             status,

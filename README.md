@@ -34,7 +34,7 @@ private API and Vistoda discovery contract during the product rename.
 - H.264/AAC MPEG-TS for Home Assistant and SceneTrove;
 - cached Blink JPEG snapshots;
 - fixed-duration local live recordings with immutable SHA-256 manifests;
-- read-only Sync Module USB inventory and authenticated clip download;
+- server-paginated, read-only Sync Module USB inventory and authenticated clip playback/download;
 - native HA camera entities attached to the Vistoda Blink provider device;
 - redacted, model-aware camera settings with optimistic concurrency,
   read-back verification and rollback attempts;
@@ -62,11 +62,11 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `GET /v1/cameras/{alias}/zone-capabilities` | value-redacted activity/privacy zone schema |
 | `GET /v1/cameras/{alias}/zones` | normalized 20×15 activity/privacy zone state |
 | `POST /v1/cameras/{alias}/zones` | atomic zone update with revision, verification and rollback |
-| `GET /v1/recordings` | standalone recording inventory |
+| `GET /v1/recordings?page=&page_size=&camera=` | server-paginated standalone recording inventory |
 | `POST /v1/cameras/{alias}/recordings` | bounded live capture; requires request ID |
 | `GET /v1/recordings/{id}/media` | immutable local MPEG-TS media |
 | `DELETE /v1/recordings/{id}` | remove a completed local recording |
-| `GET /v1/local-storage` | bounded read-only Sync Module USB inventory |
+| `GET /v1/local-storage?page=&page_size=` | server-paginated read-only Sync Module USB inventory |
 | `GET /v1/local-storage/{network}/{sync}/{manifest}/{clip}/media` | one USB clip, without provider mutation |
 | `POST /v1/cameras/{alias}/audio/probe` | authenticate native signaling without starting media |
 
