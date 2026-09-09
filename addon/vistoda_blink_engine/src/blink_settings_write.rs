@@ -213,6 +213,7 @@ fn vendor_key(camera: &CameraState, key: &str) -> Option<&'static str> {
         "photo_capture" => "snapshot_enabled",
         "auto_thumbnail" => "auto_update_thumbnail_enabled",
         "status_led" => "led_state",
+        "speaker_volume" if camera.camera_type == "mini" => "volume_control",
         "camera_name" => "name",
         "temperature_alerts" => "temp_alarm_enable",
         _ => return None,

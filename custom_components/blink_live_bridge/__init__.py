@@ -23,6 +23,7 @@ from .migration import async_import_official_credentials
 from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
 from .services import async_setup_services
 from .websocket import async_register as async_register_websocket
+from .zones_websocket import async_register as async_register_zones_websocket
 
 CONFIG_SCHEMA = vol.Schema(
     {vol.Optional(DOMAIN): vol.Schema({vol.Required(CONF_TOKEN): vol.Match(r"^[0-9a-f]{64}$")})},
@@ -34,6 +35,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Store only the local workload token."""
     async_setup_services(hass)
     async_register_websocket(hass)
+    async_register_zones_websocket(hass)
     data = hass.data.setdefault(DOMAIN, {})
     if DOMAIN in config:
         data[CONF_TOKEN] = config[DOMAIN][CONF_TOKEN]

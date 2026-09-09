@@ -25,6 +25,12 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Device metadata | serial/model/version | equivalent | HA 2026.8+ parent-ID contract test |
 | Live video | absent | bounded MPEG-TS | parser/fan-out + powered-camera canary |
 | Private consumers | absent | HA + SceneTrove API | auth and stream contract tests |
+| Camera settings | official app only | typed model-aware state and writes | unit + reversible live canary |
+| Speaker volume | official app | Mini/Owl integer 1–8 | Android 59.1 contract + reversible canary |
+| Activity zones | official app | native v1 20×15 grid | model tests + reversible live canary |
+| Privacy zones | official app | native v1 spans, maximum two | model tests + reversible live canary |
+| Blink talk | official app | blocked | IMMIS uplink framing/ACK not proven |
+| Device removal | official app | deliberately deferred | reauth and recovery contract required |
 
 Parity means behavioral coverage, not identical internal implementation. The
 legacy `blink_live_bridge` domain and existing live camera unique IDs remain

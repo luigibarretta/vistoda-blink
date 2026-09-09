@@ -36,6 +36,8 @@ private API and Vistoda discovery contract during the product rename.
 - native HA camera entities attached to the Vistoda Blink provider device;
 - redacted, model-aware camera settings with optimistic concurrency,
   read-back verification and rollback attempts;
+- native v1 activity/privacy-zone editing on verified camera generations;
+- native v1 activity/privacy-zone editing on verified camera generations;
 - stable device-ID aliases across provider-side camera renames;
 - 75-second battery-camera and 600-second powered-camera session limits;
 - bounded subscriber queues and a 4 MiB packet ceiling;
@@ -57,6 +59,10 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `POST /v1/cameras/{alias}/settings` | one validated setting with read-back |
 | `GET /v1/cameras/{alias}/capabilities` | bounded field schema and safe feature probes |
 | `GET /v1/cameras/{alias}/zone-capabilities` | value-redacted activity/privacy zone schema |
+| `GET /v1/cameras/{alias}/zones` | normalized 20×15 activity/privacy zone state |
+| `POST /v1/cameras/{alias}/zones` | atomic zone update with revision, verification and rollback |
+| `GET /v1/cameras/{alias}/zones` | normalized 20×15 activity/privacy zone state |
+| `POST /v1/cameras/{alias}/zones` | atomic zone update with revision, verification and rollback |
 
 Core loopback is trusted so HA camera state never contains credentials. Other
 clients must send a dedicated high-entropy token. Keep the endpoint private;

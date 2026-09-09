@@ -36,8 +36,8 @@ pub fn fields(result: &mut Vec<SettingField>, source: &Value, camera: &CameraSta
             source,
             "speaker_volume",
             "volume_control",
-            (0, 10, 1),
-            false,
+            (1, 8, 1),
+            mutable,
         );
     }
     add_integer(

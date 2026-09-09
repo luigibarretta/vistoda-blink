@@ -4,147 +4,117 @@ Audit date: 2026-09-09
 
 ## Outcome
 
-Vistoda Blink can replace the official app for routine viewing and control, but
-cannot yet replace it for full camera administration. The safe route is an
-incremental, model-aware settings API with read-back verification. Blindly
-forwarding undocumented JSON would risk silently applying a setting to the
-wrong field or device generation.
+Vistoda Blink now replaces the official app for routine viewing and the verified
+camera-administration surface used by this installation. It still cannot claim
+complete replacement because Blink two-way audio, destructive device removal
+and Owl/Mini v2 zones do not have a proven recoverable contract.
 
-The reference is Home Assistant Core 2026.9.1 with `blinkpy` 0.25.9, plus the
-official Blink screens supplied for this audit. No production setting was
-changed while gathering evidence.
+The references are Home Assistant Core 2026.9.1 with `blinkpy` 0.25.9, the
+supplied official screens, and Blink Android 59.1 build 29797423. The audited
+base APK SHA-256 is
+`77e6fefb8dbbd68f1e964e0822de14d4a5408e9fe5f648eb7d5cce19238e12d7`.
+Production mutations are limited to reversible canaries which immediately
+restore the original provider value.
 
 ## Current coverage
 
-Vistoda already owns OAuth2/2FA, discovery, arm/disarm, motion enable/disable,
-motion state, record clip, fresh or cached snapshot, saved recent clips and
-bounded live MPEG-TS. Its camera state includes name, serial, firmware, product
-type, battery, temperature, Wi-Fi strength and online/power information.
+Vistoda owns OAuth2/2FA, discovery, arm/disarm, motion control and state, record
+clip, fresh or cached snapshots, saved recent clips and bounded live MPEG-TS.
+Camera state includes name, serial, firmware, product type, battery, temperature,
+Wi-Fi strength and online/power information.
 
-The official Home Assistant integration exposes a similar administrative
-subset: arm/disarm, motion control, snapshot/record/save commands, cached camera
-images, temperature, Wi-Fi and battery state. It explicitly does not provide
-live viewing. It does not expose the advanced settings below as HA entities or
-services.
+The official Home Assistant integration exposes a smaller administrative subset
+and no live viewing. Its advanced settings remain official-app-only; Vistoda's
+advanced surface is implemented by the standalone Rust provider.
 
 ## Feasibility by official-app surface
 
-| Official setting | Status for Vistoda | Required work and safety gate |
+| Official setting | Vistoda status | Safety contract |
 | --- | --- | --- |
-| Motion detection | Available | Surface the existing switch in the Vistoda camera detail view. |
-| Battery, firmware, temperature | Available read-only | Render existing provider state; add temperature-alert thresholds separately. |
-| Network and Sync Module strength | Mostly available | Expose current Wi-Fi and parsed Sync Module diagnostics with units and stale-state handling. |
-| Record clip and refresh thumbnail | Available | Reuse the existing bounded commands and show completion/read-back. |
-| Camera name | Read available; rename not implemented | Add a model-aware rename command, collision checks and read-back before exposing edit. |
-| Night vision | Limited upstream precedent | `blinkpy` implements config read/update only for its `owl` and `catalina` product paths. Prove each enrolled model before enabling. |
-| Clip length and video quality | Research required | Discover allowed values per product; validate range/enum and re-read after mutation. |
-| End clip early | Research required | Map the exact per-model config key and retain the previous value for rollback. |
-| Motion sensitivity and retrigger time | Research required | Map ranges and units per generation; debounce sliders and verify the committed value. |
-| Early notification | Research required | Confirm whether this is camera, network or account scoped and whether subscription state changes behavior. |
-| IR intensity | Research required | Couple to night-vision capability and reject unsupported product types. |
-| Video recording and audio streaming | Privacy-sensitive research | Require explicit confirmation, model capability discovery and immediate read-back. |
-| Photo Capture and Auto-Update Thumbnail | Research required | Confirm plan, armed-state and product restrictions; never imply success from HTTP status alone. |
-| Status LED | Research required | Identify supported modes per model and expose only returned enum values. |
-| Activity zones | High complexity | Define the device grid/coordinate schema, snapshot revision and atomic update/reset behavior. |
-| Privacy zones | High privacy risk | Same editor requirements as activity zones, plus fail-closed masking verification. |
-| Speaker volume | Not supported by current provider | Requires an authenticated audio-settings endpoint and verified scale per model. |
-| Two-way Blink audio | Not supported | Requires a new talk-media path, microphone consent and session lifecycle; live video alone is insufficient. |
-| Temperature alerts | Not supported | Determine whether thresholds are device or notification-account state and validate units. |
-| Delete device | Deliberately deferred | Destructive account-topology action needs reauthentication, typed confirmation and recovery guidance. |
+| Motion detection | Available | Current value, HA switch and typed setting. |
+| Battery, firmware, temperature | Available read-only | Current provider state. |
+| Network and Sync Module strength | Available where returned | Units and unavailable state retained. |
+| Record clip and refresh thumbnail | Available | Bounded commands with completion/read-back. |
+| Camera name | Available | Stable ID alias survives verified provider rename. |
+| Night vision and IR intensity | Available | Returned values; exact IR levels 1/4/7. |
+| Clip length and video quality | Available | Per-model range and provider enum validation. |
+| End clip early | Available where returned | Read-back and prior-value restoration. |
+| Motion sensitivity and retrigger time | Available | Exact Owl/default keys, ranges and units. |
+| Early notification | Available | Actual per-camera state; no assumed default. |
+| Video recording and audio streaming | Available | Admin-only, confirmation and read-back. |
+| Photo Capture and Auto-Update Thumbnail | Capability-gated | Shown only when returned by the camera. |
+| Status LED | Available | Only model-valid returned modes. |
+| Activity zones | Available on verified v1 cameras | Native grid, revision check and rollback. |
+| Privacy zones | Available on compatible v1 cameras | Native spans, maximum two, fail-closed validation. |
+| Speaker volume | Available on Mini/Owl | Android 59.1 proves integers 1–8 and `volume_control`. |
+| Temperature alerts | Enable/disable available | Thresholds stay read-only until exact rules are proven. |
+| Two-way Blink audio | Blocked | IMMIS uplink framing and acknowledgement are unproven. |
+| Delete device | Deliberately deferred | Requires reauthentication, typed confirmation and recovery. |
 
-## Delivery plan
+## Delivery result
 
-1. Add a Vistoda camera-detail view using the already trusted state and actions:
-   motion, battery, firmware, temperature, Wi-Fi, snapshot, record and live.
-2. Introduce a read-only, redacted capability/config endpoint in the Rust
-   provider. Persist no raw vendor response and log no account or device secret.
-3. Capture fixtures for every enrolled product type and define typed enums,
-   ranges and feature flags. Unknown fields remain hidden.
-4. Implement one setting family at a time with an optimistic-concurrency token,
-   write/read-back comparison, bounded retry and restoration of the prior value
-   when verification fails.
-5. Build zone editing only after its coordinate and revision contracts are
-   proven. Test privacy masking visually on every supported generation.
-6. Keep rename, notification administration, audio/talk and device removal in
-   the official app until their provider contracts and recovery paths pass live
-   canaries.
+1. Camera detail, trusted actions and current-state rendering: complete.
+2. Redacted capability discovery and typed settings: complete.
+3. Model-aware enums, ranges, feature flags and unknown-field hiding: complete.
+4. Revision tokens, bounded verification and automatic rollback: complete.
+5. Native v1 activity/privacy editor: complete in 0.7.0; Owl v2 remains gated.
+6. Blink talk and device removal: intentionally blocked pending exact protocol,
+   reauthentication and recovery evidence.
 
-## Implemented in 0.5.1
+## Version history
 
-The first safe tranche now provides a camera-detail view and a Rust-owned,
-redacted settings endpoint. It recognizes motion detection and sensitivity,
-retrigger time, early notification, recording and audio enablement, clip length,
-video quality, early clip termination and night vision when the enrolled model
-actually returns those fields. IR intensity and temperature-alert values may be
-shown read-only while their exact write ranges remain unproven.
+### 0.5.1
 
-Writes are administrator-only at the Home Assistant boundary. Each request
-changes one allowlisted key, includes a revision of the last read, validates its
-type/range/enum, rereads the provider value and attempts to restore the previous
-value if verification fails. Raw provider configuration, credentials and
-unknown fields are never returned to the browser or persisted.
+Added the camera-detail view and a Rust-owned redacted settings endpoint for the
+first typed motion, recording, clip, video-quality, notification and night-vision
+fields. Writes became administrator-only and gained optimistic concurrency,
+validation, read-back and rollback attempts.
 
-Activity/privacy zones, camera rename, status LED, Photo Capture, automatic
-thumbnail updates, speaker volume, Blink talk audio and device removal remain
-gated. They must not be presented as available until per-model contracts and
-recovery canaries exist.
+### 0.5.2–0.5.4
 
-## Implemented in 0.5.2
+Added value-redacted capability and zone schemas, explicit current-state UI,
+the three described Blink video-quality choices, and the bounded Android REST
+identity/locale/time-zone header contract required by newer endpoints.
 
-An administrator-only capability inventory now reports bounded provider field
-names and JSON types without returning field values. This makes live model
-audits reproducible while keeping account, network, device and credential data
-out of Home Assistant and the browser. The Vistoda UI now also renders boolean
-values explicitly as current states and presents video quality as the three
-described Blink choices instead of ambiguous action buttons or a bare select.
+### 0.6.0
 
-## Implemented in 0.5.3
+Added camera rename, LED mode, IR intensity, compatible rotation, Photo Capture,
+observed Mini speaker volume and the separate temperature-alert action. Fixed
+Owl clip/retrigger keys and integral JSON floats. Persisted aliases by device ID
+so rename cannot break entities or media routes. Zone discovery now follows the
+returned `zone_version` and fails closed to redacted config schema discovery.
 
-The capability audit now includes an explicit whitelist of non-secret feature
-values needed for model-aware controls, plus a separate value-redacted schema
-for the provider's v2 activity/privacy-zone response. Arrays are represented by
-their first-item type and nested field shape; zone masks themselves are not
-returned by this diagnostic endpoint.
+### 0.7.0
 
-## Implemented in 0.5.4
+The Android client proves speaker volume as integers 1–8 and the Owl writer key
+as `volume_control`; the control now uses the same verification and rollback as
+other settings.
 
-Provider REST requests now carry the same bounded identity, locale, JSON and
-time-zone headers used by the current Blink Android client. This is required by
-newer v2 capability routes such as the activity/privacy-zone schema and is
-covered without logging authentication data or provider response values.
-
-## Implemented in 0.6.0
-
-The model-aware settings contract now covers camera rename, status LED, IR
-intensity, compatible image rotation and Photo Capture, read-only Mini speaker volume,
-and the separate temperature-alert action. Mini clip length and retrigger time
-use their actual Owl field names, and integral JSON numbers such as `5.0` are
-normalised without losing the provider value. Camera aliases are persisted by
-device ID so a rename cannot break HA entities or private media routes.
-
-Zone discovery follows the camera's returned `zone_version` and falls back to
-the redacted activity-zone fields already present in camera configuration when
-Blink rejects its newer endpoint. This reports capability honestly without
-inventing or exposing a privacy mask.
+Verified default/Catalina v1 cameras gain a native activity/privacy editor. The
+grid is five by five basic cells, each with three rows by four columns: 20×15
+micro-cells. Privacy spans are integer `x`, `y`, `w`, `h`, maximum two. Writes
+preserve unrelated bits, clear activity beneath privacy spans, reject an entirely
+disabled grid, compare the complete provider-response revision, reread the result
+and restore the prior body if verification fails. Owl/Mini v2 stays hidden because
+the enrolled Mini rejects that route; Vistoda does not guess a translation.
 
 ## Uninstall criterion
 
-The official Blink app can be considered optional only after the user's actual
-camera models pass live read/write/read-back tests for every setting they use,
-and after privacy zones, notification behavior, account/device lifecycle and
-two-way audio are either supported or explicitly accepted as unavailable.
-Today, Vistoda is a strong daily-use replacement, not a complete administrative
-replacement.
+The official Blink app is optional only when every setting the user needs passes
+live read/write/read-back tests on the enrolled model and the explicitly blocked
+surfaces are acceptable. Today Vistoda is a daily-use and verified-settings
+replacement. Keep the official app for Blink talk, device removal, unsupported
+v2 zones and future fields not returned by an enrolled camera.
 
 ## Primary references
 
 - Home Assistant Blink documentation:
   <https://www.home-assistant.io/integrations/blink/>
-- HA Core 2026.9.1 Blink manifest and pinned library:
+- HA Core 2026.9.1 Blink manifest:
   <https://github.com/home-assistant/core/blob/2026.9.1/homeassistant/components/blink/manifest.json>
 - HA Core 2026.9.1 Blink camera implementation:
   <https://github.com/home-assistant/core/blob/2026.9.1/homeassistant/components/blink/camera.py>
-- `blinkpy` 0.25.9 camera config behavior:
+- `blinkpy` 0.25.9 camera behavior:
   <https://github.com/fronzbot/blinkpy/blob/v0.25.9/blinkpy/camera.py>
-- `blinkpy` 0.25.9 request paths and update constraints:
-  <https://github.com/fronzbot/blinkpy/blob/v0.25.9/blinkpy/api.py>
+- Legacy Blink API notes for the 25-cell mask:
+  <https://github.com/adrian-dobre/BlinkWebService/blob/master/BlinkForHomeApiDocumentation.md>

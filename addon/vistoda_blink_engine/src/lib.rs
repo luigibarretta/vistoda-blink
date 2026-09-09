@@ -1,6 +1,7 @@
 mod alias_store;
 pub mod api;
 mod api_settings;
+mod api_zones;
 pub mod auth;
 pub mod blink_api;
 mod blink_capabilities;
@@ -17,6 +18,8 @@ mod blink_setting_fields;
 mod blink_setting_helpers;
 pub mod blink_settings;
 mod blink_settings_write;
+mod blink_zone_model;
+mod blink_zones;
 pub mod config;
 pub mod credentials;
 mod engine_metrics;

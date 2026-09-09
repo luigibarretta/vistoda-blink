@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.6.0"
+    assert manifest["version"] == "0.7.0"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -86,6 +86,20 @@ def test_camera_settings_boundary_is_redacted_and_admin_only() -> None:
     assert "blink_live_bridge/camera/capabilities" in source
     assert "connection.user.is_admin" in source
     assert '("key", "value", "revision")' in source
+    assert "api_token" not in source
+    assert "Authorization" not in source
+
+
+def test_zone_boundary_is_typed_bounded_and_admin_only() -> None:
+    """Zone writes accept only the native v1 shape and never browser credentials."""
+    source = (COMPONENT / "zones_websocket.py").read_text()
+    setup = (COMPONENT / "__init__.py").read_text()
+    assert "blink_live_bridge/camera/zones" in source
+    assert "blink_live_bridge/camera/zones/update" in source
+    assert "vol.Length(min=25, max=25)" in source
+    assert "vol.Length(max=2)" in source
+    assert "connection.user.is_admin" in source
+    assert "async_register_zones_websocket(hass)" in setup
     assert "api_token" not in source
     assert "Authorization" not in source
 

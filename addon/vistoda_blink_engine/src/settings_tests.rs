@@ -111,6 +111,13 @@ fn exposes_only_model_compatible_advanced_controls() {
     assert!(keys.contains(&"speaker_volume"));
     assert!(!keys.contains(&"photo_capture"));
     assert!(!keys.contains(&"auto_thumbnail"));
+    let speaker = settings
+        .settings
+        .iter()
+        .find(|field| field.key == "speaker_volume");
+    assert!(speaker.is_some_and(|field| {
+        field.writable && field.min == Some(1) && field.max == Some(8) && field.step == Some(1)
+    }));
 }
 
 #[test]

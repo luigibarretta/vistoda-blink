@@ -39,6 +39,8 @@ def test_rust_owns_every_blink_protocol_responsibility() -> None:
         "blink_commands.rs",
         "live.rs",
         "framing.rs",
+        "blink_zones.rs",
+        "blink_zone_model.rs",
     } <= modules
     api = (RUST / "api.rs").read_text()
     assert "/v1/enrollment/start" in api
