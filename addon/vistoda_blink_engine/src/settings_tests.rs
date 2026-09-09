@@ -61,7 +61,9 @@ fn parses_only_allowlisted_settings_and_builds_a_stable_revision() {
         .settings
         .iter()
         .find(|item| item.key == "ir_intensity");
-    assert!(intensity.is_some_and(|item| !item.writable));
+    assert!(intensity.is_some_and(|item| {
+        item.writable && item.value == json!("medium") && item.kind == SettingKind::Select
+    }));
     let early = first
         .settings
         .iter()
@@ -75,6 +77,40 @@ fn normalizes_owl_night_vision_without_assuming_other_fields() {
     assert_eq!(settings.settings.len(), 1);
     assert_eq!(settings.settings[0].value, json!("auto"));
     assert!(settings.settings[0].writable);
+}
+
+#[test]
+fn exposes_only_model_compatible_advanced_controls() {
+    let mut mini = camera("mini");
+    mini.product_type = "owl".into();
+    let settings = parse(
+        &mini,
+        &json!({
+            "motion_sensitivity": 5.0,
+            "clip_length": 10,
+            "clip_length_max": 30,
+            "retrigger_time": 10,
+            "flip_video": false,
+            "flip_video_compatible": true,
+            "led_state": "off",
+            "volume_control": 8,
+            "snapshot_enabled": false,
+            "auto_update_thumbnail_enabled": false
+        }),
+    );
+    let keys = settings
+        .settings
+        .iter()
+        .map(|field| field.key.as_str())
+        .collect::<Vec<_>>();
+    assert!(keys.contains(&"motion_sensitivity"));
+    assert!(keys.contains(&"clip_length"));
+    assert!(keys.contains(&"retrigger_time"));
+    assert!(keys.contains(&"flip_video"));
+    assert!(keys.contains(&"status_led"));
+    assert!(keys.contains(&"speaker_volume"));
+    assert!(!keys.contains(&"photo_capture"));
+    assert!(!keys.contains(&"auto_thumbnail"));
 }
 
 #[test]

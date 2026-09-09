@@ -12,6 +12,7 @@ use tokio::sync::{RwLock, broadcast};
 use zeroize::Zeroizing;
 
 use crate::{
+    alias_store::AliasStore,
     blink_client::{BlinkClient, BlinkError},
     credentials::CredentialStore,
     enrollment::EnrollmentManager,
@@ -146,7 +147,11 @@ pub struct EngineState {
 
 impl EngineState {
     pub fn new(token: Zeroizing<String>, credentials_path: PathBuf) -> Result<Self, BlinkError> {
-        let client = BlinkClient::new(CredentialStore::new(credentials_path, &token))?;
+        let aliases_path = credentials_path.with_file_name("camera-aliases.json");
+        let client = BlinkClient::new(
+            CredentialStore::new(credentials_path, &token),
+            AliasStore::new(aliases_path),
+        )?;
         Ok(Self {
             token: Arc::new(token),
             hubs: Arc::new(RwLock::new(HashMap::new())),

@@ -11,6 +11,7 @@ use tokio::sync::{Mutex, RwLock};
 use zeroize::Zeroizing;
 
 use crate::{
+    alias_store::AliasStore,
     blink_api::{self, TierInfo},
     blink_model::ProviderState,
     credentials::{CredentialStore, ProviderCredentials},
@@ -37,6 +38,7 @@ pub(crate) struct RequestContext {
 pub(crate) struct Inner {
     pub http: Client,
     pub store: CredentialStore,
+    pub aliases: AliasStore,
     pub session: Mutex<Option<Session>>,
     pub settings_lock: Mutex<()>,
     pub state: RwLock<ProviderState>,
@@ -48,7 +50,7 @@ pub struct BlinkClient {
 }
 
 impl BlinkClient {
-    pub fn new(store: CredentialStore) -> Result<Self, BlinkError> {
+    pub fn new(store: CredentialStore, aliases: AliasStore) -> Result<Self, BlinkError> {
         let http = Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .default_headers(provider_headers())
@@ -57,6 +59,7 @@ impl BlinkClient {
             inner: Arc::new(Inner {
                 http,
                 store,
+                aliases,
                 session: Mutex::new(None),
                 settings_lock: Mutex::new(()),
                 state: RwLock::new(ProviderState::default()),

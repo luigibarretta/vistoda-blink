@@ -1,16 +1,26 @@
 use serde_json::Value;
 
-use crate::blink_settings::{SettingField, SettingKind};
+use crate::{
+    blink_model::CameraState,
+    blink_setting_advanced,
+    blink_setting_helpers::{add_bool, add_integer, add_select, bool_value, integer_value},
+    blink_settings::SettingField,
+};
 
-pub fn settings_fields(source: &Value, mutable: bool) -> Vec<SettingField> {
+pub fn settings_fields(source: &Value, camera: &CameraState, mutable: bool) -> Vec<SettingField> {
     let mut fields = Vec::new();
-    recording_fields(&mut fields, source, mutable);
-    motion_fields(&mut fields, source, mutable);
-    diagnostic_fields(&mut fields, source);
+    recording_fields(&mut fields, source, camera, mutable);
+    motion_fields(&mut fields, source, camera, mutable);
+    blink_setting_advanced::fields(&mut fields, source, camera, mutable);
     fields
 }
 
-fn recording_fields(fields: &mut Vec<SettingField>, source: &Value, mutable: bool) {
+fn recording_fields(
+    fields: &mut Vec<SettingField>,
+    source: &Value,
+    camera: &CameraState,
+    mutable: bool,
+) {
     add_bool(fields, source, "motion_detection", "enabled", mutable);
     add_bool(
         fields,
@@ -30,8 +40,16 @@ fn recording_fields(fields: &mut Vec<SettingField>, source: &Value, mutable: boo
         fields,
         source,
         "clip_length",
-        "video_length",
-        (5, 60, 5),
+        if camera.camera_type == "mini" {
+            "clip_length"
+        } else {
+            "video_length"
+        },
+        (
+            5,
+            integer_value(source.get("clip_length_max")).unwrap_or(60),
+            5,
+        ),
         mutable,
     );
     add_quality(fields, source, mutable);
@@ -43,17 +61,14 @@ fn recording_fields(fields: &mut Vec<SettingField>, source: &Value, mutable: boo
         mutable && bool_value(source.get("early_termination_supported")) != Some(false),
     );
     add_night_vision(fields, source, mutable);
-    add_integer(
-        fields,
-        source,
-        "ir_intensity",
-        "illuminator_intensity",
-        (1, 10, 1),
-        false,
-    );
 }
 
-fn motion_fields(fields: &mut Vec<SettingField>, source: &Value, mutable: bool) {
+fn motion_fields(
+    fields: &mut Vec<SettingField>,
+    source: &Value,
+    camera: &CameraState,
+    mutable: bool,
+) {
     add_integer(
         fields,
         source,
@@ -66,7 +81,11 @@ fn motion_fields(fields: &mut Vec<SettingField>, source: &Value, mutable: bool) 
         fields,
         source,
         "retrigger_time",
-        "alert_interval",
+        if camera.camera_type == "mini" {
+            "retrigger_time"
+        } else {
+            "alert_interval"
+        },
         (10, 60, 10),
         mutable,
     );
@@ -77,64 +96,6 @@ fn motion_fields(fields: &mut Vec<SettingField>, source: &Value, mutable: bool) 
         "early_notification",
         mutable && bool_value(source.get("early_notification_compatible")) != Some(false),
     );
-}
-
-fn diagnostic_fields(fields: &mut Vec<SettingField>, source: &Value) {
-    add_bool(
-        fields,
-        source,
-        "temperature_alerts",
-        "temp_alarm_enable",
-        false,
-    );
-    add_integer(
-        fields,
-        source,
-        "temperature_min",
-        "temp_min",
-        (-40, 140, 1),
-        false,
-    );
-    add_integer(
-        fields,
-        source,
-        "temperature_max",
-        "temp_max",
-        (-40, 140, 1),
-        false,
-    );
-}
-
-fn add_bool(
-    fields: &mut Vec<SettingField>,
-    source: &Value,
-    key: &str,
-    vendor: &str,
-    writable: bool,
-) {
-    if let Some(value) = bool_value(source.get(vendor)) {
-        fields.push(field(
-            key,
-            Value::Bool(value),
-            SettingKind::Boolean,
-            writable,
-        ));
-    }
-}
-
-fn add_integer(
-    fields: &mut Vec<SettingField>,
-    source: &Value,
-    key: &str,
-    vendor: &str,
-    range: (i64, i64, i64),
-    writable: bool,
-) {
-    if let Some(value) = integer_value(source.get(vendor)) {
-        let mut item = field(key, Value::from(value), SettingKind::Integer, writable);
-        (item.min, item.max, item.step) = (Some(range.0), Some(range.1), Some(range.2));
-        fields.push(item);
-    }
 }
 
 fn add_quality(fields: &mut Vec<SettingField>, source: &Value, writable: bool) {
@@ -155,14 +116,8 @@ fn add_quality(fields: &mut Vec<SettingField>, source: &Value, writable: bool) {
     if !options.iter().any(|item| item == current) {
         options.push(current.to_owned());
     }
-    let mut item = field(
-        "video_quality",
-        Value::from(current),
-        SettingKind::Select,
-        writable,
-    );
-    item.options = options;
-    fields.push(item);
+    let options = options.iter().map(String::as_str).collect::<Vec<_>>();
+    add_select(fields, "video_quality", current, &options, writable);
 }
 
 fn add_night_vision(fields: &mut Vec<SettingField>, source: &Value, writable: bool) {
@@ -179,37 +134,12 @@ fn add_night_vision(fields: &mut Vec<SettingField>, source: &Value, writable: bo
         }),
     };
     if let Some(current) = current {
-        let mut item = field(
+        add_select(
+            fields,
             "night_vision",
-            Value::from(current),
-            SettingKind::Select,
+            &current,
+            &["off", "on", "auto"],
             writable,
         );
-        item.options = vec!["off".into(), "on".into(), "auto".into()];
-        fields.push(item);
-    }
-}
-
-fn bool_value(value: Option<&Value>) -> Option<bool> {
-    value.and_then(|item| {
-        item.as_bool()
-            .or_else(|| item.as_i64().map(|number| number != 0))
-    })
-}
-
-fn integer_value(value: Option<&Value>) -> Option<i64> {
-    value.and_then(|item| item.as_i64().or_else(|| item.as_str()?.parse().ok()))
-}
-
-fn field(key: &str, value: Value, kind: SettingKind, writable: bool) -> SettingField {
-    SettingField {
-        key: key.into(),
-        value,
-        kind,
-        writable,
-        min: None,
-        max: None,
-        step: None,
-        options: Vec::new(),
     }
 }

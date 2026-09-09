@@ -113,6 +113,20 @@ time-zone headers used by the current Blink Android client. This is required by
 newer v2 capability routes such as the activity/privacy-zone schema and is
 covered without logging authentication data or provider response values.
 
+## Implemented in 0.6.0
+
+The model-aware settings contract now covers camera rename, status LED, IR
+intensity, compatible image rotation and Photo Capture, read-only Mini speaker volume,
+and the separate temperature-alert action. Mini clip length and retrigger time
+use their actual Owl field names, and integral JSON numbers such as `5.0` are
+normalised without losing the provider value. Camera aliases are persisted by
+device ID so a rename cannot break HA entities or private media routes.
+
+Zone discovery follows the camera's returned `zone_version` and falls back to
+the redacted activity-zone fields already present in camera configuration when
+Blink rejects its newer endpoint. This reports capability honestly without
+inventing or exposing a privacy mask.
+
 ## Uninstall criterion
 
 The official Blink app can be considered optional only after the user's actual

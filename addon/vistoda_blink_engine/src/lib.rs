@@ -1,3 +1,4 @@
+mod alias_store;
 pub mod api;
 mod api_settings;
 pub mod auth;
@@ -11,7 +12,9 @@ pub mod blink_model;
 mod blink_network_parse;
 mod blink_parse;
 mod blink_refresh;
+mod blink_setting_advanced;
 mod blink_setting_fields;
+mod blink_setting_helpers;
 pub mod blink_settings;
 mod blink_settings_write;
 pub mod config;

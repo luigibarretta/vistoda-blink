@@ -52,13 +52,13 @@ impl BlinkClient {
         if desired == field.value {
             return Ok(before);
         }
-        let vendor_key = vendor_key(&input.key).ok_or(BlinkError::SettingsUnsupported)?;
+        let vendor_key = vendor_key(&camera, &input.key).ok_or(BlinkError::SettingsUnsupported)?;
         let current_vendor = blink_settings::config_object(&response)
             .get(vendor_key)
             .cloned()
             .ok_or(BlinkError::SettingsUnsupported)?;
         let desired_vendor = encode_vendor_value(&input.key, &current_vendor, &desired)?;
-        self.write_setting(&context, &camera, vendor_key, desired_vendor)
+        self.write_setting(&context, &camera, &input.key, vendor_key, desired_vendor)
             .await?;
         if let Some(settings) = self
             .verify_setting(&context, &camera, &input.key, &desired)
@@ -67,7 +67,7 @@ impl BlinkClient {
             self.refresh_state().await?;
             return Ok(settings);
         }
-        self.write_setting(&context, &camera, vendor_key, current_vendor)
+        self.write_setting(&context, &camera, &input.key, vendor_key, current_vendor)
             .await?;
         let restored = self
             .verify_setting(&context, &camera, &input.key, &field.value)
@@ -100,10 +100,20 @@ impl BlinkClient {
         &self,
         context: &RequestContext,
         camera: &CameraState,
-        key: &str,
+        setting_key: &str,
+        vendor_key: &str,
         value: Value,
     ) -> Result<(), BlinkError> {
-        let body = Value::Object(Map::from_iter([(key.to_owned(), value)]));
+        if setting_key == "temperature_alerts" {
+            let enabled = value.as_bool().ok_or(BlinkError::InvalidSetting)?;
+            return self
+                .post_ack(
+                    context,
+                    &blink_api::temperature_alert(camera, &context.account_id, enabled),
+                )
+                .await;
+        }
+        let body = Value::Object(Map::from_iter([(vendor_key.to_owned(), value)]));
         let response = self
             .post_json(
                 context,
@@ -170,27 +180,54 @@ fn validated_value(field: &SettingField, value: &Value) -> Result<Value, BlinkEr
                 .then(|| Value::from(choice))
                 .ok_or(BlinkError::InvalidSetting)
         }
+        SettingKind::Text => {
+            let text = value.as_str().ok_or(BlinkError::InvalidSetting)?.trim();
+            let max = usize::try_from(field.max.ok_or(BlinkError::InvalidSetting)?)
+                .map_err(|_| BlinkError::InvalidSetting)?;
+            if text.is_empty() || text.chars().count() > max || text.chars().any(char::is_control) {
+                Err(BlinkError::InvalidSetting)
+            } else {
+                Ok(Value::from(text))
+            }
+        }
         SettingKind::Boolean => Err(BlinkError::InvalidSetting),
     }
 }
 
-fn vendor_key(key: &str) -> Option<&'static str> {
+fn vendor_key(camera: &CameraState, key: &str) -> Option<&'static str> {
     Some(match key {
         "motion_detection" => "enabled",
         "video_recording" => "video_recording_enable",
         "audio_streaming" => "record_audio_enable",
+        "clip_length" if camera.camera_type == "mini" => "clip_length",
         "clip_length" => "video_length",
         "video_quality" => "video_quality",
         "end_clip_early" => "early_termination",
         "night_vision" => "illuminator_enable",
+        "ir_intensity" => "illuminator_intensity",
         "motion_sensitivity" => "motion_sensitivity",
+        "retrigger_time" if camera.camera_type == "mini" => "retrigger_time",
         "retrigger_time" => "alert_interval",
         "early_notification" => "early_notification",
+        "flip_video" => "flip_video",
+        "photo_capture" => "snapshot_enabled",
+        "auto_thumbnail" => "auto_update_thumbnail_enabled",
+        "status_led" => "led_state",
+        "camera_name" => "name",
+        "temperature_alerts" => "temp_alarm_enable",
         _ => return None,
     })
 }
 
 fn encode_vendor_value(key: &str, current: &Value, desired: &Value) -> Result<Value, BlinkError> {
+    if key == "ir_intensity" {
+        return Ok(Value::from(match desired.as_str() {
+            Some("low") => 1,
+            Some("medium") => 4,
+            Some("high") => 7,
+            _ => return Err(BlinkError::InvalidSetting),
+        }));
+    }
     if key == "night_vision" {
         let selected = desired.as_str().ok_or(BlinkError::InvalidSetting)?;
         return if current.is_string() {

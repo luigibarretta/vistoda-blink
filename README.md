@@ -36,6 +36,7 @@ private API and Vistoda discovery contract during the product rename.
 - native HA camera entities attached to the Vistoda Blink provider device;
 - redacted, model-aware camera settings with optimistic concurrency,
   read-back verification and rollback attempts;
+- stable device-ID aliases across provider-side camera renames;
 - 75-second battery-camera and 600-second powered-camera session limits;
 - bounded subscriber queues and a 4 MiB packet ceiling;
 - Bearer or Basic authentication for approved LAN consumers;

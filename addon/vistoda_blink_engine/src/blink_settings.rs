@@ -12,6 +12,7 @@ pub enum SettingKind {
     Boolean,
     Integer,
     Select,
+    Text,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -47,11 +48,15 @@ pub struct CameraSettings {
 pub(crate) fn parse(camera: &CameraState, response: &Value) -> CameraSettings {
     let config = config_object(response);
     let mutable = matches!(camera.camera_type.as_str(), "default" | "mini");
-    let settings = settings_fields(config, mutable);
+    let settings = settings_fields(config, camera, mutable);
     let revision = revision(&settings);
     CameraSettings {
         alias: camera.alias.clone(),
-        name: camera.name.clone(),
+        name: config
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or(&camera.name)
+            .to_owned(),
         camera_type: camera.camera_type.clone(),
         product_type: camera.product_type.clone(),
         firmware: camera.firmware.clone(),

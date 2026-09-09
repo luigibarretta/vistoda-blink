@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use reqwest::StatusCode;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -30,6 +31,7 @@ pub struct CameraCapabilities {
 pub struct ZoneCapabilities {
     pub alias: String,
     pub camera_type: String,
+    pub source: &'static str,
     pub fields: Vec<CapabilityField>,
 }
 
@@ -49,14 +51,20 @@ impl BlinkClient {
     }
 
     pub async fn zone_capabilities(&self, alias: &str) -> Result<ZoneCapabilities, BlinkError> {
-        let camera = self.camera(alias).await?;
-        let context = self.context().await?;
-        let response = self
-            .get_json(
-                &context,
-                &crate::blink_api::camera_zones(&camera, &context.account_id),
-            )
-            .await?;
+        let (camera, context, config_response) = self.read_settings(alias).await?;
+        let config = blink_settings::config_object(&config_response);
+        let path = if camera.camera_type == "default"
+            && config.get("zone_version").and_then(Value::as_str) == Some("v1")
+        {
+            crate::blink_api::camera_legacy_zones(&camera, &context.account_id)
+        } else {
+            crate::blink_api::camera_zones(&camera, &context.account_id)
+        };
+        let (response, source) = match self.get_json(&context, &path).await {
+            Ok(value) => (value, "provider"),
+            Err(error) if zone_schema_unavailable(&error) => (zone_config(config), "camera_config"),
+            Err(error) => return Err(error),
+        };
         let mut fields = Vec::new();
         collect_fields(&response, "", 0, &mut fields);
         fields.sort_by(|left, right| left.path.cmp(&right.path));
@@ -64,9 +72,37 @@ impl BlinkClient {
         Ok(ZoneCapabilities {
             alias: camera.alias,
             camera_type: camera.camera_type,
+            source,
             fields,
         })
     }
+}
+
+fn zone_schema_unavailable(error: &BlinkError) -> bool {
+    matches!(
+        error,
+        BlinkError::Transport(inner)
+            if matches!(
+                inner.status(),
+                Some(StatusCode::BAD_REQUEST | StatusCode::NOT_FOUND)
+            )
+    )
+}
+
+fn zone_config(source: &Value) -> Value {
+    const KEYS: &[&str] = &[
+        "advanced_motion_regions",
+        "motion_regions",
+        "motion_regions_compatible",
+        "privacy_zones",
+        "privacy_zones_compatible",
+        "zone_version",
+    ];
+    Value::Object(
+        KEYS.iter()
+            .filter_map(|key| source.get(key).cloned().map(|value| ((*key).into(), value)))
+            .collect(),
+    )
 }
 
 fn collect_fields(value: &Value, prefix: &str, depth: usize, fields: &mut Vec<CapabilityField>) {
@@ -183,47 +219,5 @@ fn value_kind(value: &Value) -> &'static str {
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::{CapabilityField, collect_fields, feature_values};
-
-    #[test]
-    fn reports_only_names_and_types_with_bounded_paths() {
-        let source = json!({
-            "enabled": true,
-            "quality": "best",
-            "limits": {"clip": 60},
-            "secret": "must-never-be-returned"
-        });
-        let mut fields = Vec::new();
-        collect_fields(&source, "", 0, &mut fields);
-        assert!(fields.contains(&CapabilityField {
-            path: "enabled".into(),
-            kind: "boolean"
-        }));
-        assert!(fields.contains(&CapabilityField {
-            path: "limits.clip".into(),
-            kind: "integer"
-        }));
-        let serialized = serde_json::to_string(&fields).unwrap_or_default();
-        assert!(!serialized.contains("must-never-be-returned"));
-        assert!(!serialized.contains("best"));
-        assert!(feature_values(&source).is_empty());
-    }
-
-    #[test]
-    fn returns_only_explicit_non_secret_feature_values() {
-        let source = json!({
-            "led_state": "off",
-            "snapshot_enabled": true,
-            "snapshot_period_minutes_options": [60, 120],
-            "serial": "must-never-be-returned"
-        });
-        let features = feature_values(&source);
-        let serialized = serde_json::to_string(&features).unwrap_or_default();
-        assert_eq!(features.get("snapshot_enabled"), Some(&json!(true)));
-        assert!(serialized.contains("led_state"));
-        assert!(!serialized.contains("must-never-be-returned"));
-    }
-}
+#[path = "capabilities_tests.rs"]
+mod tests;

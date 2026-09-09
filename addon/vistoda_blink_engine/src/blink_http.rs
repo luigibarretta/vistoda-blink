@@ -27,6 +27,29 @@ impl BlinkClient {
         self.json(Method::POST, context, path, body).await
     }
 
+    pub(crate) async fn post_ack(
+        &self,
+        context: &RequestContext,
+        path: &str,
+    ) -> Result<(), BlinkError> {
+        let response = self.send_json(Method::POST, context, path, None).await?;
+        let response = if response.status() == StatusCode::UNAUTHORIZED {
+            if let Some(session) = self.inner.session.lock().await.as_mut() {
+                session.access = None;
+            }
+            let refreshed = self.context().await?;
+            self.send_json(Method::POST, &refreshed, path, None).await?
+        } else {
+            response
+        };
+        if response.status() == StatusCode::UNAUTHORIZED {
+            return Err(BlinkError::Authentication);
+        }
+        log_failure(response.status(), path);
+        response.error_for_status()?;
+        Ok(())
+    }
+
     async fn json(
         &self,
         method: Method,

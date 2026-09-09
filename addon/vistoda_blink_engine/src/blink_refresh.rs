@@ -32,7 +32,7 @@ impl BlinkClient {
             &clips,
         );
         let (details, signals) = self.camera_details(&context, &shell).await;
-        let cameras = blink_model::cameras(
+        let mut cameras = blink_model::cameras(
             &context.account_id,
             &context.base_url,
             &usage,
@@ -41,6 +41,7 @@ impl BlinkClient {
             &signals,
             &clips,
         );
+        self.inner.aliases.reconcile(&mut cameras).await?;
         *self.inner.state.write().await = ProviderState {
             account_id: context.account_id,
             updated_at: SystemTime::now()
