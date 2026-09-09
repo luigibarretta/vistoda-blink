@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.5.1"
+    assert manifest["version"] == "0.5.2"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -83,6 +83,7 @@ def test_camera_settings_boundary_is_redacted_and_admin_only() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert "websocket_api" in manifest["dependencies"]
     assert "blink_live_bridge/camera/settings" in source
+    assert "blink_live_bridge/camera/capabilities" in source
     assert "connection.user.is_admin" in source
     assert '("key", "value", "revision")' in source
     assert "api_token" not in source

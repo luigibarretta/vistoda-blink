@@ -78,7 +78,7 @@ impl BlinkClient {
         Err(BlinkError::SettingsVerification)
     }
 
-    async fn read_settings(
+    pub(crate) async fn read_settings(
         &self,
         alias: &str,
     ) -> Result<(CameraState, RequestContext, Value), BlinkError> {

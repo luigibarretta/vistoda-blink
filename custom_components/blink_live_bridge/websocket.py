@@ -22,6 +22,7 @@ def async_register(hass: HomeAssistant) -> None:
     if data.get("settings_websocket_registered"):
         return
     websocket_api.async_register_command(hass, ws_camera_settings)
+    websocket_api.async_register_command(hass, ws_camera_capabilities)
     websocket_api.async_register_command(hass, ws_update_camera_setting)
     data["settings_websocket_registered"] = True
 
@@ -45,6 +46,34 @@ async def ws_camera_settings(
         return
     try:
         result = await runtime.client.get_json(f"/v1/cameras/{msg['alias']}/settings")
+    except EngineError as error:
+        _send_provider_error(connection, msg["id"], error)
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "blink_live_bridge/camera/capabilities",
+        vol.Required("alias"): ALIAS,
+    }
+)
+@websocket_api.async_response
+async def ws_camera_capabilities(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return redacted provider field names and types to administrators."""
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Administrator access required")
+        return
+    runtime = _runtime(hass)
+    if runtime is None:
+        connection.send_error(msg["id"], "unavailable", "Vistoda Blink is not loaded")
+        return
+    try:
+        result = await runtime.client.get_json(f"/v1/cameras/{msg['alias']}/capabilities")
     except EngineError as error:
         _send_provider_error(connection, msg["id"], error)
         return

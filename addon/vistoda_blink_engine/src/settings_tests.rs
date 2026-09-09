@@ -62,6 +62,11 @@ fn parses_only_allowlisted_settings_and_builds_a_stable_revision() {
         .iter()
         .find(|item| item.key == "ir_intensity");
     assert!(intensity.is_some_and(|item| !item.writable));
+    let early = first
+        .settings
+        .iter()
+        .find(|item| item.key == "early_notification");
+    assert!(early.is_some_and(|item| item.value == json!(true)));
 }
 
 #[test]

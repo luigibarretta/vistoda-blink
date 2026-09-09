@@ -89,6 +89,15 @@ thumbnail updates, speaker volume, Blink talk audio and device removal remain
 gated. They must not be presented as available until per-model contracts and
 recovery canaries exist.
 
+## Implemented in 0.5.2
+
+An administrator-only capability inventory now reports bounded provider field
+names and JSON types without returning field values. This makes live model
+audits reproducible while keeping account, network, device and credential data
+out of Home Assistant and the browser. The Vistoda UI now also renders boolean
+values explicitly as current states and presents video quality as the three
+described Blink choices instead of ambiguous action buttons or a bare select.
+
 ## Uninstall criterion
 
 The official Blink app can be considered optional only after the user's actual

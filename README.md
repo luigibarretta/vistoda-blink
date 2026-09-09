@@ -54,6 +54,7 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `GET /v1/cameras/{alias}/live.mpegts` | explicit MPEG-TS alias |
 | `GET /v1/cameras/{alias}/settings` | typed, redacted settings and revision |
 | `POST /v1/cameras/{alias}/settings` | one validated setting with read-back |
+| `GET /v1/cameras/{alias}/capabilities` | admin diagnostic of field names/types only |
 
 Core loopback is trusted so HA camera state never contains credentials. Other
 clients must send a dedicated high-entropy token. Keep the endpoint private;

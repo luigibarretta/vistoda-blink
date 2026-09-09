@@ -2,6 +2,7 @@ pub mod api;
 mod api_settings;
 pub mod auth;
 pub mod blink_api;
+mod blink_capabilities;
 pub mod blink_client;
 mod blink_commands;
 mod blink_error;
