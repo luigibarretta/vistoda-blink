@@ -36,6 +36,16 @@ pub enum EngineError {
     SettingsConflict,
     #[error("camera setting could not be verified and was restored")]
     SettingsVerification,
+    #[error("recording request is invalid")]
+    RecordingInvalid,
+    #[error("a recording is already active for this camera")]
+    RecordingActive,
+    #[error("recording quota does not have safe headroom")]
+    RecordingCapacity,
+    #[error("recording storage is unavailable")]
+    RecordingIo,
+    #[error("recording was not found")]
+    RecordingNotFound,
 }
 
 #[derive(Serialize)]
@@ -51,12 +61,18 @@ impl IntoResponse for EngineError {
             | Self::InvalidSetting
             | Self::Protocol(_)
             | Self::InvalidEnrollment => StatusCode::UNPROCESSABLE_ENTITY,
-            Self::PublisherBusy | Self::SettingsConflict => StatusCode::CONFLICT,
+            Self::PublisherBusy | Self::SettingsConflict | Self::RecordingActive => {
+                StatusCode::CONFLICT
+            }
+            Self::RecordingCapacity => StatusCode::TOO_MANY_REQUESTS,
             Self::NotEnrolled => StatusCode::PRECONDITION_REQUIRED,
-            Self::CameraNotFound | Self::NetworkNotFound => StatusCode::NOT_FOUND,
-            Self::Transport(_) | Self::Cloud | Self::SettingsVerification => {
+            Self::CameraNotFound | Self::NetworkNotFound | Self::RecordingNotFound => {
+                StatusCode::NOT_FOUND
+            }
+            Self::Transport(_) | Self::Cloud | Self::SettingsVerification | Self::RecordingIo => {
                 StatusCode::BAD_GATEWAY
             }
+            Self::RecordingInvalid => StatusCode::BAD_REQUEST,
         };
         (
             status,

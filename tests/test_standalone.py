@@ -41,7 +41,9 @@ def test_rust_owns_every_blink_protocol_responsibility() -> None:
         "framing.rs",
         "blink_zones.rs",
         "blink_zone_model.rs",
+        "api_recordings.rs",
     } <= modules
+    assert (RUST / "recordings").is_dir()
     api = (RUST / "api.rs").read_text()
     assert "/v1/enrollment/start" in api
     assert "/v1/state" in api

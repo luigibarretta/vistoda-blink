@@ -18,8 +18,11 @@ restore the original provider value.
 
 ## Current coverage
 
-Vistoda owns OAuth2/2FA, discovery, arm/disarm, motion control and state, record
-clip, fresh or cached snapshots, saved recent clips and bounded live MPEG-TS.
+Vistoda owns OAuth2/2FA, discovery, arm/disarm, motion control and state, cloud
+clip access, fresh or cached snapshots, saved recent clips and bounded live
+MPEG-TS. Version 0.8.0 also records 15, 30 or 60 seconds directly from that
+shared live stream into a separate, quota-bounded Vistoda archive. It does not
+manufacture a Blink motion event.
 Camera state includes name, serial, firmware, product type, battery, temperature,
 Wi-Fi strength and online/power information.
 
@@ -49,6 +52,7 @@ advanced surface is implemented by the standalone Rust provider.
 | Speaker volume | Available on Mini/Owl | Android 59.1 proves integers 1–8 and `volume_control`. |
 | Temperature alerts | Enable/disable available | Thresholds stay read-only until exact rules are proven. |
 | Two-way Blink audio | Blocked | IMMIS uplink framing and acknowledgement are unproven. |
+| Sync Module USB clips | Protocol identified, UI blocked | Android endpoints are known; manifest/command polling and a live read-only canary are still required. |
 | Delete device | Deliberately deferred | Requires reauthentication, typed confirmation and recovery. |
 
 ## Delivery result
@@ -58,10 +62,21 @@ advanced surface is implemented by the standalone Rust provider.
 3. Model-aware enums, ranges, feature flags and unknown-field hiding: complete.
 4. Revision tokens, bounded verification and automatic rollback: complete.
 5. Native v1 activity/privacy editor: complete in 0.7.0; Owl v2 remains gated.
-6. Blink talk and device removal: intentionally blocked pending exact protocol,
-   reauthentication and recovery evidence.
+6. Standalone local archive and checksum-verified NFS backup: complete in 0.8.0
+   through the Vistoda Home Assistant control plane.
+7. Blink talk, Sync Module USB management and device removal: intentionally
+   blocked pending exact live protocol, reauthentication and recovery evidence.
 
 ## Version history
+
+### 0.8.0
+
+Added fixed-duration MPEG-TS recording from the already shared live hub, an
+immutable manifest with byte count and SHA-256, crash recovery, per-camera
+concurrency exclusion, a 96 MiB file ceiling and a 512 MiB spool quota. The HA
+adapter exposes authenticated list, download and delete operations. Its legacy
+`camera.record` hook now requests a 30-second local capture instead of invoking
+the Blink cloud record command that could raise a false motion notification.
 
 ### 0.5.1
 

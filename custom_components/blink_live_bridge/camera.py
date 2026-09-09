@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Any, override
+from uuid import uuid4
 
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.config_entries import ConfigEntry
@@ -106,7 +107,10 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
         await self._command("motion", enabled=False)
 
     async def record(self) -> None:
-        await self._command("record")
+        await self.runtime.client.post(
+            f"/v1/cameras/{self.alias}/recordings",
+            {"duration_seconds": 30, "request_id": str(uuid4())},
+        )
 
     async def trigger_camera(self) -> None:
         await self._command("snapshot")

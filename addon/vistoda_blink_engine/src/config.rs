@@ -20,11 +20,20 @@ pub struct Cli {
 pub struct AppConfig {
     pub token: Zeroizing<String>,
     pub credentials_path: PathBuf,
+    pub max_recording_seconds: u64,
+    pub max_recording_bytes: u64,
+    pub recording_quota_bytes: u64,
 }
 
 #[derive(Deserialize)]
 struct Options {
     token: String,
+    #[serde(default = "default_recording_seconds")]
+    max_recording_seconds: u64,
+    #[serde(default = "default_recording_bytes")]
+    max_recording_bytes: u64,
+    #[serde(default = "default_recording_quota")]
+    recording_quota_bytes: u64,
 }
 
 #[derive(Debug, Error)]
@@ -41,6 +50,8 @@ pub enum ConfigError {
     },
     #[error("token must contain exactly 64 lowercase hexadecimal characters")]
     InvalidToken,
+    #[error("recording limits are outside the safe supported range")]
+    InvalidRecordingLimits,
 }
 
 impl AppConfig {
@@ -64,12 +75,34 @@ impl AppConfig {
         {
             return Err(ConfigError::InvalidToken);
         }
+        if !(5..=60).contains(&options.max_recording_seconds)
+            || !(8 * 1024 * 1024..=128 * 1024 * 1024).contains(&options.max_recording_bytes)
+            || !(options.max_recording_bytes..=2 * 1024 * 1024 * 1024)
+                .contains(&options.recording_quota_bytes)
+        {
+            return Err(ConfigError::InvalidRecordingLimits);
+        }
         Ok(Self {
             token: Zeroizing::new(options.token),
             credentials_path: path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("/data"))
                 .join("provider.sealed"),
+            max_recording_seconds: options.max_recording_seconds,
+            max_recording_bytes: options.max_recording_bytes,
+            recording_quota_bytes: options.recording_quota_bytes,
         })
     }
+}
+
+const fn default_recording_seconds() -> u64 {
+    60
+}
+
+const fn default_recording_bytes() -> u64 {
+    96 * 1024 * 1024
+}
+
+const fn default_recording_quota() -> u64 {
+    512 * 1024 * 1024
 }

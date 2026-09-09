@@ -12,7 +12,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let config = AppConfig::load(cli.config).await?;
     let listener = TcpListener::bind(cli.listen).await?;
-    let state = EngineState::new(config.token, config.credentials_path)?;
+    let state = EngineState::new(
+        config.token,
+        config.credentials_path,
+        config.max_recording_seconds,
+        config.max_recording_bytes,
+        config.recording_quota_bytes,
+    )?;
     match state.initialize().await {
         Ok(true) => tracing::info!("restored standalone Blink enrollment"),
         Ok(false) => tracing::info!("waiting for standalone Blink enrollment"),

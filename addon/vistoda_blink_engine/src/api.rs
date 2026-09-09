@@ -38,6 +38,7 @@ pub fn router(state: EngineState) -> Router {
         .route("/v1/cameras/{alias}/commands", post(camera_command))
         .route("/v1/networks/{id}/armed", post(network_armed))
         .route("/v1/clips/{id}", get(clip))
+        .merge(crate::api_recordings::routes())
         .merge(crate::api_settings::routes())
         .merge(crate::api_zones::routes())
         .with_state(state)

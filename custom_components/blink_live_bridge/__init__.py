@@ -20,6 +20,7 @@ from .const import (
 )
 from .http import register_views
 from .migration import async_import_official_credentials
+from .recording_websocket import async_register as async_register_recording_websocket
 from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
 from .services import async_setup_services
 from .websocket import async_register as async_register_websocket
@@ -36,6 +37,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async_setup_services(hass)
     async_register_websocket(hass)
     async_register_zones_websocket(hass)
+    async_register_recording_websocket(hass)
     data = hass.data.setdefault(DOMAIN, {})
     if DOMAIN in config:
         data[CONF_TOKEN] = config[DOMAIN][CONF_TOKEN]

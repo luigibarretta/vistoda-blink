@@ -42,6 +42,10 @@ class EngineClient:
     async def stream(self, path: str) -> ClientResponse:
         return await self._request("GET", path, request_timeout=None)
 
+    async def delete(self, path: str) -> None:
+        response = await self._request("DELETE", path)
+        response.release()
+
     async def bytes(self, path: str) -> bytes:
         response = await self._request("GET", path, request_timeout=90)
         try:

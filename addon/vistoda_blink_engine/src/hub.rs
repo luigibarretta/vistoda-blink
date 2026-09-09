@@ -18,6 +18,7 @@ use crate::{
     enrollment::EnrollmentManager,
     error::EngineError,
     live,
+    recordings::RecordingManager,
 };
 
 const QUEUE_DEPTH: usize = 12;
@@ -143,19 +144,34 @@ pub struct EngineState {
     pub(crate) hubs: Arc<RwLock<HashMap<String, Arc<CameraHub>>>>,
     client: BlinkClient,
     enrollment: EnrollmentManager,
+    recordings: Arc<RecordingManager>,
 }
 
 impl EngineState {
-    pub fn new(token: Zeroizing<String>, credentials_path: PathBuf) -> Result<Self, BlinkError> {
+    pub fn new(
+        token: Zeroizing<String>,
+        credentials_path: PathBuf,
+        max_recording_seconds: u64,
+        max_recording_bytes: u64,
+        recording_quota_bytes: u64,
+    ) -> Result<Self, EngineError> {
         let aliases_path = credentials_path.with_file_name("camera-aliases.json");
+        let recordings_path = credentials_path.with_file_name("recordings");
         let client = BlinkClient::new(
             CredentialStore::new(credentials_path, &token),
             AliasStore::new(aliases_path),
-        )?;
+        )
+        .map_err(EngineError::from)?;
         Ok(Self {
             token: Arc::new(token),
             hubs: Arc::new(RwLock::new(HashMap::new())),
             enrollment: EnrollmentManager::new(client.clone()),
+            recordings: RecordingManager::load(
+                recordings_path,
+                max_recording_seconds,
+                max_recording_bytes,
+                recording_quota_bytes,
+            )?,
             client,
         })
     }
@@ -185,6 +201,9 @@ impl EngineState {
     }
     pub fn enrollment(&self) -> &EnrollmentManager {
         &self.enrollment
+    }
+    pub fn recordings(&self) -> &Arc<RecordingManager> {
+        &self.recordings
     }
 
     pub async fn subscribe(&self, alias: &str) -> Result<Subscriber, EngineError> {

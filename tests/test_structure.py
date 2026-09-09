@@ -12,7 +12,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.7.0"
+    assert manifest["version"] == "0.8.0"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -117,6 +117,23 @@ def test_clip_services_refresh_provider_state_before_selection() -> None:
     assert save_video.index(refresh) < save_video.index("self._camera_clips()")
     assert save_recent.index(refresh) < save_recent.index("self._camera_clips()")
     assert "if not clips:\n            return" in save_video
+
+
+def test_local_recordings_replace_the_vendor_motion_clip_action() -> None:
+    """UI recordings consume the live stream and never synthesize Blink motion."""
+    setup = (COMPONENT / "__init__.py").read_text()
+    camera = (COMPONENT / "camera.py").read_text()
+    boundary = (COMPONENT / "recording_websocket.py").read_text()
+    http = (COMPONENT / "http.py").read_text()
+    api = (ROOT / "addon/vistoda_blink_engine/src/api_recordings.rs").read_text()
+    assert "async_register_recording_websocket(hass)" in setup
+    assert '"duration_seconds": 30' in camera and "uuid4()" in camera
+    assert "blink_live_bridge/recordings/create" in boundary
+    assert "connection.user.is_admin" in boundary
+    assert "vol.In((15, 30, 60))" in boundary
+    assert "RecordingMediaView" in http and "requires_auth = True" in http
+    assert '"/v1/cameras/{alias}/recordings"' in api
+    assert "api_token" not in boundary
 
 
 def test_camera_declares_the_official_blink_attribute_surface() -> None:

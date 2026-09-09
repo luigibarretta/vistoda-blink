@@ -89,7 +89,39 @@ class LiveView(BridgeView):
         return response
 
 
+class RecordingMediaView(HomeAssistantView):
+    """Stream a local recording through HA authentication or a signed path."""
+
+    url = f"{API_PREFIX}/v1/recordings/{{recording_id}}/media"
+    name = f"api:{DOMAIN}:recording-media"
+    requires_auth = True
+
+    async def get(self, request: web.Request, recording_id: str) -> web.StreamResponse:
+        runtime: BridgeRuntime = request.app["hass"].data[DOMAIN]["runtime"]
+        try:
+            upstream = await runtime.client.stream(f"/v1/recordings/{recording_id}/media")
+        except EngineError as error:
+            raise web.HTTPNotFound(text="recording unavailable") from error
+        response = web.StreamResponse(
+            status=200,
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Type": "video/mp2t",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+        await response.prepare(request)
+        try:
+            async for chunk in upstream.content.iter_chunked(64 * 1024):
+                await response.write(chunk)
+        except (ConnectionError, RuntimeError):
+            pass
+        finally:
+            upstream.close()
+        return response
+
+
 def register_views(hass: HomeAssistant) -> None:
     """Register the stable consumer API exactly once."""
-    for view in (HealthView, CamerasView, SnapshotView, LiveView):
+    for view in (HealthView, CamerasView, SnapshotView, LiveView, RecordingMediaView):
         hass.http.register_view(view)

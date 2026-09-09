@@ -1,5 +1,6 @@
 mod alias_store;
 pub mod api;
+mod api_recordings;
 mod api_settings;
 mod api_zones;
 pub mod auth;
@@ -34,6 +35,7 @@ pub mod oauth;
 mod oauth_support;
 #[cfg(test)]
 mod parse_tests;
+pub mod recordings;
 #[cfg(test)]
 mod settings_tests;
 mod tls;
