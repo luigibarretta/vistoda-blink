@@ -12,7 +12,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::{Message, client::IntoClientRequest},
+    tungstenite::{Error as WebSocketError, Message, client::IntoClientRequest},
 };
 use uuid::Uuid;
 use zeroize::Zeroizing;
@@ -39,6 +39,8 @@ struct SignalingIdentity {
 pub struct SignalingProbe {
     signaling_protocol: &'static str,
     signaling: &'static str,
+    failure_phase: Option<&'static str>,
+    http_status: Option<u16>,
     ring_device_identity: &'static str,
     device_support: &'static str,
     media_session: &'static str,
@@ -71,9 +73,21 @@ impl BlinkClient {
             value
         } else {
             let account = self.get_json(&context, "/api/v2/users/info").await?;
-            text_or_number(&account, "user_id")
-                .or_else(|| text_or_number(&account, "id"))
-                .ok_or(BlinkError::InvalidResponse)?
+            // Signaling uses the shared Ring identity, not Blink's account or
+            // user id. This is the exact value consumed by the Android app's
+            // BlinkSignalingConfigProvider.
+            let value = text_or_number(&account, "ringUserId")
+                .or_else(|| text_or_number(&account, "ring_user_id"))
+                .filter(|value| value != "0")
+                .ok_or(BlinkError::InvalidResponse)?;
+            let credentials = {
+                let mut session = self.inner.session.lock().await;
+                let credentials = &mut session.as_mut().ok_or(BlinkError::NotEnrolled)?.credentials;
+                credentials.user_id = Some(value.clone());
+                credentials.clone()
+            };
+            self.inner.store.save(&credentials).await?;
+            value
         };
         Ok(SignalingIdentity {
             token: context.token,
@@ -92,30 +106,41 @@ impl BlinkClient {
             .ok_or(BlinkError::CameraNotFound)?;
         let identity = self.signaling_identity().await?;
         let request = signaling_request(&identity)?;
-        let (mut socket, response) =
-            tokio::time::timeout(Duration::from_secs(12), connect_async(request))
-                .await
-                .map_err(|_| BlinkError::CommandTimeout)?
-                .map_err(|_| BlinkError::InvalidResponse)?;
-        if response.status().as_u16() != 101 {
-            return Err(BlinkError::Authentication);
-        }
-        let _ = socket.send(Message::Close(None)).await;
+        let (signaling, failure_phase, http_status) =
+            match tokio::time::timeout(Duration::from_secs(12), connect_async(request)).await {
+                Err(_) => ("timeout", Some("websocket_handshake"), None),
+                Ok(Err(WebSocketError::Http(response))) => (
+                    "rejected",
+                    Some("websocket_handshake"),
+                    Some(response.status().as_u16()),
+                ),
+                Ok(Err(_)) => ("transport_failed", Some("websocket_handshake"), None),
+                Ok(Ok((mut socket, _))) => {
+                    let _ = socket.send(Message::Close(None)).await;
+                    ("authenticated", None, None)
+                }
+            };
         Ok(SignalingProbe {
             signaling_protocol: PROTOCOL,
-            signaling: "authenticated",
+            signaling,
+            failure_phase,
+            http_status,
             ring_device_identity: if camera.ring_device_id.is_some() {
                 "present"
             } else {
                 "missing"
             },
-            device_support: if camera.two_way_audio == Some(true) {
-                "advertised"
-            } else {
-                "not_advertised"
+            device_support: match camera.two_way_audio {
+                Some(true) => "advertised",
+                Some(false) => "not_advertised",
+                None => "unknown",
             },
             media_session: "not_started",
-            full_duplex: "gated",
+            full_duplex: if signaling == "authenticated" {
+                "gated"
+            } else {
+                "blocked"
+            },
         })
     }
 }
@@ -183,5 +208,18 @@ mod tests {
         assert_eq!(request.headers()["x-sig-auth-type"], "blink_oauth");
         assert_eq!(request.headers()["x-sig-client-id"], client_id(&identity));
         assert!(!request.uri().to_string().contains(identity.token.as_str()));
+    }
+
+    #[test]
+    fn extracts_the_shared_ring_user_identity_from_native_account_shapes() {
+        assert_eq!(
+            super::text_or_number(&serde_json::json!({"ringUserId": 42}), "ringUserId").as_deref(),
+            Some("42")
+        );
+        assert_eq!(
+            super::text_or_number(&serde_json::json!({"ring_user_id": "43"}), "ring_user_id")
+                .as_deref(),
+            Some("43")
+        );
     }
 }

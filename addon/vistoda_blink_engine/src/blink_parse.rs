@@ -198,7 +198,10 @@ fn boolean(value: &Value, key: &str) -> Option<bool> {
     value.get(key)?.as_bool()
 }
 fn unsigned(value: &Value, key: &str) -> Option<u64> {
-    value.get(key)?.as_u64()
+    value.get(key).and_then(|item| {
+        item.as_u64()
+            .or_else(|| item.as_str().and_then(|text| text.parse().ok()))
+    })
 }
 fn integer(value: &Value, key: &str) -> Option<i64> {
     value.get(key)?.as_i64()

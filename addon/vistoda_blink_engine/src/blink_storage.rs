@@ -63,7 +63,9 @@ impl BlinkClient {
                 )
                 .await?;
             let status = storage_status(&raw_status);
-            let (manifest_id, clips) = if status.enabled && has_readable_media(&status.usb_state) {
+            // ACTIVE and MEMORY_FULL are the native app's authoritative
+            // readable states; Blink's `enabled` compatibility flag can lag.
+            let (manifest_id, clips) = if has_readable_media(&status.usb_state) {
                 self.load_local_storage_manifest(&context, &network.id, &sync)
                     .await?
             } else {

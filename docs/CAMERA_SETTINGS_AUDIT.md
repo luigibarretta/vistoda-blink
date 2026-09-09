@@ -52,7 +52,7 @@ advanced surface is implemented by the standalone Rust provider.
 | Speaker volume | Available on Mini/Owl | Android 59.1 proves integers 1–8 and `volume_control`. |
 | Temperature alerts | Enable/disable available | Thresholds stay read-only until exact rules are proven. |
 | Two-way Blink audio | Signaling discovered, media gated | Android 59.1 proves shared Ring WebRTC 4.1 and `blink_oauth`; Vistoda can authenticate and close without media, but SDP/ICE/uplink recovery remain unproven. |
-| Sync Module USB clips | Available read-only in 0.9.0 | Status, manifest polling, bounded inventory and authenticated download; no delete/eject/format/mount route exists. |
+| Sync Module USB clips | Available read-only in 0.9.1 | Status, native readable-state manifest polling, bounded inventory and authenticated download; no delete/eject/format/mount route exists. |
 | Delete device | Deliberately deferred | Requires reauthentication, typed confirmation and recovery. |
 
 ## Delivery result
@@ -64,7 +64,7 @@ advanced surface is implemented by the standalone Rust provider.
 5. Native v1 activity/privacy editor: complete in 0.7.0; Owl v2 remains gated.
 6. Standalone local archive and checksum-verified NFS backup: complete in 0.8.0
    through the Vistoda Home Assistant control plane.
-7. Sync Module USB inventory/download: complete in 0.9.0 without destructive
+7. Sync Module USB inventory/download: complete in 0.9.1 without destructive
    provider controls.
 8. Blink talk and device removal: intentionally gated pending media negotiation,
    reauthentication and recovery evidence.

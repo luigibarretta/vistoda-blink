@@ -33,6 +33,8 @@ and authenticated clip download. The engine serializes these requests, caps the
 inventory at 1,000 entries and a downloaded clip at 128 MiB. Home Assistant
 shows at most 250 clips and signs each download path for five minutes. Eject,
 mount, format and vendor deletion are absent from both engine and UI contracts.
+The provider's `enabled` compatibility flag is not used as a readability gate:
+like the native app, Vistoda trusts the exact `active` and `memory_full` states.
 
 ## Consequences
 

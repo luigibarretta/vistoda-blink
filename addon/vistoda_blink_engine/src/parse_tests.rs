@@ -9,7 +9,7 @@ fn parses_official_surface_without_vendor_types() {
     let home = json!({"networks":[{"id":7,"name":"Casa"}],
         "sync_modules":[{"id":77,"network_id":7}],
         "owls":[{"id":2,"network_id":7,"name":"Kitchen","type":"owl","enabled":true,
-        "ring_device_id":22,"two_way_audio":true,"audio_aec":true,
+        "ring_device_id":"22","two_way_audio":true,"audio_aec":true,
         "signals":{"battery":3,"temp":72}}]});
     let usage = json!({"networks":[{"network_id":7,"cameras":[{"id":1,"name":"Kitchen"}]}]});
     let clips = media(
