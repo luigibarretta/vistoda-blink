@@ -69,7 +69,7 @@ services.
    the official app until their provider contracts and recovery paths pass live
    canaries.
 
-## Implemented in 0.5.0
+## Implemented in 0.5.1
 
 The first safe tranche now provides a camera-detail view and a Rust-owned,
 redacted settings endpoint. It recognizes motion detection and sensitivity,

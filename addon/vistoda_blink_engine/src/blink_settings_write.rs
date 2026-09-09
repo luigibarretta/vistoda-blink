@@ -21,6 +21,10 @@ pub struct CameraSettingUpdate {
 
 impl BlinkClient {
     pub async fn camera_settings(&self, alias: &str) -> Result<CameraSettings, BlinkError> {
+        let camera = self.camera(alias).await?;
+        if !matches!(camera.camera_type.as_str(), "default" | "mini") {
+            return Ok(blink_settings::parse(&camera, &Value::Null));
+        }
         let (camera, _, response) = self.read_settings(alias).await?;
         Ok(blink_settings::parse(&camera, &response))
     }

@@ -71,3 +71,11 @@ fn normalizes_owl_night_vision_without_assuming_other_fields() {
     assert_eq!(settings.settings[0].value, json!("auto"));
     assert!(settings.settings[0].writable);
 }
+
+#[test]
+fn unsupported_camera_types_keep_safe_metadata_without_controls() {
+    let settings = parse(&camera("doorbell"), &serde_json::Value::Null);
+    assert!(settings.settings.is_empty());
+    assert_eq!(settings.name, "Balcone");
+    assert_eq!(settings.revision.len(), 64);
+}
