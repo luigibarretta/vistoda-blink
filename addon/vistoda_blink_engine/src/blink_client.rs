@@ -3,7 +3,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use reqwest::Client;
+use reqwest::{
+    Client,
+    header::{ACCEPT, ACCEPT_LANGUAGE, HeaderMap, HeaderName, HeaderValue, USER_AGENT},
+};
 use tokio::sync::{Mutex, RwLock};
 use zeroize::Zeroizing;
 
@@ -17,6 +20,8 @@ use crate::{
 pub use crate::blink_error::BlinkError;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
+const BLINK_APP_BUILD: &str = "ANDROID_29715642";
+const BLINK_USER_AGENT: &str = "Blink/57.1 (samsung SM-G998B; Android 14)";
 
 pub(crate) struct Session {
     pub credentials: ProviderCredentials,
@@ -44,7 +49,10 @@ pub struct BlinkClient {
 
 impl BlinkClient {
     pub fn new(store: CredentialStore) -> Result<Self, BlinkError> {
-        let http = Client::builder().timeout(REQUEST_TIMEOUT).build()?;
+        let http = Client::builder()
+            .timeout(REQUEST_TIMEOUT)
+            .default_headers(provider_headers())
+            .build()?;
         Ok(Self {
             inner: Arc::new(Inner {
                 http,
@@ -174,5 +182,39 @@ impl BlinkClient {
             .error_for_status()?
             .json()
             .await?)
+    }
+}
+
+fn provider_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+    headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
+    headers.insert(USER_AGENT, HeaderValue::from_static(BLINK_USER_AGENT));
+    headers.insert(
+        HeaderName::from_static("app-build"),
+        HeaderValue::from_static(BLINK_APP_BUILD),
+    );
+    headers.insert(
+        HeaderName::from_static("locale"),
+        HeaderValue::from_static("en_US"),
+    );
+    headers.insert(
+        HeaderName::from_static("x-blink-time-zone"),
+        HeaderValue::from_static("UTC"),
+    );
+    headers
+}
+
+#[cfg(test)]
+mod tests {
+    use super::provider_headers;
+
+    #[test]
+    fn provider_requests_match_the_native_rest_header_contract() {
+        let headers = provider_headers();
+        assert_eq!(headers["app-build"], "ANDROID_29715642");
+        assert_eq!(headers["locale"], "en_US");
+        assert_eq!(headers["x-blink-time-zone"], "UTC");
+        assert_eq!(headers["accept"], "application/json");
     }
 }

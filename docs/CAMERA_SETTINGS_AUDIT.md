@@ -106,6 +106,13 @@ for the provider's v2 activity/privacy-zone response. Arrays are represented by
 their first-item type and nested field shape; zone masks themselves are not
 returned by this diagnostic endpoint.
 
+## Implemented in 0.5.4
+
+Provider REST requests now carry the same bounded identity, locale, JSON and
+time-zone headers used by the current Blink Android client. This is required by
+newer v2 capability routes such as the activity/privacy-zone schema and is
+covered without logging authentication data or provider response values.
+
 ## Uninstall criterion
 
 The official Blink app can be considered optional only after the user's actual
