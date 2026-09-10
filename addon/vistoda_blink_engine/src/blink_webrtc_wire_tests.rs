@@ -59,6 +59,29 @@ fn bounds_provider_media_and_uses_safe_close_text() {
 }
 
 #[test]
+fn only_the_official_legacy_close_code_requests_fallback() {
+    let legacy = ServerEnvelope {
+        dialog_id: "dialog".into(),
+        method: "close".into(),
+        body: json!({"reason":{"code":38,"text":"untrusted"},
+            "doorbot_id":42, "session_id":"session"}),
+    };
+    let event = browser_event(&legacy).unwrap_or_else(|| panic!("missing legacy event"));
+    assert_eq!(event["type"], "fallback");
+    assert_eq!(event["reason"], "blink_legacy_device");
+    assert!(!event.to_string().contains("untrusted"));
+
+    let setup_failed = ServerEnvelope {
+        dialog_id: "dialog".into(),
+        method: "close".into(),
+        body: json!({"reason":{"code":2}, "doorbot_id":42}),
+    };
+    let event = browser_event(&setup_failed).unwrap_or_else(|| panic!("missing close event"));
+    assert_eq!(event["type"], "closed");
+    assert_eq!(event["code"], 2);
+}
+
+#[test]
 fn accepts_native_pre_session_close_and_microphone_override() {
     for method in ["close", "mic_overridden"] {
         let envelope = ServerEnvelope {

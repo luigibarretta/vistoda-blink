@@ -60,7 +60,7 @@ async fn session(
     mut browser: WebSocket,
     request: axum::http::Request<()>,
     doorbot: u64,
-    _lease: PublisherGuard,
+    lease: PublisherGuard,
 ) {
     let Some(mut provider) = connect_provider(request).await else {
         let _ = ui(
@@ -73,7 +73,17 @@ async fn session(
     let Some(dialog) = begin_live(&mut browser, &mut provider, doorbot).await else {
         return;
     };
-    run(&mut browser, &mut provider, &dialog, doorbot).await;
+    let fallback = run(&mut browser, &mut provider, &dialog, doorbot).await;
+    drop(provider);
+    drop(lease);
+    if fallback {
+        let _ = ui(
+            &mut browser,
+            json!({"type":"fallback", "reason":"blink_legacy_device",
+                "message":"Passaggio al live Blink compatibile"}),
+        )
+        .await;
+    }
     info!("Blink WebRTC signaling session closed");
 }
 
@@ -127,8 +137,14 @@ async fn initial(browser: &mut WebSocket) -> Option<BrowserMessage> {
     message.validate().then_some(message)
 }
 
-async fn run(browser: &mut WebSocket, provider: &mut VendorSocket, dialog: &str, doorbot: u64) {
+async fn run(
+    browser: &mut WebSocket,
+    provider: &mut VendorSocket,
+    dialog: &str,
+    doorbot: u64,
+) -> bool {
     let mut state = SessionState::default();
+    let mut fallback = false;
     let mut missed_pings = 0_u8;
     let mut ping = interval_at(
         Instant::now() + Duration::from_secs(10),
@@ -154,6 +170,7 @@ async fn run(browser: &mut WebSocket, provider: &mut VendorSocket, dialog: &str,
             }
             frame = provider.next() => {
                 let update = forward_provider(frame, provider, browser, dialog, doorbot, &mut state).await;
+                fallback |= update.fallback;
                 if update.stop { break; }
                 if update.pong { missed_pings = 0; }
                 if let Some(seconds) = update.ping_seconds {
@@ -185,4 +202,5 @@ async fn run(browser: &mut WebSocket, provider: &mut VendorSocket, dialog: &str,
         blink_webrtc_commands::send(provider, &close(dialog, doorbot, state.session.as_deref()))
             .await;
     let _ = timeout(Duration::from_secs(5), provider.close(None)).await;
+    fallback
 }

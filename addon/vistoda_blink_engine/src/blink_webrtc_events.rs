@@ -28,6 +28,7 @@ pub struct SessionState {
 #[derive(Default)]
 pub struct ProviderUpdate {
     pub stop: bool,
+    pub fallback: bool,
     pub pong: bool,
     pub ping_seconds: Option<u64>,
 }
@@ -68,6 +69,13 @@ pub async fn forward_provider(
     let Some(event) = translation.event else {
         return translation.update;
     };
+    if event.get("type").and_then(Value::as_str) == Some("fallback") {
+        return ProviderUpdate {
+            stop: true,
+            fallback: true,
+            ..translation.update
+        };
+    }
     if answer_has_extra_e2ee(&event) {
         let _ = ui(
             browser,
@@ -81,8 +89,8 @@ pub async fn forward_provider(
             ..translation.update
         };
     }
-    let closed = event.get("type").and_then(Value::as_str) == Some("closed");
-    if closed {
+    let terminal = event.get("type").and_then(Value::as_str) == Some("closed");
+    if terminal {
         info!(
             reason_code = event
                 .get("code")
@@ -93,7 +101,7 @@ pub async fn forward_provider(
     }
     let relay_failed = ui(browser, event).await.is_err();
     ProviderUpdate {
-        stop: closed || relay_failed,
+        stop: terminal || relay_failed,
         ..translation.update
     }
 }

@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 
 const MAX_SDP_BYTES: usize = 96 * 1024;
 const MAX_CANDIDATE_BYTES: usize = 4096;
+const BLINK_LEGACY_DEVICE: i64 = 38;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -176,17 +177,31 @@ pub fn browser_event(envelope: &ServerEnvelope) -> Option<Value> {
             "type": "mic_overridden",
             "cooldown_ms": body.get("cooldown_ms").and_then(Value::as_u64).unwrap_or(0)
         })),
-        "close" => Some(json!({
-            "type": "closed",
-            "code": body.pointer("/reason/code").and_then(Value::as_i64).unwrap_or(0),
-            "message": "Sessione terminata dal provider Blink"
-        })),
+        "close" => Some(close_event(body)),
         "stream_duration_warning" => Some(json!({
             "type": "duration_warning",
             "warning_timeout": body.get("warning_timeout").and_then(Value::as_u64)
         })),
         "ice_restart" => Some(json!({"type": "ice_restart"})),
         _ => None,
+    }
+}
+
+fn close_event(body: &Value) -> Value {
+    let code = body
+        .pointer("/reason/code")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    if code == BLINK_LEGACY_DEVICE {
+        json!({
+            "type": "fallback", "reason": "blink_legacy_device",
+            "message": "Passaggio al live Blink compatibile"
+        })
+    } else {
+        json!({
+            "type": "closed", "code": code,
+            "message": "Sessione terminata dal provider Blink"
+        })
     }
 }
 

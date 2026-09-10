@@ -119,14 +119,19 @@ async def ws_start(
         connection.subscriptions.pop(msg["id"], None)
         await asyncio.shield(session.stop(False))
         raise
-    except (ClientError, EngineError, TimeoutError):
+    except (ClientError, EngineError, TimeoutError) as error:
         owned = sessions.pop(handle, None) is session
         connection.subscriptions.pop(msg["id"], None)
         await session.stop(False)
         if owned:
             with contextlib.suppress(Exception):
+                legacy = isinstance(error, EngineError) and error.status == 412
                 connection.send_error(
-                    msg["id"], "unavailable", "Segnalazione Blink non disponibile"
+                    msg["id"],
+                    "legacy_required" if legacy else "unavailable",
+                    "Live Blink compatibile richiesto"
+                    if legacy
+                    else "Segnalazione Blink non disponibile",
                 )
         return
     if session.closed or sessions.get(handle) is not session:

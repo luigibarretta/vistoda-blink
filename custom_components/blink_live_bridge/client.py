@@ -2,7 +2,13 @@
 
 from typing import Any
 
-from aiohttp import ClientError, ClientResponse, ClientTimeout, ClientWebSocketResponse
+from aiohttp import (
+    ClientError,
+    ClientResponse,
+    ClientTimeout,
+    ClientWebSocketResponse,
+    WSServerHandshakeError,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -51,6 +57,8 @@ class EngineClient:
                 heartbeat=20,
                 max_msg_size=128 * 1024,
             )
+        except WSServerHandshakeError as error:
+            raise EngineError("standalone provider websocket rejected", error.status) from error
         except (ClientError, TimeoutError) as error:
             raise EngineError("standalone provider websocket failed") from error
 

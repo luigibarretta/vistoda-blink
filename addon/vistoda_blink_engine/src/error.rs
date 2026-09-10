@@ -24,6 +24,8 @@ pub enum EngineError {
     NotEnrolled,
     #[error("Blink camera was not found")]
     CameraNotFound,
+    #[error("Blink camera requires the legacy live transport")]
+    WebRtcLegacyDevice,
     #[error("Blink network was not found")]
     NetworkNotFound,
     #[error("Blink cloud request failed")]
@@ -71,6 +73,7 @@ impl IntoResponse for EngineError {
             }
             Self::RecordingCapacity => StatusCode::TOO_MANY_REQUESTS,
             Self::NotEnrolled => StatusCode::PRECONDITION_REQUIRED,
+            Self::WebRtcLegacyDevice => StatusCode::PRECONDITION_FAILED,
             Self::CameraNotFound | Self::NetworkNotFound | Self::RecordingNotFound => {
                 StatusCode::NOT_FOUND
             }
@@ -102,5 +105,21 @@ impl From<BlinkError> for EngineError {
             BlinkError::InvalidStorageOperation => Self::InvalidStorageOperation,
             _ => Self::Cloud,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::response::IntoResponse;
+
+    use super::EngineError;
+
+    #[test]
+    fn legacy_webrtc_precondition_has_a_dedicated_status() {
+        let response = EngineError::WebRtcLegacyDevice.into_response();
+        assert_eq!(
+            response.status(),
+            axum::http::StatusCode::PRECONDITION_FAILED
+        );
     }
 }
