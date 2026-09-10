@@ -51,7 +51,7 @@ advanced surface is implemented by the standalone Rust provider.
 | Privacy zones | Available on compatible v1 cameras | Native spans, maximum two, fail-closed validation. |
 | Speaker volume | Available on Mini/Owl | Android 59.1 proves integers 1–8 and `volume_control`. |
 | Temperature alerts | Enable/disable available | Thresholds stay read-only until exact rules are proven. |
-| Two-way Blink audio | Signaling discovered, media gated | Android 59.1 proves shared Ring WebRTC 4.1 and `blink_oauth`; Vistoda can authenticate and close without media, but SDP/ICE/uplink recovery remain unproven. |
+| Two-way Blink audio | Present in code but disabled by current production policy | Android 59.1 marks `WEBRTC_LIVE_VIEW` `InProgress`; its resolver selects Walnut directly. Vistoda retains the Cayuga broker but does not advertise talk until a later enabled build and SDP/ICE/uplink recovery canary. |
 | Sync Module USB clips | Guarded management in 0.11.0 | Paginated playback/download/NFS copy, revalidated exact deletion and format only when the provider declares compatibility; eject and mount remain absent. |
 | Delete device | Deliberately deferred | Requires reauthentication, typed confirmation and recovery. |
 
@@ -67,8 +67,10 @@ advanced surface is implemented by the standalone Rust provider.
 7. Sync Module USB inventory, playback, download and NFS copy: complete in 0.10.0.
 8. Revalidated exact clip deletion and compatible-support formatting: complete
    in 0.11.0; live destructive release tests remain prohibited on retained media.
-9. Blink talk and device removal: intentionally gated pending media negotiation,
-   reauthentication and recovery evidence.
+9. Blink talk: intentionally gated because Android 59.1 selects Walnut before
+   signaling; a later enabled build still requires media negotiation, uplink and
+   recovery evidence. Device removal remains gated on reauthentication and
+   recovery evidence.
 
 ## Version history
 

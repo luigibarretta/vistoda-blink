@@ -5,6 +5,14 @@ pub use crate::{
     blink_parse::{cameras, media},
 };
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveTransport {
+    #[default]
+    Walnut,
+    Cayuga,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ProviderState {
     pub account_id: String,
@@ -47,6 +55,7 @@ pub struct CameraState {
     pub motion_detected: bool,
     pub thumbnail_url: Option<String>,
     pub powered: bool,
+    pub preferred_live_transport: LiveTransport,
     #[serde(skip_serializing)]
     pub ring_device_id: Option<u64>,
     pub two_way_audio: Option<bool>,

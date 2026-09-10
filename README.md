@@ -31,8 +31,10 @@ private API and Vistoda discovery contract during the product rename.
 - standalone OAuth2 PKCE enrollment, 2FA and sealed refresh-token storage;
 - complete Home Assistant Blink entity and service parity;
 - one shared Blink cloud live session per camera;
-- browser-native WebRTC live with independent speaker/microphone controls and
-  an owner-bound signaling broker that keeps OAuth and device IDs in Rust;
+- official-compatible Walnut live selected before signaling from a typed
+  per-camera transport policy;
+- an owner-bound Cayuga/WebRTC signaling implementation retained behind the
+  official policy gate for a future production rollout;
 - H.264/AAC MPEG-TS for Home Assistant and SceneTrove;
 - cached Blink JPEG snapshots;
 - fixed-duration local live recordings with immutable SHA-256 manifests;
@@ -74,7 +76,7 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `DELETE /v1/local-storage/{network}/{sync}/{manifest}/{clip}` | delete one revalidated exact USB clip |
 | `POST /v1/local-storage/{network}/{sync}/format` | format only provider-declared compatible media |
 | `POST /v1/cameras/{alias}/audio/probe` | authenticate native signaling without starting media |
-| `GET /v1/cameras/{alias}/webrtc` | authenticated WebSocket signaling; media stays browser-to-Blink |
+| `GET /v1/cameras/{alias}/webrtc` | gated Cayuga WebSocket signaling; media stays browser-to-Blink |
 
 Core loopback is trusted so HA camera state never contains credentials. Other
 clients must send a dedicated high-entropy token. Keep the endpoint private;

@@ -6,7 +6,7 @@ use std::{
 use serde_json::Value;
 use time::{OffsetDateTime, format_description::well_known::Iso8601};
 
-use crate::blink_model::{CameraState, MediaClip};
+use crate::blink_model::{CameraState, LiveTransport, MediaClip};
 
 #[must_use]
 pub fn cameras<S1: BuildHasher, S2: BuildHasher>(
@@ -108,6 +108,10 @@ fn camera(
             .any(|clip| clip.camera_name == context.name && recent(&clip.created_at)),
         thumbnail_url,
         powered: context.camera_type == "mini" || product_type == "owl",
+        // Blink Android 59.1 marks WEBRTC_LIVE_VIEW as InProgress. Its
+        // production resolver returns false for every non-Complete feature,
+        // so the official session-manager factory selects Walnut directly.
+        preferred_live_transport: LiveTransport::Walnut,
         ring_device_id: unsigned(summary, "ring_device_id")
             .or_else(|| unsigned(source, "ring_device_id")),
         two_way_audio: boolean(summary, "two_way_audio")

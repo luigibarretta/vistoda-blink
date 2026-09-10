@@ -17,6 +17,7 @@ use tokio_tungstenite::{
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
+use crate::blink_model::LiveTransport;
 use crate::{
     api::{authorize, validate_alias},
     blink_client::{BlinkClient, BlinkError},
@@ -73,6 +74,9 @@ impl BlinkClient {
             .into_iter()
             .find(|camera| camera.alias == alias)
             .ok_or(EngineError::CameraNotFound)?;
+        if camera.preferred_live_transport != LiveTransport::Cayuga {
+            return Err(EngineError::WebRtcFeatureDisabled);
+        }
         let doorbot_id = camera
             .ring_device_id
             .ok_or(EngineError::WebRtcLegacyDevice)?;

@@ -34,6 +34,10 @@ fn parses_official_surface_without_vendor_types() {
     assert!(cameras[1].powered);
     assert_eq!(cameras[1].ring_device_id, Some(22));
     assert_eq!(cameras[1].two_way_audio, Some(true));
+    assert_eq!(
+        serde_json::to_value(&cameras[1]).unwrap_or_default()["preferred_live_transport"],
+        "walnut"
+    );
     assert!(
         !serde_json::to_string(&cameras[1])
             .unwrap_or_default()

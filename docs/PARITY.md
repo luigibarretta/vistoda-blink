@@ -30,7 +30,7 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Activity zones | official app | native v1 20×15 grid | model tests + reversible live canary |
 | Privacy zones | official app | native v1 spans, maximum two | model tests + reversible live canary |
 | Sync Module USB clips | official app | paginated browse/copy + guarded delete/format | Android 59.1 routes; non-destructive live canaries only |
-| Blink talk | official app | browser WebRTC signaling implemented; family canary gated | Android 59.1 WebRTC 4.1 + powered-camera SDP/ICE/audio canary |
+| Blink talk | official app | Walnut selected by current official policy; Cayuga signaling retained but gated | Android 59.1 marks WebRTC `InProgress`; later enabled build + powered-camera SDP/ICE/audio canary |
 | Device removal | official app | deliberately deferred | reauth and recovery contract required |
 
 Parity means behavioral coverage, not identical internal implementation. The

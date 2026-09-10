@@ -13,7 +13,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.13.0"
+    assert manifest["version"] == "0.13.1"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 

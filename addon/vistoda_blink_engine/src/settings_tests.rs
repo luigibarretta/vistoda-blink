@@ -26,6 +26,7 @@ fn camera(kind: &str) -> CameraState {
         motion_detected: false,
         thumbnail_url: None,
         powered: kind == "mini",
+        preferred_live_transport: crate::blink_model::LiveTransport::default(),
         ring_device_id: None,
         two_way_audio: None,
         audio_aec: None,
