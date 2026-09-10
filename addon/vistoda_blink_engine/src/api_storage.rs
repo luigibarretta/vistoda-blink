@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
     response::Response,
-    routing::get,
+    routing::{delete, get, post},
 };
 
 use crate::{
@@ -21,11 +21,27 @@ struct StoragePage {
     page_size: Option<usize>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FormatRequest {
+    confirmation: String,
+}
+
 pub fn routes() -> Router<EngineState> {
-    Router::new().route("/v1/local-storage", get(list)).route(
-        "/v1/local-storage/{network}/{sync}/{manifest}/{clip}/media",
-        get(media),
-    )
+    Router::new()
+        .route("/v1/local-storage", get(list))
+        .route(
+            "/v1/local-storage/{network}/{sync}/{manifest}/{clip}/media",
+            get(media),
+        )
+        .route(
+            "/v1/local-storage/{network}/{sync}/{manifest}/{clip}",
+            delete(delete_clip),
+        )
+        .route(
+            "/v1/local-storage/{network}/{sync}/format",
+            post(format_storage),
+        )
 }
 
 async fn list(
@@ -56,18 +72,42 @@ async fn media(
     ))
 }
 
+async fn delete_clip(
+    State(state): State<EngineState>,
+    headers: HeaderMap,
+    Path((network, sync, manifest, clip)): Path<(u64, u64, u64, u64)>,
+) -> Result<axum::http::StatusCode, EngineError> {
+    authorize(&state, &headers)?;
+    state
+        .client()
+        .delete_local_storage_clip(network, sync, manifest, clip)
+        .await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+async fn format_storage(
+    State(state): State<EngineState>,
+    headers: HeaderMap,
+    Path((network, sync)): Path<(u64, u64)>,
+    Json(request): Json<FormatRequest>,
+) -> Result<axum::http::StatusCode, EngineError> {
+    authorize(&state, &headers)?;
+    if request.confirmation != format!("FORMATTA {network}/{sync}") {
+        return Err(EngineError::InvalidStorageOperation);
+    }
+    state.client().format_local_storage(network, sync).await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
-    fn source_exposes_no_destructive_storage_route() {
+    fn destructive_routes_are_explicit_and_bounded() {
         let source = include_str!("api_storage.rs");
-        for fragments in [
-            ["del", "ete("],
-            ["ej", "ect"],
-            ["for", "mat"],
-            ["mo", "unt"],
-        ] {
-            assert!(!source.contains(&fragments.concat()));
-        }
+        let production_source = source.split("#[cfg(test)]").next().unwrap_or(source);
+        assert!(production_source.contains("delete(delete_clip)"));
+        assert!(production_source.contains("post(format_storage)"));
+        assert!(!production_source.contains("/eject"));
+        assert!(!production_source.contains("/mount"));
     }
 }

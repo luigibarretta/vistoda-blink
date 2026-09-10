@@ -1,4 +1,4 @@
-"""Authenticated read-only Blink Sync Module storage boundary."""
+"""Authenticated and guarded Blink Sync Module storage boundary."""
 
 from typing import Any
 
@@ -13,11 +13,13 @@ from .runtime import BridgeRuntime
 
 @callback
 def async_register(hass: HomeAssistant) -> None:
-    """Register the read-only inventory command once."""
+    """Register bounded inventory and administrator storage commands once."""
     data = hass.data.setdefault(DOMAIN, {})
     if data.get("storage_websocket_registered"):
         return
     websocket_api.async_register_command(hass, ws_local_storage)
+    websocket_api.async_register_command(hass, ws_delete_local_storage_clip)
+    websocket_api.async_register_command(hass, ws_format_local_storage)
     data["storage_websocket_registered"] = True
 
 
@@ -34,7 +36,7 @@ async def ws_local_storage(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Return the bounded provider-owned USB inventory without mutation controls."""
+    """Return the bounded provider-owned USB inventory."""
     runtime = hass.data.get(DOMAIN, {}).get("runtime")
     if not isinstance(runtime, BridgeRuntime):
         connection.send_error(msg["id"], "unavailable", "Vistoda Blink is not loaded")
@@ -70,3 +72,79 @@ def _valid_page(value: object) -> bool:
         and isinstance(value.get("has_previous"), bool)
         and isinstance(value.get("has_next"), bool)
     )
+
+
+POSITIVE = vol.All(int, vol.Range(min=1))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "blink_live_bridge/local_storage/delete",
+        vol.Required("network_id"): POSITIVE,
+        vol.Required("sync_module_id"): POSITIVE,
+        vol.Required("manifest_id"): POSITIVE,
+        vol.Required("clip_id"): POSITIVE,
+    }
+)
+@websocket_api.async_response
+async def ws_delete_local_storage_clip(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Delete one exact provider clip after the engine revalidates the manifest."""
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Administrator access required")
+        return
+    runtime = hass.data.get(DOMAIN, {}).get("runtime")
+    if not isinstance(runtime, BridgeRuntime):
+        connection.send_error(msg["id"], "unavailable", "Vistoda Blink is not loaded")
+        return
+    path = (
+        f"/v1/local-storage/{msg['network_id']}/{msg['sync_module_id']}/"
+        f"{msg['manifest_id']}/{msg['clip_id']}"
+    )
+    try:
+        await runtime.client.delete(path)
+    except EngineError as error:
+        code = "conflict" if error.status in {409, 422} else "unavailable"
+        connection.send_error(msg["id"], code, "Blink USB clip could not be deleted")
+        return
+    connection.send_result(msg["id"], {})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "blink_live_bridge/local_storage/format",
+        vol.Required("network_id"): POSITIVE,
+        vol.Required("sync_module_id"): POSITIVE,
+        vol.Required("confirmation"): vol.All(str, vol.Length(min=10, max=80)),
+    }
+)
+@websocket_api.async_response
+async def ws_format_local_storage(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Format one exact support only after an explicit typed confirmation."""
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Administrator access required")
+        return
+    expected = f"FORMATTA {msg['network_id']}/{msg['sync_module_id']}"
+    if msg["confirmation"] != expected:
+        connection.send_error(msg["id"], "invalid_confirmation", "Confirmation does not match")
+        return
+    runtime = hass.data.get(DOMAIN, {}).get("runtime")
+    if not isinstance(runtime, BridgeRuntime):
+        connection.send_error(msg["id"], "unavailable", "Vistoda Blink is not loaded")
+        return
+    try:
+        await runtime.client.post(
+            f"/v1/local-storage/{msg['network_id']}/{msg['sync_module_id']}/format",
+            {"confirmation": expected},
+        )
+    except EngineError:
+        connection.send_error(msg["id"], "unavailable", "Blink USB could not be formatted")
+        return
+    connection.send_result(msg["id"], {})

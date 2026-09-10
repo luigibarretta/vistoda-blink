@@ -3,11 +3,14 @@ use serde_json::json;
 
 #[test]
 fn parses_only_read_only_status_and_bounded_clip_metadata() {
-    let status = storage_status(&json!({"enabled": true, "usb_state": "mounted",
-        "usb_storage_used": 31, "usb_storage_full": false, "can_format_usb": true}));
+    let status = storage_status(&json!({"enabled": true, "usb_state": "active",
+        "usb_storage_used": 31, "usb_storage_full": false, "usb_format_compatible": true}));
     assert!(status.enabled);
-    assert_eq!(status.usb_state, "mounted");
+    assert_eq!(status.usb_state, "active");
     assert_eq!(status.usb_storage_used, Some(31));
+    assert_eq!(status.usb_storage_available_percentage, Some(69));
+    assert!(status.can_delete_clips);
+    assert!(status.can_format_usb);
     let (manifest, clips) = parse_manifest(&json!({"manifest_id": 8, "media": [{"id": 9,
         "device_name": "Balcone", "created_at": "2026-09-09T10:00:00Z",
         "clip_length_ms": 5000, "media": "/request/9"}, {"id": 10,

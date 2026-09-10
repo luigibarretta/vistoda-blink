@@ -48,6 +48,8 @@ pub enum EngineError {
     RecordingIo,
     #[error("recording was not found")]
     RecordingNotFound,
+    #[error("local storage operation is invalid for the current support")]
+    InvalidStorageOperation,
 }
 
 #[derive(Serialize)]
@@ -61,6 +63,7 @@ impl IntoResponse for EngineError {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::InvalidAlias
             | Self::InvalidSetting
+            | Self::InvalidStorageOperation
             | Self::Protocol(_)
             | Self::InvalidEnrollment => StatusCode::UNPROCESSABLE_ENTITY,
             Self::PublisherBusy | Self::SettingsConflict | Self::RecordingActive => {
@@ -96,6 +99,7 @@ impl From<BlinkError> for EngineError {
             BlinkError::InvalidSetting | BlinkError::SettingsUnsupported => Self::InvalidSetting,
             BlinkError::SettingsConflict => Self::SettingsConflict,
             BlinkError::SettingsVerification => Self::SettingsVerification,
+            BlinkError::InvalidStorageOperation => Self::InvalidStorageOperation,
             _ => Self::Cloud,
         }
     }

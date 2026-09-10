@@ -78,9 +78,11 @@ async fn list_recordings(
         recordings.retain(|item| item.camera == camera);
     }
     let (recordings, pagination) = pagination::page(&recordings, query.page, query.page_size)?;
+    let storage = state.recordings().storage_descriptor()?;
     Ok(Json(serde_json::json!({
         "recordings": recordings,
-        "pagination": pagination
+        "pagination": pagination,
+        "storage": storage
     })))
 }
 

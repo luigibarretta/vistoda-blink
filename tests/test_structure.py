@@ -13,7 +13,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.10.0"
+    assert manifest["version"] == "0.11.0"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -143,7 +143,7 @@ def test_local_recordings_replace_the_vendor_motion_clip_action() -> None:
     assert "api_token" not in boundary
 
 
-def test_sync_module_usb_boundary_is_read_only_and_ha_authenticated() -> None:
+def test_sync_module_usb_boundary_is_guarded_and_ha_authenticated() -> None:
     setup = (COMPONENT / "__init__.py").read_text()
     boundary = (COMPONENT / "storage_websocket.py").read_text()
     http = (COMPONENT / "http.py").read_text()
@@ -153,8 +153,12 @@ def test_sync_module_usb_boundary_is_read_only_and_ha_authenticated() -> None:
     assert "LocalStorageMediaView" in http and "requires_auth = True" in http
     assert '"/v1/local-storage"' in provider
     assert "api_token" not in boundary + http
-    for fragments in (("local_storage/", "delete"), ("local_storage/", "eject")):
-        assert "".join(fragments) not in boundary + http + provider
+    assert "blink_live_bridge/local_storage/delete" in boundary
+    assert "blink_live_bridge/local_storage/format" in boundary
+    assert "connection.user.is_admin" in boundary
+    assert 'f"FORMATTA {msg[' in boundary
+    assert "local_storage/eject" not in boundary + http + provider
+    assert "local_storage/mount" not in boundary + http + provider
 
 
 def test_camera_declares_the_official_blink_attribute_surface() -> None:

@@ -32,4 +32,6 @@ pub enum BlinkError {
     SettingsConflict,
     #[error("camera setting verification failed")]
     SettingsVerification,
+    #[error("local storage operation is invalid for the current support")]
+    InvalidStorageOperation,
 }

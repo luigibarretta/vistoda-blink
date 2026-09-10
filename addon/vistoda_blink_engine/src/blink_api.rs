@@ -206,6 +206,24 @@ pub fn local_storage_clip_request(
     )
 }
 
+pub fn local_storage_clip_delete(
+    account: &str,
+    network: &str,
+    sync: &str,
+    manifest: u64,
+    clip: u64,
+) -> String {
+    format!(
+        "/api/v1/accounts/{account}/networks/{network}/sync_modules/{sync}/local_storage/manifest/{manifest}/clip/delete/{clip}"
+    )
+}
+
+pub fn local_storage_format(account: &str, network: &str, sync: &str) -> String {
+    format!(
+        "/api/v1/accounts/{account}/networks/{network}/sync_modules/{sync}/local_storage/format"
+    )
+}
+
 const fn default_poll_seconds() -> f64 {
     1.0
 }

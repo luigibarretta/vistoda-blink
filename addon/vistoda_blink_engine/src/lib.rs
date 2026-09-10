@@ -22,6 +22,7 @@ pub mod blink_settings;
 mod blink_settings_write;
 mod blink_signaling;
 mod blink_storage;
+mod blink_storage_mutations;
 mod blink_zone_model;
 mod blink_zones;
 pub mod config;

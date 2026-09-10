@@ -57,19 +57,27 @@ fn builds_current_read_only_local_storage_paths() {
 }
 
 #[test]
-fn provider_storage_contract_contains_no_destructive_endpoint() {
+fn builds_reviewed_destructive_local_storage_paths() {
+    assert_eq!(
+        super::local_storage_clip_delete("1", "2", "3", 4, 5),
+        "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/manifest/4/clip/delete/5"
+    );
+    assert_eq!(
+        super::local_storage_format("1", "2", "3"),
+        "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/format"
+    );
+}
+
+#[test]
+fn provider_storage_contract_contains_only_reviewed_destructive_endpoints() {
     let source = concat!(
         include_str!("blink_api.rs"),
         include_str!("blink_storage.rs")
     );
-    for fragments in [
-        ["/del", "ete"],
-        ["/ej", "ect"],
-        ["/for", "mat"],
-        ["/mo", "unt"],
-    ] {
-        assert!(!source.contains(&fragments.concat()));
-    }
+    assert!(source.contains("clip/delete"));
+    assert!(source.contains("local_storage/format"));
+    assert!(!source.contains("local_storage/eject"));
+    assert!(!source.contains("local_storage/mount"));
 }
 
 #[test]

@@ -52,7 +52,7 @@ advanced surface is implemented by the standalone Rust provider.
 | Speaker volume | Available on Mini/Owl | Android 59.1 proves integers 1–8 and `volume_control`. |
 | Temperature alerts | Enable/disable available | Thresholds stay read-only until exact rules are proven. |
 | Two-way Blink audio | Signaling discovered, media gated | Android 59.1 proves shared Ring WebRTC 4.1 and `blink_oauth`; Vistoda can authenticate and close without media, but SDP/ICE/uplink recovery remain unproven. |
-| Sync Module USB clips | Available read-only in 0.10.0 | Status, native readable-state manifest polling, backend/UI pagination, authenticated playback/download and checksum-verified NFS copy; no delete/eject/format/mount route exists. |
+| Sync Module USB clips | Guarded management in 0.11.0 | Paginated playback/download/NFS copy, revalidated exact deletion and format only when the provider declares compatibility; eject and mount remain absent. |
 | Delete device | Deliberately deferred | Requires reauthentication, typed confirmation and recovery. |
 
 ## Delivery result
@@ -64,12 +64,20 @@ advanced surface is implemented by the standalone Rust provider.
 5. Native v1 activity/privacy editor: complete in 0.7.0; Owl v2 remains gated.
 6. Standalone local archive and checksum-verified NFS backup: complete in 0.8.0
    through the Vistoda Home Assistant control plane.
-7. Sync Module USB inventory, playback, download and NFS copy: complete in
-   0.10.0 without destructive provider controls.
-8. Blink talk and device removal: intentionally gated pending media negotiation,
+7. Sync Module USB inventory, playback, download and NFS copy: complete in 0.10.0.
+8. Revalidated exact clip deletion and compatible-support formatting: complete
+   in 0.11.0; live destructive release tests remain prohibited on retained media.
+9. Blink talk and device removal: intentionally gated pending media negotiation,
    reauthentication and recovery evidence.
 
 ## Version history
+
+### 0.11.0
+
+Added exact current-manifest clip deletion and compatible-media formatting from
+the native Android 59.1 contract. Both are administrator-only and fail closed;
+formatting requires an exact typed target phrase at both HA and Rust boundaries.
+The status exposes only the provider-derived available-space percentage.
 
 ### 0.10.0
 
@@ -140,9 +148,10 @@ the enrolled Mini rejects that route; Vistoda does not guess a translation.
 The official Blink app is optional only when every setting the user needs passes
 live read/write/read-back tests on the enrolled model and the explicitly blocked
 surfaces are acceptable. Today Vistoda is a daily-use and verified-settings
-replacement. Keep the official app for Blink talk, destructive USB management,
-device removal, unsupported v2 zones and future fields not returned by an
-enrolled camera.
+replacement. Keep the official app for Blink talk, device removal, unsupported
+v2 zones and future fields not returned by an enrolled camera. USB deletion and
+compatible-media formatting are implemented but intentionally not release-tested
+against retained household media.
 
 ## Primary references
 

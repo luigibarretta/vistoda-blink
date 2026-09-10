@@ -30,7 +30,10 @@ pub struct LocalStorageStatus {
     pub enabled: bool,
     pub usb_state: String,
     pub usb_storage_used: Option<u64>,
+    pub usb_storage_available_percentage: Option<u64>,
     pub usb_storage_full: bool,
+    pub can_delete_clips: bool,
+    pub can_format_usb: bool,
     pub backup_enabled: bool,
     pub backup_in_progress: bool,
     pub last_backup_completed: Option<String>,
@@ -91,7 +94,7 @@ impl BlinkClient {
         Ok(result)
     }
 
-    async fn load_local_storage_manifest(
+    pub(crate) async fn load_local_storage_manifest(
         &self,
         context: &crate::blink_client::RequestContext,
         network: &str,
@@ -157,11 +160,16 @@ fn has_readable_media(state: &str) -> bool {
 }
 
 fn storage_status(value: &Value) -> LocalStorageStatus {
+    let used = number(value, "usb_storage_used").filter(|value| *value <= 100);
+    let readable = text(value, "usb_state").is_some_and(|state| has_readable_media(&state));
     LocalStorageStatus {
         enabled: boolean(value, "enabled"),
         usb_state: text(value, "usb_state").unwrap_or_default(),
-        usb_storage_used: number(value, "usb_storage_used"),
+        usb_storage_used: used,
+        usb_storage_available_percentage: used.map(|value| 100 - value),
         usb_storage_full: boolean(value, "usb_storage_full"),
+        can_delete_clips: readable,
+        can_format_usb: boolean(value, "usb_format_compatible"),
         backup_enabled: boolean(value, "sm_backup_enabled"),
         backup_in_progress: boolean(value, "sm_backup_in_progress"),
         last_backup_completed: optional_text(value, "last_backup_completed"),
