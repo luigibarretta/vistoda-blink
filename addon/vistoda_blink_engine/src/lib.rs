@@ -25,6 +25,7 @@ mod blink_storage;
 mod blink_storage_mutations;
 mod blink_webrtc;
 mod blink_webrtc_commands;
+mod blink_webrtc_events;
 mod blink_webrtc_frames;
 mod blink_webrtc_wire;
 #[cfg(test)]

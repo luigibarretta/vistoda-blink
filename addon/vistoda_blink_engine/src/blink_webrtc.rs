@@ -11,7 +11,7 @@ use axum::{
     routing::get,
 };
 use futures_util::StreamExt;
-use serde_json::{Value, json};
+use serde_json::json;
 use tokio::{
     net::TcpStream,
     time::{Instant, interval_at, timeout},
@@ -24,11 +24,10 @@ use uuid::Uuid;
 
 use crate::{
     api::{authorize, validate_alias},
-    blink_webrtc_commands, blink_webrtc_frames,
-    blink_webrtc_wire::{
-        BrowserMessage, answer_has_extra_e2ee, browser_event, close, live_view, ping_seconds,
-        session_command, session_id, valid_event_session, valid_server,
-    },
+    blink_webrtc_commands,
+    blink_webrtc_events::{SessionState, forward_provider, ui},
+    blink_webrtc_frames,
+    blink_webrtc_wire::{BrowserMessage, close, live_view, session_command},
     error::EngineError,
     hub::{EngineState, PublisherGuard},
 };
@@ -105,13 +104,8 @@ async fn initial(browser: &mut WebSocket) -> Option<BrowserMessage> {
 }
 
 async fn run(browser: &mut WebSocket, provider: &mut VendorSocket, dialog: &str, doorbot: u64) {
-    let mut session = None;
-    let mut activated = false;
-    let mut mic_prepared = false;
-    let mut mic_cooldown = None;
-    let mut candidates = 0_usize;
+    let mut state = SessionState::default();
     let mut missed_pings = 0_u8;
-    let mut negotiated = false;
     let mut ping = interval_at(
         Instant::now() + Duration::from_secs(10),
         Duration::from_secs(10),
@@ -129,49 +123,27 @@ async fn run(browser: &mut WebSocket, provider: &mut VendorSocket, dialog: &str,
                     blink_webrtc_frames::Incoming::Closed => break,
                 };
                 if !message.validate() { break; }
-                if blink_webrtc_commands::handle(provider, dialog, doorbot, session.as_deref(),
-                    &mut activated, &mut mic_prepared, mic_cooldown, &mut candidates,
+                if blink_webrtc_commands::handle(provider, dialog, doorbot, state.session.as_deref(),
+                    &mut state.activated, &mut state.mic_prepared, state.mic_cooldown,
+                    &mut state.candidates,
                     message).await { break; }
             }
             frame = provider.next() => {
-                let envelope = match blink_webrtc_frames::provider(frame, provider).await {
-                    blink_webrtc_frames::Incoming::Data(value) => value,
-                    blink_webrtc_frames::Incoming::Heartbeat => continue,
-                    blink_webrtc_frames::Incoming::Closed => break,
-                };
-                if !valid_server(&envelope, dialog, doorbot) { continue; }
-                if envelope.method == "pong" { missed_pings = 0; }
-                if let Some(seconds) = ping_seconds(&envelope.body) {
+                let update = forward_provider(frame, provider, browser, dialog, doorbot, &mut state).await;
+                if update.stop { break; }
+                if update.pong { missed_pings = 0; }
+                if let Some(seconds) = update.ping_seconds {
                     ping = interval_at(Instant::now() + Duration::from_secs(seconds),
                         Duration::from_secs(seconds));
                 }
-                if let Some(value) = session_id(&envelope.body) {
-                    if session.as_deref().is_some_and(|current| current != value) { break; }
-                    session.get_or_insert_with(|| value.to_owned());
-                }
-                if !valid_event_session(&envelope, session.as_deref()) { continue; }
-                let Some(event) = browser_event(&envelope) else { continue };
-                if event.get("type").and_then(Value::as_str) == Some("answer") {
-                    negotiated = true;
-                }
-                if event.get("type").and_then(Value::as_str) == Some("mic_overridden") {
-                    let millis = event.get("cooldown_ms").and_then(Value::as_u64).unwrap_or(0);
-                    mic_cooldown = Some(Instant::now() + Duration::from_millis(millis));
-                }
-                if answer_has_extra_e2ee(&event) {
-                    let _ = ui(browser, json!({"type":"error","message":"Modalità E2EE Blink non supportata"})).await;
-                    break;
-                }
-                let closed = event.get("type").and_then(Value::as_str) == Some("closed");
-                if ui(browser, event).await.is_err() || closed { break; }
             }
-            _ = ping.tick(), if session.is_some() => {
+            _ = ping.tick(), if state.session.is_some() => {
                 if missed_pings >= 2 {
                     let _ = ui(browser, json!({"type":"error","message":"Sessione Blink scaduta"})).await;
                     break;
                 }
                 let command = session_command(dialog, "ping", doorbot,
-                    session.as_deref().unwrap_or_default(), &json!({}));
+                    state.session.as_deref().unwrap_or_default(), &json!({}));
                 if blink_webrtc_commands::send(provider, &command).await.is_err() { break; }
                 missed_pings += 1;
             }
@@ -179,23 +151,14 @@ async fn run(browser: &mut WebSocket, provider: &mut VendorSocket, dialog: &str,
                 let _ = ui(browser, json!({"type":"closed","code":0,"message":"Durata live conclusa"})).await;
                 break;
             }
-            () = &mut negotiation, if !negotiated => {
+            () = &mut negotiation, if !state.negotiated => {
                 let _ = ui(browser, json!({"type":"error","message":"Negoziazione Blink scaduta"})).await;
                 break;
             }
         }
     }
     let _ =
-        blink_webrtc_commands::send(provider, &close(dialog, doorbot, session.as_deref())).await;
+        blink_webrtc_commands::send(provider, &close(dialog, doorbot, state.session.as_deref()))
+            .await;
     let _ = timeout(Duration::from_secs(5), provider.close(None)).await;
-}
-
-async fn ui(socket: &mut WebSocket, value: Value) -> Result<(), ()> {
-    timeout(
-        Duration::from_secs(5),
-        socket.send(BrowserFrame::Text(value.to_string().into())),
-    )
-    .await
-    .map_err(|_| ())?
-    .map_err(|_| ())
 }
