@@ -1,16 +1,3 @@
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-    },
-};
-
-use bytes::Bytes;
-use tokio::sync::{RwLock, broadcast};
-use zeroize::Zeroizing;
-
 use crate::{
     alias_store::AliasStore,
     blink_client::{BlinkClient, BlinkError},
@@ -20,30 +7,40 @@ use crate::{
     live,
     recordings::RecordingManager,
 };
-
+use bytes::Bytes;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicU8, AtomicU64, AtomicUsize, Ordering},
+    },
+};
+use tokio::sync::{RwLock, broadcast};
+use zeroize::Zeroizing;
 const QUEUE_DEPTH: usize = 12;
-
+const OWNER_NONE: u8 = 0;
+const OWNER_IMMI: u8 = 1;
+const OWNER_WEBRTC: u8 = 2;
 #[derive(Clone)]
 pub enum HubMessage {
     Data(Bytes),
     End,
 }
-
 pub struct CameraHub {
     sender: broadcast::Sender<HubMessage>,
-    publisher: AtomicBool,
+    publisher: AtomicU8,
     subscribers: AtomicUsize,
     packets: AtomicU64,
     lagged: AtomicU64,
     protocol_errors: AtomicU64,
 }
-
 impl CameraHub {
     fn new() -> Self {
         let (sender, _) = broadcast::channel(QUEUE_DEPTH);
         Self {
             sender,
-            publisher: AtomicBool::new(false),
+            publisher: AtomicU8::new(OWNER_NONE),
             subscribers: AtomicUsize::new(0),
             packets: AtomicU64::new(0),
             lagged: AtomicU64::new(0),
@@ -51,13 +48,15 @@ impl CameraHub {
         }
     }
 
-    pub fn acquire_publisher(self: &Arc<Self>) -> Result<PublisherGuard, EngineError> {
+    fn acquire_publisher(self: &Arc<Self>, owner: u8) -> Result<PublisherGuard, EngineError> {
         self.publisher
-            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .compare_exchange(OWNER_NONE, owner, Ordering::AcqRel, Ordering::Acquire)
             .map_err(|_| EngineError::PublisherBusy)?;
         Ok(PublisherGuard { hub: self.clone() })
     }
-
+    fn owner(&self) -> u8 {
+        self.publisher.load(Ordering::Acquire)
+    }
     pub fn subscribe(self: &Arc<Self>) -> Subscriber {
         self.subscribers.fetch_add(1, Ordering::Relaxed);
         Subscriber {
@@ -81,7 +80,7 @@ impl CameraHub {
 
     pub(crate) fn snapshot(&self) -> HubSnapshot {
         HubSnapshot {
-            publisher: self.publisher.load(Ordering::Relaxed),
+            publisher: self.publisher.load(Ordering::Relaxed) != OWNER_NONE,
             subscribers: self.subscribers.load(Ordering::Relaxed),
             packets: self.packets.load(Ordering::Relaxed),
             lagged: self.lagged.load(Ordering::Relaxed),
@@ -110,7 +109,7 @@ impl PublisherGuard {
 
 impl Drop for PublisherGuard {
     fn drop(&mut self) {
-        self.hub.publisher.store(false, Ordering::Release);
+        self.hub.publisher.store(OWNER_NONE, Ordering::Release);
         let _ = self.hub.sender.send(HubMessage::End);
     }
 }
@@ -207,26 +206,39 @@ impl EngineState {
     }
 
     pub async fn subscribe(&self, alias: &str) -> Result<Subscriber, EngineError> {
-        if !self
-            .client
+        if !self.camera_exists(alias).await {
+            return Err(EngineError::CameraNotFound);
+        }
+        let hub = self.hub(alias).await;
+        if hub.owner() == OWNER_WEBRTC {
+            return Err(EngineError::PublisherBusy);
+        }
+        let publisher = match hub.acquire_publisher(OWNER_IMMI) {
+            Ok(guard) => Some(guard),
+            Err(_) if hub.owner() == OWNER_IMMI => None,
+            Err(error) => return Err(error),
+        };
+        let subscriber = hub.subscribe();
+        if let Some(guard) = publisher {
+            tokio::spawn(live::produce(self.client.clone(), alias.to_owned(), guard));
+        }
+        Ok(subscriber)
+    }
+
+    pub async fn acquire_webrtc(&self, alias: &str) -> Result<PublisherGuard, EngineError> {
+        if !self.camera_exists(alias).await {
+            return Err(EngineError::CameraNotFound);
+        }
+        self.hub(alias).await.acquire_publisher(OWNER_WEBRTC)
+    }
+
+    async fn camera_exists(&self, alias: &str) -> bool {
+        self.client
             .state()
             .await
             .cameras
             .iter()
             .any(|camera| camera.alias == alias)
-        {
-            return Err(EngineError::CameraNotFound);
-        }
-        let hub = self.hub(alias).await;
-        let subscriber = hub.subscribe();
-        if let Ok(publisher) = hub.acquire_publisher() {
-            tokio::spawn(live::produce(
-                self.client.clone(),
-                alias.to_owned(),
-                publisher,
-            ));
-        }
-        Ok(subscriber)
     }
 }
 pub(crate) struct HubSnapshot {

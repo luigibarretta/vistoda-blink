@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from aiohttp import ClientError, ClientResponse, ClientTimeout
+from aiohttp import ClientError, ClientResponse, ClientTimeout, ClientWebSocketResponse
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -41,6 +41,18 @@ class EngineClient:
 
     async def stream(self, path: str) -> ClientResponse:
         return await self._request("GET", path, request_timeout=None)
+
+    async def websocket(self, path: str) -> ClientWebSocketResponse:
+        """Open one bounded local signaling channel without exposing provider auth."""
+        try:
+            return await self._session.ws_connect(
+                f"{self._base_url}{path}",
+                headers=self._headers,
+                heartbeat=20,
+                max_msg_size=128 * 1024,
+            )
+        except (ClientError, TimeoutError) as error:
+            raise EngineError("standalone provider websocket failed") from error
 
     async def delete(self, path: str) -> None:
         response = await self._request("DELETE", path)

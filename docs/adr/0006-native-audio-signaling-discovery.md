@@ -33,10 +33,19 @@ and HTTP status, never response bodies or credentials. It sends no live, SDP,
 ICE, microphone or speaker message, starts no media session and closes
 immediately after the upgrade.
 
-The Vistoda microphone control stays hidden. It may be enabled only after a
-bounded live canary proves simultaneous downlink and uplink, user-gesture-based
-microphone permission, mute/unmute, teardown and recovery on every supported
-camera family.
+Vistoda implements the RMS v4 session as a signaling-only broker. The browser
+creates a balanced Unified Plan peer connection with audio `sendrecv` and video
+`recvonly`, then sends its offer through an owner-bound Home Assistant
+subscription. Rust translates only typed `live_view`, SDP, ICE,
+`activate_session`, `stream_options`, `camera_options`, `mic_enable`, ping and
+structured close messages. WebRTC media remains end-to-end between browser and
+Blink; no Rust media stack or transcoder is added.
+
+A single per-camera lease is shared by WebRTC, legacy IMMI live and recordings.
+Sessions are bounded by message/candidate limits, a six-minute deadline, ping
+timeouts and connection cleanup. Additional Blink content-encryption SDP fails
+closed. Speaker and microphone start disabled, are controlled independently and
+the browser microphone uses a Vistoda-wide exclusive lock shared with Ring.
 
 ## Consequences
 
@@ -44,7 +53,9 @@ camera family.
   camera wake-up or microphone capture.
 - OAuth tokens and private Ring device IDs never enter Home Assistant panel
   state or probe output.
-- A successful probe narrows the remaining work but is not a claim of
-  full-duplex support.
-- The official Blink app remains required for two-way talk until the media
-  contract passes the live canary.
+- Browser SDP, ICE and audio state no longer expose OAuth or private Ring device
+  IDs to Home Assistant.
+- A successful WebSocket/SDP negotiation is not by itself a full-duplex claim;
+  every camera family still needs a powered-camera media and mute canary.
+- Provider busy, unsupported codec, E2EE and microphone override conditions fail
+  closed and remain visible to the user.

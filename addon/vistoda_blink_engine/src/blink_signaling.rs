@@ -62,6 +62,22 @@ async fn probe(
 }
 
 impl BlinkClient {
+    pub(crate) async fn signaling_target(
+        &self,
+        alias: &str,
+    ) -> Result<(axum::http::Request<()>, u64), BlinkError> {
+        let camera = self
+            .state()
+            .await
+            .cameras
+            .into_iter()
+            .find(|camera| camera.alias == alias)
+            .ok_or(BlinkError::CameraNotFound)?;
+        let doorbot_id = camera.ring_device_id.ok_or(BlinkError::InvalidResponse)?;
+        let identity = self.signaling_identity().await?;
+        Ok((signaling_request(&identity)?, doorbot_id))
+    }
+
     async fn signaling_identity(&self) -> Result<SignalingIdentity, BlinkError> {
         let context = self.context().await?;
         let (hardware_id, stored_user_id) = {

@@ -13,7 +13,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.11.0"
+    assert manifest["version"] == "0.12.0"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -174,6 +174,29 @@ def test_camera_declares_the_official_blink_attribute_surface() -> None:
         "video",
     ):
         assert f'"{name}"' in source
+
+
+def test_webrtc_signaling_is_typed_owner_bound_and_media_free() -> None:
+    """OAuth stays in Rust while HA owns one bounded browser subscription."""
+    setup = (COMPONENT / "__init__.py").read_text()
+    boundary = (COMPONENT / "webrtc_websocket.py").read_text()
+    client = (COMPONENT / "client.py").read_text()
+    engine = (ENGINE / "src" / "blink_webrtc.rs").read_text()
+    commands = (ENGINE / "src" / "blink_webrtc_commands.rs").read_text()
+    wire = (ENGINE / "src" / "blink_webrtc_wire.rs").read_text()
+    hub = (ENGINE / "src" / "hub.rs").read_text()
+    assert "async_register_webrtc_websocket(hass)" in setup
+    assert "blink_live_bridge/webrtc/subscribe" in boundary
+    assert "connection.subscriptions" in boundary and "session.owner != id(connection)" in boundary
+    assert boundary.index("sessions[handle] = session") < boundary.index("runtime.client.websocket")
+    assert "relay_task" in boundary and "asyncio.timeout(5)" in boundary
+    assert "max_msg_size=128 * 1024" in client
+    assert '"activate_session"' in commands and '"mic_enable"' in commands
+    assert '"stream_options"' in commands and '"camera_options"' in commands
+    assert '"mlineindex"' in wire and "pub dialog_id" in wire
+    assert "OWNER_WEBRTC" in hub and "EngineError::PublisherBusy" in hub
+    assert "valid_event_session" in engine and "mic_cooldown" in engine
+    assert "webrtc-rs" not in engine + commands + wire and "api_token" not in boundary
 
 
 def test_every_maintained_file_stays_bounded() -> None:

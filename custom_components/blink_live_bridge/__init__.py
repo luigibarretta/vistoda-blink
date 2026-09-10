@@ -24,6 +24,12 @@ from .recording_websocket import async_register as async_register_recording_webs
 from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
 from .services import async_setup_services
 from .storage_websocket import async_register as async_register_storage_websocket
+from .webrtc_websocket import (
+    async_register as async_register_webrtc_websocket,
+)
+from .webrtc_websocket import (
+    async_stop_all as async_stop_webrtc_sessions,
+)
 from .websocket import async_register as async_register_websocket
 from .zones_websocket import async_register as async_register_zones_websocket
 
@@ -37,6 +43,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Store only the local workload token."""
     async_setup_services(hass)
     async_register_websocket(hass)
+    async_register_webrtc_websocket(hass)
     async_register_zones_websocket(hass)
     async_register_recording_websocket(hass)
     async_register_storage_websocket(hass)
@@ -86,6 +93,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload entities without touching the standalone provider session."""
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
+    await async_stop_webrtc_sessions(hass)
     hass.data[DOMAIN].pop(entry.entry_id, None)
     hass.data[DOMAIN].pop("runtime", None)
     return True

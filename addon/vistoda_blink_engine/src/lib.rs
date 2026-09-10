@@ -23,6 +23,12 @@ mod blink_settings_write;
 mod blink_signaling;
 mod blink_storage;
 mod blink_storage_mutations;
+mod blink_webrtc;
+mod blink_webrtc_commands;
+mod blink_webrtc_frames;
+mod blink_webrtc_wire;
+#[cfg(test)]
+mod blink_webrtc_wire_tests;
 mod blink_zone_model;
 mod blink_zones;
 pub mod config;
