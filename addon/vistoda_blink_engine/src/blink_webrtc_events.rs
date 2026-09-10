@@ -94,10 +94,7 @@ fn translate(
     doorbot: u64,
     state: &mut SessionState,
 ) -> Result<Option<Translation>, ()> {
-    if !valid_server(envelope, dialog, doorbot) {
-        warn!(method = %envelope.method,
-            has_doorbot = envelope.body.get("doorbot_id").is_some(),
-            "Blink WebRTC ignored a provider event with invalid correlation");
+    if !correlate(envelope, dialog, doorbot, state)? {
         return Ok(None);
     }
     let update = ProviderUpdate {
@@ -105,6 +102,34 @@ fn translate(
         ping_seconds: ping_seconds(&envelope.body),
         ..Default::default()
     };
+    let Some(event) = browser_event(envelope) else {
+        info!(method = %envelope.method,
+            "Blink WebRTC received a provider event without a browser translation");
+        return Ok(Some(Translation {
+            event: None,
+            update,
+        }));
+    };
+    info!(method = %envelope.method, "Blink WebRTC accepted a provider signaling event");
+    update_state(&event, state);
+    Ok(Some(Translation {
+        event: Some(event),
+        update,
+    }))
+}
+
+fn correlate(
+    envelope: &ServerEnvelope,
+    dialog: &str,
+    doorbot: u64,
+    state: &mut SessionState,
+) -> Result<bool, ()> {
+    if !valid_server(envelope, dialog, doorbot) {
+        warn!(method = %envelope.method,
+            has_doorbot = envelope.body.get("doorbot_id").is_some(),
+            "Blink WebRTC ignored a provider event with invalid correlation");
+        return Ok(false);
+    }
     if let Some(value) = session_id(&envelope.body) {
         if state
             .session
@@ -119,17 +144,12 @@ fn translate(
         warn!(method = %envelope.method,
             has_session = session_id(&envelope.body).is_some(),
             "Blink WebRTC ignored a provider event with invalid session correlation");
-        return Ok(None);
+        return Ok(false);
     }
-    let Some(event) = browser_event(envelope) else {
-        info!(method = %envelope.method,
-            "Blink WebRTC received a provider event without a browser translation");
-        return Ok(Some(Translation {
-            event: None,
-            update,
-        }));
-    };
-    info!(method = %envelope.method, "Blink WebRTC accepted a provider signaling event");
+    Ok(true)
+}
+
+fn update_state(event: &Value, state: &mut SessionState) {
     match event.get("type").and_then(Value::as_str) {
         Some("answer") => state.negotiated = true,
         Some("mic_overridden") => {
@@ -141,10 +161,6 @@ fn translate(
         }
         _ => {}
     }
-    Ok(Some(Translation {
-        event: Some(event),
-        update,
-    }))
 }
 
 pub async fn ui(socket: &mut WebSocket, value: Value) -> Result<(), ()> {

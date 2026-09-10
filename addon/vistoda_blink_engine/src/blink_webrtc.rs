@@ -62,6 +62,22 @@ async fn session(
     doorbot: u64,
     _lease: PublisherGuard,
 ) {
+    let Some(mut provider) = connect_provider(request).await else {
+        let _ = ui(
+            &mut browser,
+            json!({"type":"error","message":"Segnalazione Blink non disponibile"}),
+        )
+        .await;
+        return;
+    };
+    let Some(dialog) = begin_live(&mut browser, &mut provider, doorbot).await else {
+        return;
+    };
+    run(&mut browser, &mut provider, &dialog, doorbot).await;
+    info!("Blink WebRTC signaling session closed");
+}
+
+async fn connect_provider(request: axum::http::Request<()>) -> Option<VendorSocket> {
     let config = WebSocketConfig::default()
         .max_message_size(Some(MAX_SIGNALING_BYTES))
         .max_frame_size(Some(MAX_SIGNALING_BYTES))
@@ -71,30 +87,32 @@ async fn session(
         connect_async_with_config(request, Some(config), false),
     )
     .await;
-    let Ok(Ok((mut provider, _))) = provider else {
+    let Ok(Ok((provider, _))) = provider else {
         warn!("Blink WebRTC provider signaling connection failed");
-        let _ = ui(
-            &mut browser,
-            json!({"type":"error","message":"Segnalazione Blink non disponibile"}),
-        )
-        .await;
-        return;
+        return None;
     };
-    let Some(BrowserMessage::Start { sdp }) = initial(&mut browser).await else {
+    Some(provider)
+}
+
+async fn begin_live(
+    browser: &mut WebSocket,
+    provider: &mut VendorSocket,
+    doorbot: u64,
+) -> Option<String> {
+    let Some(BrowserMessage::Start { sdp }) = initial(browser).await else {
         warn!("Blink WebRTC browser did not provide a valid initial offer");
-        return;
+        return None;
     };
     let dialog = Uuid::new_v4().to_string();
-    if blink_webrtc_commands::send(&mut provider, &live_view(&dialog, doorbot, &sdp))
+    if blink_webrtc_commands::send(provider, &live_view(&dialog, doorbot, &sdp))
         .await
         .is_err()
     {
         warn!("Blink WebRTC live_view command failed");
-        return;
+        return None;
     }
     info!("Blink WebRTC live_view command accepted for transport");
-    run(&mut browser, &mut provider, &dialog, doorbot).await;
-    info!("Blink WebRTC signaling session closed");
+    Some(dialog)
 }
 
 async fn initial(browser: &mut WebSocket) -> Option<BrowserMessage> {
