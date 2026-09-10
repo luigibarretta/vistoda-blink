@@ -85,26 +85,21 @@ impl BlinkClient {
             let credentials = &session.as_ref().ok_or(BlinkError::NotEnrolled)?.credentials;
             (credentials.hardware_id.clone(), credentials.user_id.clone())
         };
-        let user_id = if let Some(value) = stored_user_id {
-            value
-        } else {
-            let account = self.get_json(&context, "/api/v2/users/info").await?;
-            // Signaling uses the shared Ring identity, not Blink's account or
-            // user id. This is the exact value consumed by the Android app's
-            // BlinkSignalingConfigProvider.
-            let value = text_or_number(&account, "ringUserId")
-                .or_else(|| text_or_number(&account, "ring_user_id"))
-                .filter(|value| value != "0")
-                .ok_or(BlinkError::InvalidResponse)?;
+        let account = self.get_json(&context, "/api/v2/users/info").await?;
+        // Signaling uses the shared Ring identity, not Blink's account/user id.
+        // Imported official HA credentials can contain the latter, so never
+        // trust that migrated field without reconciling it against the native
+        // account endpoint first.
+        let user_id = canonical_ring_user_id(&account).ok_or(BlinkError::InvalidResponse)?;
+        if stored_user_id.as_deref() != Some(user_id.as_str()) {
             let credentials = {
                 let mut session = self.inner.session.lock().await;
                 let credentials = &mut session.as_mut().ok_or(BlinkError::NotEnrolled)?.credentials;
-                credentials.user_id = Some(value.clone());
+                credentials.user_id = Some(user_id.clone());
                 credentials.clone()
             };
             self.inner.store.save(&credentials).await?;
-            value
-        };
+        }
         Ok(SignalingIdentity {
             token: context.token,
             hardware_id,
@@ -169,6 +164,12 @@ fn text_or_number(value: &serde_json::Value, key: &str) -> Option<String> {
     })
 }
 
+fn canonical_ring_user_id(value: &serde_json::Value) -> Option<String> {
+    text_or_number(value, "ringUserId")
+        .or_else(|| text_or_number(value, "ring_user_id"))
+        .filter(|value| value != "0")
+}
+
 fn signaling_request(identity: &SignalingIdentity) -> Result<axum::http::Request<()>, BlinkError> {
     let mut request = SIGNALING_URL
         .into_client_request()
@@ -204,7 +205,9 @@ fn header(value: &str) -> Result<HeaderValue, BlinkError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{PROTOCOL, SignalingIdentity, client_id, signaling_request};
+    use super::{
+        PROTOCOL, SignalingIdentity, canonical_ring_user_id, client_id, signaling_request,
+    };
     use zeroize::Zeroizing;
 
     fn identity() -> SignalingIdentity {
@@ -237,5 +240,11 @@ mod tests {
                 .as_deref(),
             Some("43")
         );
+        assert_eq!(
+            canonical_ring_user_id(&serde_json::json!({"ringUserId": 42})).as_deref(),
+            Some("42")
+        );
+        assert!(canonical_ring_user_id(&serde_json::json!({"ringUserId": 0})).is_none());
+        assert!(canonical_ring_user_id(&serde_json::json!({"user_id": 44})).is_none());
     }
 }

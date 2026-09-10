@@ -19,7 +19,7 @@ async def async_import_official_credentials(
         return False
     payload = {
         key: str(attributes[key]) if attributes.get(key) is not None else None
-        for key in (*required, "user_id", "username")
+        for key in (*required, "username")
     }
     try:
         await client.post("/v1/enrollment/import", payload)
