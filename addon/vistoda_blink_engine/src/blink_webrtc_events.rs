@@ -82,8 +82,18 @@ pub async fn forward_provider(
         };
     }
     let closed = event.get("type").and_then(Value::as_str) == Some("closed");
+    if closed {
+        info!(
+            reason_code = event
+                .get("code")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(-1),
+            "Blink WebRTC provider closed the signaling session"
+        );
+    }
+    let relay_failed = ui(browser, event).await.is_err();
     ProviderUpdate {
-        stop: closed || ui(browser, event).await.is_err(),
+        stop: closed || relay_failed,
         ..translation.update
     }
 }

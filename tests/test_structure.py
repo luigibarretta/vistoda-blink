@@ -13,7 +13,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.12.3"
+    assert manifest["version"] == "0.12.4"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -198,6 +198,8 @@ def test_webrtc_signaling_is_typed_owner_bound_and_media_free() -> None:
     assert "OWNER_WEBRTC" in hub and "EngineError::PublisherBusy" in hub
     assert "valid_event_session" in events and "mic_cooldown" in events
     assert "webrtc-rs" not in engine + commands + wire and "api_token" not in boundary
+    assert "let relay_failed = ui(browser, event).await.is_err();" in events
+    assert "closed || ui(browser, event).await.is_err()" not in events
 
 
 def test_every_maintained_file_stays_bounded() -> None:
