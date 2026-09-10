@@ -20,6 +20,7 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream, connect_async_with_config,
     tungstenite::protocol::WebSocketConfig,
 };
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -71,6 +72,7 @@ async fn session(
     )
     .await;
     let Ok(Ok((mut provider, _))) = provider else {
+        warn!("Blink WebRTC provider signaling connection failed");
         let _ = ui(
             &mut browser,
             json!({"type":"error","message":"Segnalazione Blink non disponibile"}),
@@ -79,6 +81,7 @@ async fn session(
         return;
     };
     let Some(BrowserMessage::Start { sdp }) = initial(&mut browser).await else {
+        warn!("Blink WebRTC browser did not provide a valid initial offer");
         return;
     };
     let dialog = Uuid::new_v4().to_string();
@@ -86,9 +89,12 @@ async fn session(
         .await
         .is_err()
     {
+        warn!("Blink WebRTC live_view command failed");
         return;
     }
+    info!("Blink WebRTC live_view command accepted for transport");
     run(&mut browser, &mut provider, &dialog, doorbot).await;
+    info!("Blink WebRTC signaling session closed");
 }
 
 async fn initial(browser: &mut WebSocket) -> Option<BrowserMessage> {

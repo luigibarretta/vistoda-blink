@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use crate::blink_webrtc_wire::{
-    BrowserMessage, ServerEnvelope, browser_event, close, ice, live_view,
+    BrowserMessage, ServerEnvelope, browser_event, close, ice, live_view, valid_event_session,
 };
 
 #[test]
@@ -56,4 +56,23 @@ fn bounds_provider_media_and_uses_safe_close_text() {
     let event = browser_event(&closed).unwrap_or_else(|| panic!("missing close event"));
     assert_eq!(event["message"], "Sessione terminata dal provider Blink");
     assert!(!event.to_string().contains("untrusted"));
+}
+
+#[test]
+fn accepts_native_pre_session_close_and_microphone_override() {
+    for method in ["close", "mic_overridden"] {
+        let envelope = ServerEnvelope {
+            dialog_id: "dialog".into(),
+            method: method.into(),
+            body: json!({"doorbot_id":42}),
+        };
+        assert!(valid_event_session(&envelope, None));
+        assert!(valid_event_session(&envelope, Some("session")));
+    }
+    let mismatched = ServerEnvelope {
+        dialog_id: "dialog".into(),
+        method: "close".into(),
+        body: json!({"doorbot_id":42, "session_id":"other"}),
+    };
+    assert!(!valid_event_session(&mismatched, Some("session")));
 }

@@ -129,13 +129,9 @@ pub fn valid_event_session(envelope: &ServerEnvelope, expected: Option<&str>) ->
         return false;
     }
     match envelope.method.as_str() {
-        "sdp"
-        | "ice"
-        | "session_started"
-        | "mic_overridden"
-        | "close"
-        | "stream_duration_warning"
-        | "ice_restart" => actual.is_some(),
+        "sdp" | "ice" | "session_started" | "stream_duration_warning" | "ice_restart" => {
+            actual.is_some()
+        }
         _ => true,
     }
 }

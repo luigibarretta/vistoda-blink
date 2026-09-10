@@ -1,6 +1,7 @@
 use axum::extract::ws::{Message as BrowserFrame, WebSocket};
 use futures_util::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
+use tracing::warn;
 
 use crate::blink_webrtc::VendorSocket;
 use crate::blink_webrtc_wire::{BrowserMessage, ServerEnvelope};
@@ -38,9 +39,24 @@ pub async fn provider(
     socket: &mut VendorSocket,
 ) -> Incoming<ServerEnvelope> {
     match frame {
-        Some(Ok(Message::Text(text))) => {
-            serde_json::from_str(text.as_str()).map_or(Incoming::Heartbeat, Incoming::Data)
-        }
+        Some(Ok(Message::Text(text))) => match serde_json::from_str(text.as_str()) {
+            Ok(value) => Incoming::Data(value),
+            Err(error) => {
+                let keys = serde_json::from_str::<serde_json::Value>(text.as_str())
+                    .ok()
+                    .and_then(|value| {
+                        value.as_object().map(|map| {
+                            let mut keys = map.keys().cloned().collect::<Vec<_>>();
+                            keys.sort();
+                            keys.join(",")
+                        })
+                    })
+                    .unwrap_or_else(|| "non_object".to_owned());
+                warn!(%error, top_level_keys = %keys,
+                        "Blink WebRTC ignored an unrecognized provider envelope");
+                Incoming::Heartbeat
+            }
+        },
         Some(Ok(Message::Ping(value))) => {
             if socket.send(Message::Pong(value)).await.is_err() {
                 Incoming::Closed
@@ -49,8 +65,13 @@ pub async fn provider(
             }
         }
         Some(Ok(Message::Pong(_))) => Incoming::Heartbeat,
-        Some(Ok(Message::Close(_) | Message::Binary(_) | Message::Frame(_)) | Err(_)) | None => {
-            Incoming::Closed
+        Some(Ok(Message::Binary(value))) => {
+            warn!(
+                frame_bytes = value.len(),
+                "Blink WebRTC received unsupported binary signaling"
+            );
+            Incoming::Heartbeat
         }
+        Some(Ok(Message::Close(_) | Message::Frame(_)) | Err(_)) | None => Incoming::Closed,
     }
 }

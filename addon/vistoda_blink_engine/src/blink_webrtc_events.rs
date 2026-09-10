@@ -4,6 +4,7 @@ use axum::extract::ws::{Message as BrowserFrame, WebSocket};
 use serde_json::{Value, json};
 use tokio::time::{Instant, timeout};
 use tokio_tungstenite::tungstenite::{Error as VendorError, Message};
+use tracing::{info, warn};
 
 use crate::{
     blink_webrtc::VendorSocket,
@@ -31,6 +32,11 @@ pub struct ProviderUpdate {
     pub ping_seconds: Option<u64>,
 }
 
+struct Translation {
+    event: Option<Value>,
+    update: ProviderUpdate,
+}
+
 pub async fn forward_provider(
     frame: Option<Result<Message, VendorError>>,
     provider: &mut VendorSocket,
@@ -49,7 +55,7 @@ pub async fn forward_provider(
             };
         }
     };
-    let (event, update) = match translate(&envelope, dialog, doorbot, state) {
+    let translation = match translate(&envelope, dialog, doorbot, state) {
         Ok(Some(value)) => value,
         Ok(None) => return ProviderUpdate::default(),
         Err(()) => {
@@ -58,6 +64,9 @@ pub async fn forward_provider(
                 ..Default::default()
             };
         }
+    };
+    let Some(event) = translation.event else {
+        return translation.update;
     };
     if answer_has_extra_e2ee(&event) {
         let _ = ui(
@@ -69,13 +78,13 @@ pub async fn forward_provider(
         .await;
         return ProviderUpdate {
             stop: true,
-            ..update
+            ..translation.update
         };
     }
     let closed = event.get("type").and_then(Value::as_str) == Some("closed");
     ProviderUpdate {
         stop: closed || ui(browser, event).await.is_err(),
-        ..update
+        ..translation.update
     }
 }
 
@@ -84,8 +93,11 @@ fn translate(
     dialog: &str,
     doorbot: u64,
     state: &mut SessionState,
-) -> Result<Option<(Value, ProviderUpdate)>, ()> {
+) -> Result<Option<Translation>, ()> {
     if !valid_server(envelope, dialog, doorbot) {
+        warn!(method = %envelope.method,
+            has_doorbot = envelope.body.get("doorbot_id").is_some(),
+            "Blink WebRTC ignored a provider event with invalid correlation");
         return Ok(None);
     }
     let update = ProviderUpdate {
@@ -104,11 +116,20 @@ fn translate(
         state.session.get_or_insert_with(|| value.to_owned());
     }
     if !valid_event_session(envelope, state.session.as_deref()) {
+        warn!(method = %envelope.method,
+            has_session = session_id(&envelope.body).is_some(),
+            "Blink WebRTC ignored a provider event with invalid session correlation");
         return Ok(None);
     }
     let Some(event) = browser_event(envelope) else {
-        return Ok(None);
+        info!(method = %envelope.method,
+            "Blink WebRTC received a provider event without a browser translation");
+        return Ok(Some(Translation {
+            event: None,
+            update,
+        }));
     };
+    info!(method = %envelope.method, "Blink WebRTC accepted a provider signaling event");
     match event.get("type").and_then(Value::as_str) {
         Some("answer") => state.negotiated = true,
         Some("mic_overridden") => {
@@ -120,7 +141,10 @@ fn translate(
         }
         _ => {}
     }
-    Ok(Some((event, update)))
+    Ok(Some(Translation {
+        event: Some(event),
+        update,
+    }))
 }
 
 pub async fn ui(socket: &mut WebSocket, value: Value) -> Result<(), ()> {
@@ -131,4 +155,27 @@ pub async fn ui(socket: &mut WebSocket, value: Value) -> Result<(), ()> {
     .await
     .map_err(|_| ())?
     .map_err(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{SessionState, translate};
+    use crate::blink_webrtc_wire::ServerEnvelope;
+
+    #[test]
+    fn preserves_pong_updates_without_a_browser_event() {
+        let envelope = ServerEnvelope {
+            dialog_id: "dialog".into(),
+            method: "pong".into(),
+            body: json!({"ping_interval": 12}),
+        };
+        let translation = translate(&envelope, "dialog", 42, &mut SessionState::default())
+            .unwrap_or_else(|()| panic!("invalid pong"))
+            .unwrap_or_else(|| panic!("missing pong update"));
+        assert!(translation.event.is_none());
+        assert!(translation.update.pong);
+        assert_eq!(translation.update.ping_seconds, Some(12));
+    }
 }
