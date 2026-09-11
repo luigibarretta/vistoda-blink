@@ -1,4 +1,4 @@
-FROM rust:1.88-alpine3.22@sha256:9dfaae478ecd298b6b5a039e1f2cc4fc040fc818a2de9aa78fa714dea036574d AS builder
+FROM rust:1.98-alpine3.22@sha256:b42001307cfa41fcf31bd1530dfc7d712104b61c8e2150b2f02e75415f3d501a AS builder
 
 RUN apk add --no-cache musl-dev
 WORKDIR /build
