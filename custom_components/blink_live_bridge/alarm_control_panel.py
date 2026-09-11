@@ -64,6 +64,12 @@ class BlinkAlarm(CoordinatorEntity[BlinkCoordinator], AlarmControlPanelEntity):
             else AlarmControlPanelState.DISARMED
         )
 
+    @property
+    @override
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the immutable network binding used by multi-system panels."""
+        return {"network_id": self.network_id}
+
     async def async_alarm_disarm(self, code: str | None = None) -> None:
         del code
         await self._armed(False)

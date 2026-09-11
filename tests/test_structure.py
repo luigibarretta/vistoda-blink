@@ -13,7 +13,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.13.2"
+    assert manifest["version"] == "0.13.3"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -57,6 +57,7 @@ def test_device_hierarchy_uses_the_single_entry_registry_contract() -> None:
     assert "via_device_id=parent_device_id" in entity
     assert "via_device_id=runtime.parent_device_id" in alarm
     assert "via_device=" not in entity + alarm
+    assert 'return {"network_id": self.network_id}' in alarm
 
 
 def test_supervisor_discovery_removes_the_yaml_requirement() -> None:

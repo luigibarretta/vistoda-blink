@@ -16,15 +16,27 @@ impl AliasStore {
 
     pub async fn reconcile(&self, cameras: &mut [CameraState]) -> Result<(), StoreError> {
         let previous = self.load().await?;
-        let mut aliases = BTreeMap::new();
-        let mut used: Vec<String> = Vec::new();
+        let mut aliases = previous.clone();
+        let mut owners = BTreeMap::new();
+        for (id, alias) in &previous {
+            if !valid(alias) || owners.insert(alias.clone(), id.clone()).is_some() {
+                return Err(StoreError::Encoding);
+            }
+        }
+        let mut used = owners.keys().cloned().collect::<Vec<_>>();
+        let mut seen_ids = Vec::new();
         for camera in cameras {
+            if seen_ids.contains(&camera.id) {
+                return Err(StoreError::Encoding);
+            }
+            seen_ids.push(camera.id.clone());
             let preferred = previous
                 .get(&camera.id)
-                .filter(|alias| valid(alias) && !used.contains(*alias))
                 .cloned()
                 .unwrap_or_else(|| unique(&camera.alias, &used));
-            used.push(preferred.clone());
+            if !used.contains(&preferred) {
+                used.push(preferred.clone());
+            }
             camera.alias.clone_from(&preferred);
             aliases.insert(camera.id.clone(), preferred);
         }
@@ -126,5 +138,52 @@ mod tests {
         renamed[0].alias = "terrazzo".into();
         store.reconcile(&mut renamed).await.expect("restore alias");
         assert_eq!(renamed[0].alias, "balcone");
+    }
+
+    #[tokio::test]
+    async fn a_new_camera_cannot_steal_a_persisted_alias_when_order_changes() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let store = AliasStore::new(directory.path().join("camera-aliases.json"));
+        let mut original = vec![camera()];
+        store.reconcile(&mut original).await.expect("seed aliases");
+
+        let mut newcomer = camera();
+        newcomer.id = "1".into();
+        newcomer.alias = "balcone".into();
+        newcomer.name = "Nuova".into();
+        let mut reordered = vec![newcomer, camera()];
+        store
+            .reconcile(&mut reordered)
+            .await
+            .expect("reconcile aliases");
+
+        assert_eq!(reordered[0].alias, "balcone_2");
+        assert_eq!(reordered[1].alias, "balcone");
+    }
+
+    #[tokio::test]
+    async fn removed_camera_alias_is_reserved_and_restored_on_return() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let store = AliasStore::new(directory.path().join("camera-aliases.json"));
+        let mut original = vec![camera()];
+        store.reconcile(&mut original).await.expect("seed aliases");
+        store.reconcile(&mut []).await.expect("retain tombstone");
+
+        let mut newcomer = camera();
+        newcomer.id = "3".into();
+        let mut only_new = vec![newcomer];
+        store
+            .reconcile(&mut only_new)
+            .await
+            .expect("reserve old alias");
+        assert_eq!(only_new[0].alias, "balcone_2");
+
+        let mut returned = vec![camera(), only_new.remove(0)];
+        store
+            .reconcile(&mut returned)
+            .await
+            .expect("restore aliases");
+        assert_eq!(returned[0].alias, "balcone");
+        assert_eq!(returned[1].alias, "balcone_2");
     }
 }
