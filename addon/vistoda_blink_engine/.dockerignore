@@ -1,0 +1,8 @@
+target
+.git
+data
+secrets
+**/*.sealed
+**/options.json
+**/workload-token
+**/api-token

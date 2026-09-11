@@ -6,13 +6,13 @@ media.
 
 ## Supported release
 
-Only the current `main` revision and the exact SHA deployed by the production
-Ansible inventory are supported.
+The latest tagged release receives security fixes. Development commits are
+not release artifacts. Update the provider app and its matching HA adapter.
 
 ## Security boundary
 
-- Blink credentials and refresh tokens remain owned by Home Assistant's
-  official Blink integration.
+- Blink credentials and rotating refresh tokens stay in the standalone Rust
+  provider's sealed private data. The official integration is not required.
 - The private workload token must be stored outside Git and compared in
   constant time.
 - The connector must remain on the trusted Home Assistant listener; it must not
@@ -20,6 +20,8 @@ Ansible inventory are supported.
 - Camera sessions, packets, queues and client lifetimes must stay bounded.
 - Tests and fixtures must never contain real account or device material.
 
-Rotate the workload token and restart Home Assistant if it may have been
-disclosed. Revoke the official Blink session through the vendor-supported flow
-if the Home Assistant credential boundary may have been compromised.
+If the workload token was disclosed, stop the provider, rotate its private
+workload-token file, then start the app and reload its discovered HA adapter.
+If provider credentials were disclosed, revoke the Vistoda session using the
+Blink app and reconnect the account in Home Assistant. Preserve private backups
+as sensitive credentials: restoring one also restores its authorization.

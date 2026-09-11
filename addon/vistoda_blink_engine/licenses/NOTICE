@@ -1,0 +1,11 @@
+Vistoda Blink
+Copyright 2026 Luigi Barretta
+
+Vistoda Blink is licensed under MIT. The bundled Vistoda Provider Kit bootstrap
+is licensed under Apache-2.0, Copyright 2026 Luigi Barretta. Its license and
+notice are shipped in addon/vistoda_blink_engine/licenses and in the image at
+/usr/share/doc/vistoda. Cargo dependency license files and metadata are shipped
+under /usr/share/doc/vistoda/dependencies.
+
+This project is unofficial and is not affiliated with or endorsed by Blink or
+Amazon. Blink and Amazon names and marks belong to their respective owners.

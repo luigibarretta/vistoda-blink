@@ -66,10 +66,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         user_input: dict[str, Any] | None,
         *,
         reauth: bool = False,
+        restart_error: str | None = None,
     ) -> FlowResult:
         client = self._engine()
         errors: dict[str, str] = {}
-        if user_input is None and not reauth:
+        if restart_error:
+            errors["base"] = restart_error
+        elif user_input is None and not reauth:
             try:
                 if (await client.get_json("/v1/enrollment/status")).get("enrolled"):
                     return self.async_show_form(step_id="confirm", data_schema=vol.Schema({}))
@@ -108,7 +111,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 return self._finish()
             except EngineError:
-                errors["base"] = "invalid_two_factor"
+                # The provider consumes challenges even when completion fails.
+                # Ask for credentials again without retaining the password.
+                self._enrollment_id = None
+                return await self._credentials_form(
+                    None,
+                    reauth=bool(self.context.get("entry_id")),
+                    restart_error="two_factor_restart",
+                )
         return self.async_show_form(
             step_id="two_factor",
             data_schema=vol.Schema({vol.Required("code"): str}),

@@ -7,20 +7,20 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: luigibarretta/lib-vistoda-provider-kit
-          ref: 79fe527a68f128bc9c607b59ebc3345f779173d8
+          ref: 4f6c74125a673cb9836471122ae0007938b86619
           path: .ci/vistoda-provider-kit
       - name: Verify pinned Vistoda provider kit
         run: |
           pin="$(tr -d '[:space:]' < dependencies/vistoda-provider-kit.sha)"
-          test "${pin}" = "79fe527a68f128bc9c607b59ebc3345f779173d8"
+          test "${pin}" = "4f6c74125a673cb9836471122ae0007938b86619"
           test "$(git -C .ci/vistoda-provider-kit rev-parse HEAD)" = "${pin}"
           cmp .ci/vistoda-provider-kit/dist/vistoda-app-bootstrap.sh \
             addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
           cache: pip
@@ -31,3 +31,12 @@ jobs:
       - run: python -m compileall -q custom_components tests scripts
       - run: python scripts/check_loc.py
       - run: python -m pytest
+      - uses: dtolnay/rust-toolchain@2eae45db285e407f22119950686d47e1101e071b # 1.88.0
+        with:
+          components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: addon/vistoda_blink_engine
+      - run: cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
+      - run: cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --all-targets --all-features -- -D warnings
+      - run: cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked

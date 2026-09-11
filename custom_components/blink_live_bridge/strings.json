@@ -3,7 +3,8 @@
     "error": {
       "cannot_connect": "Blink rejected the sign-in or the provider could not connect.",
       "engine_unavailable": "Start the Vistoda Blink Engine app before continuing.",
-      "invalid_two_factor": "The verification code was rejected or expired."
+      "invalid_two_factor": "The verification code was rejected or expired.",
+      "two_factor_restart": "The code could not be verified. Sign in again to request a new code, then use only the newest code."
     },
     "step": {
       "confirm": {

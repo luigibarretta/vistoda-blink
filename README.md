@@ -99,6 +99,15 @@ verified; normal Vistoda operation never reads it.
 The powered Blink Mini is the only automatic production media canary; battery
 cameras are never opened by CI or routine deployment checks.
 
+## Installation and recovery guide
+
+Provider selection, prerequisites, discovery recovery, account reconnection,
+updates, rollback, backups, restore and uninstall are documented in the shared
+[English guide](https://github.com/luigibarretta/vistoda-addons/blob/main/OPERATIONS.md)
+and [Italian guide](https://github.com/luigibarretta/vistoda-addons/blob/main/OPERATIONS.it.md).
+Published images include licenses and notices under `/usr/share/doc/vistoda`.
+Only exact version tags passing quality, security and provenance gates are released.
+
 ## Development
 
 ```bash

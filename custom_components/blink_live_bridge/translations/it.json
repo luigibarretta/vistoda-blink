@@ -3,7 +3,8 @@
     "error": {
       "cannot_connect": "Blink ha rifiutato l'accesso oppure il provider non riesce a collegarsi.",
       "engine_unavailable": "Avvia l'app Vistoda Blink Engine prima di continuare.",
-      "invalid_two_factor": "Il codice di verifica è stato rifiutato o è scaduto."
+      "invalid_two_factor": "Il codice di verifica è stato rifiutato o è scaduto.",
+      "two_factor_restart": "Impossibile verificare il codice. Accedi di nuovo per richiederne uno nuovo, poi usa soltanto il codice più recente."
     },
     "step": {
       "confirm": {
