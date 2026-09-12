@@ -3,7 +3,7 @@ use serde::Serialize;
 use crate::error::EngineError;
 
 pub const DEFAULT_PAGE_SIZE: usize = 20;
-pub const MAX_PAGE_SIZE: usize = 50;
+pub const MAX_PAGE_SIZE: usize = 100;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Pagination {
@@ -63,6 +63,10 @@ mod tests {
 
     #[test]
     fn rejects_unbounded_page_sizes() {
-        assert!(page::<u8>(&[], Some(1), Some(51)).is_err());
+        assert!(page::<u8>(&[], Some(1), Some(101)).is_err());
+        let (items, result) =
+            page(&[0; 120], Some(1), Some(100)).unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(items.len(), 100);
+        assert_eq!(result.total_pages, 2);
     }
 }

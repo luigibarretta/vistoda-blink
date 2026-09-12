@@ -1,6 +1,26 @@
 use super::*;
 
 #[test]
+fn drops_recover_without_reclaiming_but_actual_revocation_is_fatal() -> io::Result<()> {
+    let mut stale = 0;
+    let mut full = 0;
+    handle_submit(Err(AudioLeaseError::Expired), &mut stale, &mut full)?;
+    handle_submit(Err(AudioLeaseError::Backpressure), &mut stale, &mut full)?;
+    handle_submit(Ok(()), &mut stale, &mut full)?;
+    assert_eq!((stale, full), (1, 1));
+    for error in [
+        AudioLeaseError::Stale,
+        AudioLeaseError::Closed,
+        AudioLeaseError::Unavailable,
+        AudioLeaseError::InvalidFrame,
+    ] {
+        assert!(handle_submit(Err(error), &mut stale, &mut full).is_err());
+    }
+    assert_eq!((stale, full), (1, 1));
+    Ok(())
+}
+
+#[test]
 fn priming_does_not_consume_pcm_and_partial_chunks_keep_their_age() -> io::Result<()> {
     let base = Instant::now();
     let mut provenance = Provenance::default();
@@ -29,12 +49,13 @@ fn delayed_encoder_output_cannot_become_fresh_again() -> io::Result<()> {
     provenance.record(640, base + Duration::from_millis(40))?;
     assert_eq!(provenance.take(base)?, None);
     let delayed = base + MAX_AUDIO_AGE + Duration::from_nanos(1);
-    assert!(provenance.expired(delayed));
-    assert!(provenance.take(delayed).is_err());
-    assert_eq!(provenance.samples, 1280);
+    let original = provenance.take(delayed)?;
+    assert_eq!(original, Some(base));
+    assert!(!fresh(base, delayed));
+    assert_eq!(provenance.samples, 256);
     assert_eq!(
         provenance.pending.front().map(|(_, time)| *time),
-        Some(base)
+        Some(base + Duration::from_millis(40))
     );
     Ok(())
 }
@@ -52,6 +73,54 @@ fn provenance_memory_and_freshness_boundary_are_bounded() -> io::Result<()> {
     assert_eq!(provenance.take(base)?, None);
     assert_eq!(provenance.take(base + MAX_AUDIO_AGE)?, Some(base));
     Ok(())
+}
+
+#[test]
+fn expired_output_is_consumed_and_fresh_pcm_can_recover_without_redating() -> io::Result<()> {
+    let base = Instant::now();
+    let now = base + Duration::from_millis(300);
+    let recent = base + Duration::from_millis(200);
+    let mut provenance = Provenance::default();
+    provenance.record(1024, base)?;
+    provenance.record(1024, recent)?;
+    assert_eq!(provenance.take(now)?, None); // Encoder priming only.
+    assert_eq!(provenance.take(now)?, Some(base));
+    assert!(!fresh(base, now)); // Discard encoded bytes, not the entire epoch.
+    assert_eq!(provenance.take(now)?, Some(recent));
+    assert!(fresh(recent, now));
+    assert_eq!(provenance.samples, 0);
+    assert!(provenance.pending.is_empty());
+    assert!(!fresh(now + Duration::from_nanos(1), now));
+    Ok(())
+}
+
+#[test]
+fn microphone_errors_distinguish_contention_policy_and_encoder_failure() {
+    for (error, expected) in [
+        (AudioLeaseError::Busy, "busy"),
+        (AudioLeaseError::Unavailable, "unavailable"),
+        (AudioLeaseError::Closed, "disconnected"),
+        (AudioLeaseError::Stale, "lease_revoked"),
+        (AudioLeaseError::Expired, "audio_expired"),
+    ] {
+        assert_eq!(errors::reason(&io::Error::other(error)), expected);
+    }
+    assert_eq!(
+        errors::reason(&io::Error::other(Failure::EncoderUnavailable)),
+        "encoder_unavailable"
+    );
+    assert_eq!(
+        errors::reason(&io::Error::other(Failure::PcmRate)),
+        "pcm_rate"
+    );
+    assert_eq!(
+        errors::reason(&io::Error::other(Failure::PcmBacklog)),
+        "pcm_backlog"
+    );
+    assert_eq!(
+        errors::reason(&io::Error::other(Failure::PcmWriteTimeout)),
+        "pcm_write_timeout"
+    );
 }
 
 #[tokio::test]

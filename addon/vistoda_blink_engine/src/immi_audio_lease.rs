@@ -25,6 +25,7 @@ struct State {
     sender: Option<mpsc::Sender<AudioFrame>>,
     multi_client: Option<bool>,
     available: Option<bool>,
+    session_clock: Option<crate::blink_api::timing::SessionClock>,
 }
 struct Inner {
     state: Mutex<State>,
@@ -60,12 +61,22 @@ impl AudioRuntime {
             sent_frames: state.sent_frames,
             multi_client: state.multi_client,
             audio_available: state.available,
+            session_clock: state
+                .sender
+                .as_ref()
+                .and_then(|_| state.session_clock.clone()),
         });
         self.0.control.send_replace(());
     }
 
     pub fn subscribe(&self) -> watch::Receiver<AudioStatus> {
         self.0.status.subscribe()
+    }
+
+    pub fn set_session_clock(&self, clock: crate::blink_api::timing::SessionClock) {
+        let mut state = self.state();
+        state.session_clock = Some(clock);
+        self.publish(&state);
     }
 
     /// A reconnect invalidates all previous owners and queued-frame authorization.
@@ -147,9 +158,11 @@ impl AudioLease {
             || state.epoch != self.epoch
             || !state.owned
             || !policy_allows(&state)
-            || !fresh(created, Instant::now())
         {
             return Err(AudioLeaseError::Stale);
+        }
+        if !fresh(created, Instant::now()) {
+            return Err(AudioLeaseError::Expired);
         }
         let sender = state.sender.as_ref().ok_or(AudioLeaseError::Closed)?;
         sender

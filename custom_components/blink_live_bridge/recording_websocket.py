@@ -32,7 +32,7 @@ def async_register(hass: HomeAssistant) -> None:
         vol.Required("type"): "blink_live_bridge/recordings/list",
         vol.Optional("alias"): ALIAS,
         vol.Optional("page", default=1): vol.All(int, vol.Range(min=1)),
-        vol.Optional("page_size", default=10): vol.All(int, vol.Range(min=1, max=50)),
+        vol.Optional("page_size", default=10): vol.All(int, vol.Range(min=1, max=100)),
     }
 )
 @websocket_api.async_response

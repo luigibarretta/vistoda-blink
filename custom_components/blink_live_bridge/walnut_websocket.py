@@ -58,7 +58,11 @@ async def ws_start(
     if runtime is None or len(sessions) >= 4:
         connection.send_error(msg["id"], "unavailable", "Live Blink non disponibile")
         return
-    if any(item.alias == msg["alias"] for item in sessions.values()):
+    # Viewing is shared; the engine grants the exclusive talk lease on mic enable.
+    # Still reject duplicate subscriptions from the same HA connection.
+    if any(
+        item.alias == msg["alias"] and item.owner == id(connection) for item in sessions.values()
+    ):
         connection.send_error(msg["id"], "busy", "La telecamera è già in uso")
         return
     handle = uuid4().hex

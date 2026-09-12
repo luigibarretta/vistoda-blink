@@ -1,6 +1,25 @@
 use vistoda_blink_engine::framing::{FramingError, ImmiDecoder, ImmiEvent, MAX_PACKET_BYTES};
 
 #[test]
+fn transport_preserves_audio_and_video_ts_pids_byte_for_byte() -> Result<(), FramingError> {
+    // Opaque TS fixture, not a decoder-valid recording. Never select a video PID
+    // or strip audio PES packets from the multiplex.
+    let mut transport = vec![0xff; 188 * 2];
+    transport[..4].copy_from_slice(&[0x47, 0x41, 0x00, 0x10]);
+    transport[188..192].copy_from_slice(&[0x47, 0x41, 0x01, 0x10]);
+    transport[4..8].copy_from_slice(&[0, 0, 1, 0xe0]);
+    transport[192..196].copy_from_slice(&[0, 0, 1, 0xc0]);
+    let mut wire = vec![0, 0, 0, 0, 0];
+    wire.extend_from_slice(&376_u32.to_be_bytes());
+    wire.extend_from_slice(&transport);
+    assert_eq!(
+        ImmiDecoder::default().push(&wire)?,
+        [bytes::Bytes::from(transport)]
+    );
+    Ok(())
+}
+
+#[test]
 fn payload_availability_emits_only_after_complete_bounded_frame() -> Result<(), FramingError> {
     for command in [4_u32, 5] {
         let mut wire = vec![0x18];

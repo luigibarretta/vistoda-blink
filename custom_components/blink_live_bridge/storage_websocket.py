@@ -27,7 +27,7 @@ def async_register(hass: HomeAssistant) -> None:
     {
         vol.Required("type"): "blink_live_bridge/local_storage/list",
         vol.Optional("page", default=1): vol.All(int, vol.Range(min=1)),
-        vol.Optional("page_size", default=10): vol.All(int, vol.Range(min=1, max=50)),
+        vol.Optional("page_size", default=10): vol.All(int, vol.Range(min=1, max=100)),
     }
 )
 @websocket_api.async_response
@@ -65,7 +65,7 @@ def _valid_page(value: object) -> bool:
     integers = ("page", "page_size", "total_items", "total_pages")
     return (
         all(isinstance(value.get(key), int) for key in integers)
-        and 1 <= value["page_size"] <= 50
+        and 1 <= value["page_size"] <= 100
         and value["page"] >= 1
         and value["total_items"] >= 0
         and value["total_pages"] >= 1

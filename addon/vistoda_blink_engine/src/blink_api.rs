@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::blink_model::CameraState;
+#[path = "live_timing.rs"]
+pub mod timing;
 
 pub const TIER_URL: &str = "https://rest-prod.immedia-semi.com/api/v1/users/tier_info";
 
@@ -27,6 +29,8 @@ pub struct LiveDescriptor {
     // The longer Rust name mirrors its internal model, not the HTTP key.
     #[serde(rename = "is_mclv", default, deserialize_with = "optional_bool")]
     pub is_multi_client_live_view: Option<bool>,
+    #[serde(flatten)]
+    pub timing: timing::ProviderTiming,
 }
 
 fn optional_bool<'de, D: serde::Deserializer<'de>>(

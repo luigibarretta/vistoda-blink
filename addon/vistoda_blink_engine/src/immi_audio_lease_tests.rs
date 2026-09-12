@@ -150,10 +150,10 @@ async fn malformed_stale_future_and_excess_frames_are_rejected() -> Result<(), A
     let stale = Instant::now()
         .checked_sub(Duration::from_secs(1))
         .ok_or(AudioLeaseError::Stale)?;
-    assert_eq!(lease.submit(frame(), stale), Err(AudioLeaseError::Stale));
+    assert_eq!(lease.submit(frame(), stale), Err(AudioLeaseError::Expired));
     assert_eq!(
         lease.submit(frame(), Instant::now() + Duration::from_secs(1)),
-        Err(AudioLeaseError::Stale)
+        Err(AudioLeaseError::Expired)
     );
     assert!(receiver.try_recv().is_err());
     for _ in 0..AUDIO_QUEUE_DEPTH {
@@ -164,6 +164,15 @@ async fn malformed_stale_future_and_excess_frames_are_rejected() -> Result<(), A
         Err(AudioLeaseError::Backpressure)
     );
     assert_eq!(receiver.len(), AUDIO_QUEUE_DEPTH);
+    // Rejecting a new frame never revokes or displaces queued speech.
+    assert!(runtime.subscribe().borrow().microphone_enabled);
+    assert!(receiver.try_recv().is_ok());
+    lease.submit(frame(), Instant::now())?;
+    assert_eq!(receiver.len(), AUDIO_QUEUE_DEPTH);
+    connection.observe_offer(0xa000_0001)?;
+    // Revocation wins over expiry, so callers cannot mistake it for a safe drop.
+    assert_eq!(lease.submit(frame(), stale), Err(AudioLeaseError::Stale));
+    let lease = runtime.claim()?;
     drop(receiver);
     assert_eq!(
         lease.submit(frame(), Instant::now()),

@@ -72,7 +72,7 @@ async fn health_is_public_but_provider_state_requires_the_workload_token()
     let invalid_page = application
         .clone()
         .oneshot(
-            Request::get("/v1/recordings?page_size=51")
+            Request::get("/v1/recordings?page_size=101")
                 .header(header::AUTHORIZATION, format!("Bearer {token}"))
                 .body(Body::empty())?,
         )

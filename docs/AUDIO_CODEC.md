@@ -1,5 +1,20 @@
 # Walnut audio codec build
 
+Version 0.16.0 lets independent viewers subscribe without reserving the camera
+microphone. The exclusive talk lease is acquired only on explicit enable.
+Static `reason` codes distinguish contention, policy, encoder and transport
+failures. Expired AAC and bounded-queue congestion discard unsent data while
+allowing fresh frames in the same explicit capture; revocation remains fatal.
+The 200 ms provenance budget begins at engine receipt, not browser capture.
+
+`audio_offer.session_timing` reports interval/warning/duration and the shared
+publisher's remaining milliseconds. Android 59.1 uses local Continue timers
+(defaults 30/10/300 seconds); Continue is not a cloud keepalive command.
+Vistoda applies the existing 75-second battery / 600-second powered ceilings to
+the provider duration. Later viewers cannot reset the absolute deadline.
+These independently implemented contracts were checked against the APK;
+no vendor implementation code is included in this repository.
+
 Version 0.15.4 reads the official HTTP response field `is_mclv`. The Android
 `LiveViewCommandResponse` serializes this top-level key; the longer
 `is_multi_client_live_view` name belongs to an internal legacy model, not this
@@ -62,7 +77,8 @@ Capture is exactly 512 samples (32 ms) of PCM16LE/16 kHz/mono per block. The
 encoder's initial 1024-sample priming frame is discarded. Each output frame
 retains the oldest contributing PCM receipt timestamp, with a 200 ms deadline
 through the final TLS write; late data is never relabelled as fresh. A slower
-connection stops microphone transmission instead of replaying buffered speech.
+connection drops expired frames; a sustained stall stops transmission instead
+of replaying buffered speech.
 Six offline runs passed this provenance check (worst observed age 176.32 ms).
 These checks do not prove camera speaker output or full-duplex operation.
 

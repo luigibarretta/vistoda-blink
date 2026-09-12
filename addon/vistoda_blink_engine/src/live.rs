@@ -52,6 +52,9 @@ async fn produce_inner(
         BATTERY_DEADLINE
     };
     let serial = camera.serial.as_deref().unwrap_or_default();
+    let clock = descriptor.timing.start(deadline);
+    let deadline = clock.duration();
+    publisher.audio().set_session_clock(clock);
     let poll_client = client.clone();
     let poll_camera = camera.clone();
     let command_id = descriptor.command_id;

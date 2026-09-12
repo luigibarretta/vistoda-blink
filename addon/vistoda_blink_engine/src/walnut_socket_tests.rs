@@ -2,6 +2,26 @@ use super::*;
 use crate::{hub::CameraHub, immi_audio_lease::AudioLeaseError};
 use bytes::Bytes;
 
+#[test]
+fn idle_viewers_do_not_claim_or_revoke_another_viewers_microphone()
+-> Result<(), Box<dyn std::error::Error>> {
+    let hub = Arc::new(CameraHub::new());
+    let publisher = hub.acquire_publisher(1)?;
+    let first = hub.subscribe();
+    let second = hub.subscribe();
+    let (connection, _frames) = publisher.audio().connect();
+    connection.observe_offer(0xa000_0001)?;
+    assert!(!second.audio().subscribe().borrow().microphone_enabled);
+    let lease = first.audio().claim()?;
+    assert!(matches!(second.audio().claim(), Err(AudioLeaseError::Busy)));
+    drop(second);
+    assert!(first.audio().subscribe().borrow().microphone_enabled);
+    drop(lease);
+    assert!(!first.audio().subscribe().borrow().microphone_enabled);
+    assert!(first.audio().claim().is_ok());
+    Ok(())
+}
+
 #[tokio::test]
 async fn microphone_cancellation_revokes_lease_but_keeps_shared_video_publisher()
 -> Result<(), Box<dyn std::error::Error>> {

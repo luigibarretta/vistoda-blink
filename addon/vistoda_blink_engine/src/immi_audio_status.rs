@@ -8,6 +8,7 @@ pub struct AudioStatus {
     pub multi_client: Option<bool>,
     /// Session availability, never a correlated ownership grant.
     pub audio_available: Option<bool>,
+    pub session_clock: Option<crate::blink_api::timing::SessionClock>,
 }
 
 impl AudioStatus {
@@ -30,6 +31,7 @@ pub enum AudioLeaseError {
     Busy,
     Unavailable,
     Stale,
+    Expired,
     InvalidFrame,
     Backpressure,
 }

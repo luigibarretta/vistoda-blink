@@ -32,6 +32,7 @@ def relay(monkeypatch):
             "WSMsgType": WSMsgType,
             "DOMAIN": "blink_live_bridge",
             "EngineError": ClientError,
+            "callback": lambda function: function,
         }
     )
     for name in ("webrtc_websocket.py", "walnut_websocket.py"):
@@ -231,7 +232,7 @@ async def test_subscribe_requires_admin_before_opening_provider_channel(relay, m
     runtime.assert_not_called()
 
 
-async def test_duplicate_alias_is_exclusive_before_opening_provider_channel(relay, monkeypatch):
+async def test_duplicate_alias_on_same_connection_is_rejected(relay, monkeypatch):
     hass, connection, session = owned_session(relay)
     client = SimpleNamespace(websocket=AsyncMock())
     monkeypatch.setattr(relay, "_runtime", lambda _: SimpleNamespace(client=client))
