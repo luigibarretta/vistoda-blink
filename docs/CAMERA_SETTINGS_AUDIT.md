@@ -36,6 +36,7 @@ advanced surface is implemented by the standalone Rust provider.
 | --- | --- | --- |
 | Motion detection | Available | Current value, HA switch and typed setting. |
 | Battery, firmware, temperature | Available read-only | Current provider state. |
+| Per-camera temperature alerts | Native enable/disable; writable cold/hot limits on supported cameras | Provider values, explicit first setup when unset, HA temperature units, calibration-preserving request and read-back. See [temperature alerts](TEMPERATURE_ALERTS.md). No simulated push-delivery claim. |
 | Network and Sync Module strength | Available where returned | Units and unavailable state retained. |
 | Record clip and refresh thumbnail | Available | Bounded commands with completion/read-back. |
 | Camera name | Available | Stable ID alias survives verified provider rename. |

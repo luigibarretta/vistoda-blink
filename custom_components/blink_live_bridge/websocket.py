@@ -85,7 +85,15 @@ async def ws_camera_capabilities(
         vol.Required("type"): "blink_live_bridge/camera/settings/update",
         vol.Required("alias"): ALIAS,
         vol.Required("key"): SETTING_KEY,
-        vol.Required("value"): vol.Any(bool, int, str),
+        vol.Required("value"): vol.Any(
+            bool,
+            int,
+            str,
+            {
+                vol.Required("temperature_min"): vol.All(int, vol.Range(min=-4, max=113)),
+                vol.Required("temperature_max"): vol.All(int, vol.Range(min=-4, max=113)),
+            },
+        ),
         vol.Required("revision"): REVISION,
     }
 )

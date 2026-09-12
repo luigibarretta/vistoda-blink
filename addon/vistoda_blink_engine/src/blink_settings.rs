@@ -48,7 +48,8 @@ pub struct CameraSettings {
 pub(crate) fn parse(camera: &CameraState, response: &Value) -> CameraSettings {
     let config = config_object(response);
     let mutable = matches!(camera.camera_type.as_str(), "default" | "mini");
-    let settings = settings_fields(config, camera, mutable);
+    let mut settings = settings_fields(config, camera, mutable);
+    crate::blink_temperature::fields(&mut settings, response, camera);
     let revision = revision(&settings);
     CameraSettings {
         alias: camera.alias.clone(),
@@ -61,7 +62,10 @@ pub(crate) fn parse(camera: &CameraState, response: &Value) -> CameraSettings {
         product_type: camera.product_type.clone(),
         firmware: camera.firmware.clone(),
         battery_state: camera.battery_state.clone(),
-        temperature_f: camera.temperature_f,
+        temperature_f: response
+            .pointer("/signals/temp")
+            .and_then(Value::as_f64)
+            .or(camera.temperature_f),
         wifi_dbm: camera.wifi_dbm,
         revision,
         settings,

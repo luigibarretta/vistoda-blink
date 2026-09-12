@@ -68,7 +68,7 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `GET /v1/cameras/{alias}/live.ts` | bounded MPEG-TS stream |
 | `GET /v1/cameras/{alias}/live.mpegts` | explicit MPEG-TS alias |
 | `GET /v1/cameras/{alias}/settings` | typed, redacted settings and revision |
-| `POST /v1/cameras/{alias}/settings` | one validated setting with read-back |
+| `POST /v1/cameras/{alias}/settings` | one validated setting with read-back; explicit paired initialization for unset temperature thresholds |
 | `GET /v1/cameras/{alias}/capabilities` | bounded field schema and safe feature probes |
 | `GET /v1/cameras/{alias}/zone-capabilities` | value-redacted activity/privacy zone schema |
 | `GET /v1/cameras/{alias}/zones` | normalized 20×15 activity/privacy zone state |

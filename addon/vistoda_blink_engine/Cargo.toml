@@ -1,6 +1,6 @@
 [package]
 name = "vistoda-blink-engine"
-version = "0.13.3"
+version = "0.14.0"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Luigi Barretta"]
@@ -33,9 +33,11 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 url = "2.5"
 uuid = { version = "1.18", features = ["serde", "v4"] }
+webpki-roots = "1"
 zeroize = { version = "1.8", features = ["derive", "serde"] }
 
 [dev-dependencies]
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring"] }
 http-body-util = "0.1"
 tempfile = "3.20"
 tower = { version = "0.5", features = ["util"] }

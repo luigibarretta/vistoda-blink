@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use crate::blink_setting_helpers::encode_vendor_value;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -42,6 +43,11 @@ impl BlinkClient {
         let before = blink_settings::parse(&camera, &response);
         if before.revision != input.revision {
             return Err(BlinkError::SettingsConflict);
+        }
+        if input.key == "temperature_thresholds" {
+            return self
+                .initialize_temperature_thresholds(&context, &camera, &before, &input.value)
+                .await;
         }
         let field = before
             .settings
@@ -104,8 +110,14 @@ impl BlinkClient {
         vendor_key: &str,
         value: Value,
     ) -> Result<(), BlinkError> {
+        if matches!(setting_key, "temperature_min" | "temperature_max") {
+            return self
+                .write_temperature_threshold(context, camera, setting_key, value)
+                .await;
+        }
         if setting_key == "temperature_alerts" {
-            let enabled = value.as_bool().ok_or(BlinkError::InvalidSetting)?;
+            let enabled = crate::blink_setting_helpers::bool_value(Some(&value))
+                .ok_or(BlinkError::InvalidSetting)?;
             return self
                 .post_ack(
                     context,
@@ -216,34 +228,8 @@ fn vendor_key(camera: &CameraState, key: &str) -> Option<&'static str> {
         "speaker_volume" if camera.camera_type == "mini" => "volume_control",
         "camera_name" => "name",
         "temperature_alerts" => "temp_alarm_enable",
+        "temperature_min" => "temp_min",
+        "temperature_max" => "temp_max",
         _ => return None,
     })
-}
-
-fn encode_vendor_value(key: &str, current: &Value, desired: &Value) -> Result<Value, BlinkError> {
-    if key == "ir_intensity" {
-        return Ok(Value::from(match desired.as_str() {
-            Some("low") => 1,
-            Some("medium") => 4,
-            Some("high") => 7,
-            _ => return Err(BlinkError::InvalidSetting),
-        }));
-    }
-    if key == "night_vision" {
-        let selected = desired.as_str().ok_or(BlinkError::InvalidSetting)?;
-        return if current.is_string() {
-            Ok(Value::from(selected))
-        } else {
-            Ok(Value::from(match selected {
-                "off" => 0,
-                "on" => 1,
-                "auto" => 2,
-                _ => return Err(BlinkError::InvalidSetting),
-            }))
-        };
-    }
-    if current.is_i64() && desired.is_boolean() {
-        return Ok(Value::from(i64::from(desired.as_bool() == Some(true))));
-    }
-    Ok(desired.clone())
 }

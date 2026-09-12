@@ -132,3 +132,40 @@ fn unsupported_camera_types_keep_safe_metadata_without_controls() {
     assert_eq!(settings.name, "Balcone");
     assert_eq!(settings.revision.len(), 64);
 }
+
+#[test]
+fn temperature_settings_are_real_or_explicitly_unconfigured() {
+    let response = json!({"camera":[{"temp_alarm_enable":false}],"signals":{"temp":83}});
+    let result = parse(&camera("default"), &response);
+    assert_eq!(result.temperature_f, Some(83.0));
+    for key in ["temperature_min", "temperature_max"] {
+        assert!(result.settings.iter().any(|field| field.key == key
+            && field.value.is_null()
+            && field.writable
+            && field.min == Some(-4)
+            && field.max == Some(113)));
+    }
+    let stale = parse(&camera("default"), &json!({"temp_alarm_enable":false}));
+    assert!(
+        stale
+            .settings
+            .iter()
+            .filter(|field| field.key != "temperature_alerts")
+            .all(|field| !field.writable)
+    );
+    assert!(
+        !parse(&camera("mini"), &json!({}))
+            .settings
+            .iter()
+            .any(|field| field.key.starts_with("temperature_"))
+    );
+    let mut indoor = camera("default");
+    indoor.product_type = "catalina_indoor".into();
+    assert!(
+        parse(&indoor, &response)
+            .settings
+            .iter()
+            .filter(|field| field.kind == SettingKind::Integer)
+            .all(|field| field.min == Some(32) && field.max == Some(95))
+    );
+}

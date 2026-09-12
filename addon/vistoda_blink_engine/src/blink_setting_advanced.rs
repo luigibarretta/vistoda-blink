@@ -48,7 +48,6 @@ pub fn fields(result: &mut Vec<SettingField>, source: &Value, camera: &CameraSta
         (-100, 0, 1),
         false,
     );
-    add_temperature(result, source, camera, mutable);
 }
 
 fn add_ir_intensity(fields: &mut Vec<SettingField>, source: &Value, writable: bool) {
@@ -82,35 +81,4 @@ fn add_status_led(
         &["off", "recording"][..]
     };
     add_select(fields, "status_led", current, options, writable);
-}
-
-fn add_temperature(
-    fields: &mut Vec<SettingField>,
-    source: &Value,
-    camera: &CameraState,
-    mutable: bool,
-) {
-    add_bool(
-        fields,
-        source,
-        "temperature_alerts",
-        "temp_alarm_enable",
-        mutable && camera.camera_type == "default",
-    );
-    add_integer(
-        fields,
-        source,
-        "temperature_min",
-        "temp_min",
-        (40, 90, 1),
-        false,
-    );
-    add_integer(
-        fields,
-        source,
-        "temperature_max",
-        "temp_max",
-        (40, 90, 1),
-        false,
-    );
 }

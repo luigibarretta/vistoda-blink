@@ -23,6 +23,7 @@ mod blink_settings_write;
 mod blink_signaling;
 mod blink_storage;
 mod blink_storage_mutations;
+mod blink_temperature;
 mod blink_webrtc;
 mod blink_webrtc_commands;
 mod blink_webrtc_events;
@@ -51,6 +52,7 @@ pub mod recordings;
 #[cfg(test)]
 mod settings_tests;
 mod tls;
+mod tls_pins;
 
 pub use api::router;
 pub use config::{AppConfig, Cli};

@@ -1,6 +1,39 @@
+use crate::blink_client::BlinkError;
 use serde_json::Value;
 
 use crate::blink_settings::{SettingField, SettingKind};
+
+pub fn encode_vendor_value(
+    key: &str,
+    current: &Value,
+    desired: &Value,
+) -> Result<Value, BlinkError> {
+    if key == "ir_intensity" {
+        return Ok(Value::from(match desired.as_str() {
+            Some("low") => 1,
+            Some("medium") => 4,
+            Some("high") => 7,
+            _ => return Err(BlinkError::InvalidSetting),
+        }));
+    }
+    if key == "night_vision" {
+        let selected = desired.as_str().ok_or(BlinkError::InvalidSetting)?;
+        return if current.is_string() {
+            Ok(Value::from(selected))
+        } else {
+            Ok(Value::from(match selected {
+                "off" => 0,
+                "on" => 1,
+                "auto" => 2,
+                _ => return Err(BlinkError::InvalidSetting),
+            }))
+        };
+    }
+    if current.is_i64() && desired.is_boolean() {
+        return Ok(Value::from(i64::from(desired.as_bool() == Some(true))));
+    }
+    Ok(desired.clone())
+}
 
 pub fn add_bool(
     fields: &mut Vec<SettingField>,
