@@ -1,6 +1,6 @@
 # Walnut audio codec build
 
-Version 0.15.2 distinguishes single-client and multi-client live sessions using
+Version 0.15.3 distinguishes single-client and multi-client live sessions using
 the actual upstream descriptor. Multi-client audio requires an explicit available
 session status before microphone activation; unknown policy is not authorization.
 StartAudio and StopAudio are serialized with AAC on the same verified transport.
@@ -8,6 +8,8 @@ Disabling capture or receiving an audio-wait event revokes the local lease and
 stops transmission; later availability never reactivates capture automatically.
 These session messages are not proof of exclusive remote microphone ownership.
 Speaker audibility and simultaneous conversation require separate hardware tests.
+Passive video retains its five-second keepalive write tolerance; the 200 ms
+control budget applies only while a microphone lease or its pending Stop exists.
 
 Version 0.15.1 normalizes the outbound ADTS buffer-fullness field to zero to
 match the native Walnut header. AAC payload, frame length, format and counters

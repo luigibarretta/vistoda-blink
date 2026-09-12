@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 const KEEPALIVE_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 #[path = "live_audio_uplink.rs"]
 mod uplink;
-use uplink::{CONTROL_WRITE_TIMEOUT, Uplink};
+use uplink::Uplink;
 const LATENCY_PACKET: [u8; 33] = [
     0x12, 0, 0, 3, 0xe8, 0, 0, 0, 0x18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0,
@@ -57,9 +57,7 @@ pub async fn receive_stream(
             }
             _ = tick.tick() => {
                 if !publisher.has_subscribers() { return Ok(observation.media_seen); }
-                let budget = if multi_client == Some(true) {
-                    CONTROL_WRITE_TIMEOUT
-                } else { KEEPALIVE_WRITE_TIMEOUT };
+                let budget = audio.keepalive_budget(&connection);
                 keepalive.send(&mut writer, budget).await?;
                 continue;
             }
@@ -161,6 +159,9 @@ async fn bounded_write(
     Ok(())
 }
 
+#[cfg(test)]
+#[path = "live_audio_keepalive_tests.rs"]
+mod keepalive_tests;
 #[cfg(test)]
 #[path = "live_audio_session_tests.rs"]
 mod session_tests;

@@ -1,5 +1,5 @@
 //! Serialized microphone commands. Written Start is NOT a remote ownership grant.
-use super::bounded_write;
+use super::{KEEPALIVE_WRITE_TIMEOUT, bounded_write};
 use crate::{
     immi_audio_lease::{AudioConnection, AudioFrame},
     immi_audio_wire::AudioPacketWriter,
@@ -22,6 +22,20 @@ pub(super) struct Uplink {
     packets: AudioPacketWriter,
 }
 impl Uplink {
+    pub(super) fn keepalive_budget(&self, connection: &AudioConnection) -> Duration {
+        // A revoked lease can still need Stop. The packet-counter epoch is not
+        // sufficient: it intentionally survives Stop until the next activation.
+        if self.started_epoch.is_some()
+            || connection
+                .control()
+                .is_some_and(|(multi_client, desired)| multi_client && desired.is_some())
+        {
+            CONTROL_WRITE_TIMEOUT
+        } else {
+            KEEPALIVE_WRITE_TIMEOUT
+        }
+    }
+
     pub(super) async fn reconcile(
         &mut self,
         writer: &mut (impl AsyncWrite + Unpin),
