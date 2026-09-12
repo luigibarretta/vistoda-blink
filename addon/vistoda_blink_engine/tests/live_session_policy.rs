@@ -12,16 +12,44 @@ fn optional_policy_never_breaks_existing_video_descriptors() -> Result<(), serde
         Value::Null,
         json!(1),
         json!("true"),
+        json!([]),
+        json!({"enabled":true}),
     ] {
         let descriptor: LiveDescriptor = serde_json::from_value(json!({
             "server":"immis://fixture.invalid", "command_id":1,
-            "is_multi_client_live_view":policy,
+            "is_mclv":policy,
         }))?;
         assert_eq!(descriptor.is_multi_client_live_view, policy.as_bool());
     }
     let descriptor: LiveDescriptor =
         serde_json::from_value(json!({"server":"fixture", "command_id":1}))?;
     assert_eq!(descriptor.is_multi_client_live_view, None);
+    Ok(())
+}
+
+#[test]
+fn only_native_top_level_wire_key_selects_audio_policy() -> Result<(), serde_json::Error> {
+    for extra in [
+        json!({"is_multi_client_live_view":true}),
+        json!({"isMultiClientLiveViewSession":true}),
+        json!({"options":{"is_mclv":true}}),
+        json!({"response":{"is_mclv":true}}),
+    ] {
+        let mut response = json!({"server":"fixture", "command_id":1});
+        if let (Some(fields), Some(extra)) = (response.as_object_mut(), extra.as_object()) {
+            fields.extend(extra.clone());
+        }
+        let descriptor: LiveDescriptor = serde_json::from_value(response)?;
+        assert_eq!(descriptor.is_multi_client_live_view, None);
+    }
+    // An unrelated internal-model name cannot override or break the wire field.
+    for policy in [json!(true), json!(false), Value::Null, json!("true")] {
+        let descriptor: LiveDescriptor = serde_json::from_value(json!({
+            "server":"fixture", "command_id":1, "is_mclv":policy,
+            "is_multi_client_live_view":true,
+        }))?;
+        assert_eq!(descriptor.is_multi_client_live_view, policy.as_bool());
+    }
     Ok(())
 }
 

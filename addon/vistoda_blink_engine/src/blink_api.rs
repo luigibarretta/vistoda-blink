@@ -23,7 +23,9 @@ pub struct LiveDescriptor {
     pub command_id: u64,
     #[serde(default = "default_poll_seconds")]
     pub polling_interval: f64,
-    #[serde(default, deserialize_with = "optional_bool")]
+    // Native LiveViewCommandResponse uses @SerialName("is_mclv").
+    // The longer Rust name mirrors its internal model, not the HTTP key.
+    #[serde(rename = "is_mclv", default, deserialize_with = "optional_bool")]
     pub is_multi_client_live_view: Option<bool>,
 }
 

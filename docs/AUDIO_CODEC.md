@@ -1,5 +1,12 @@
 # Walnut audio codec build
 
+Version 0.15.4 reads the official HTTP response field `is_mclv`. The Android
+`LiveViewCommandResponse` serializes this top-level key; the longer
+`is_multi_client_live_view` name belongs to an internal legacy model, not this
+wire response. Missing, null or malformed policy still denies microphone use.
+An internal-model key cannot override the canonical HTTP key. This fixes the
+descriptor interpretation; actual camera output still requires hardware testing.
+
 Version 0.15.3 distinguishes single-client and multi-client live sessions using
 the actual upstream descriptor. Multi-client audio requires an explicit available
 session status before microphone activation; unknown policy is not authorization.
