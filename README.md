@@ -1,15 +1,20 @@
 # Vistoda Blink
 
-Vistoda Blink is a standalone Rust provider that adds complete Blink control,
-state and bounded live MPEG-TS media to Home Assistant. It belongs to the
-Vistoda product family alongside `vistoda-ezviz`, `vistoda-ring` and
-`vistoda-home-assistant`.
+Vistoda Blink is the private Blink provider and Home Assistant adapter for the
+Vistoda product family. It provides supported camera state, controls, snapshots,
+archives and bounded Walnut/IMMI live video.
 
 The supervised Rust engine owns Blink OAuth2/2FA, token refresh, discovery,
 polling, controls and media. The small Python custom integration is only the
 native Home Assistant adapter. The official Blink integration is not required;
 it can coexist temporarily as a parity oracle or one-time credential migration
 source.
+
+It does not claim parity with every Blink-app setting or camera model. Cayuga
+WebRTC signaling is implemented, but microphone and full-duplex talk remain
+disabled while the enrolled provider policy does not enable that transport.
+Start a HAOS installation with the shared
+[setup guide](https://github.com/luigibarretta/vistoda-addons/blob/main/GETTING_STARTED.md).
 
 ## Architecture
 
@@ -29,7 +34,8 @@ private API and Vistoda discovery contract during the product rename.
 ## Capabilities
 
 - standalone OAuth2 PKCE enrollment, 2FA and sealed refresh-token storage;
-- complete Home Assistant Blink entity and service parity;
+- the supported Home Assistant entity and service surface documented in
+  [`docs/PARITY.md`](docs/PARITY.md);
 - one shared Blink cloud live session per camera;
 - official-compatible Walnut live selected before signaling from a typed
   per-camera transport policy;
@@ -86,11 +92,12 @@ do not publish it through Traefik.
 
 [![Install Vistoda Blink through HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luigibarretta&repository=vistoda-blink&category=integration)
 
-Install **Vistoda Blink** through HACS, add the shared **Vistoda Apps**
-repository, then install and start the matching Blink app. Supervisor discovery
-connects the adapter without YAML, a bridge URL or a user-managed token. Open
-the discovered integration and complete login/2FA or an approved one-time
-migration.
+Follow the shared [English setup guide](https://github.com/luigibarretta/vistoda-addons/blob/main/GETTING_STARTED.md)
+or [guida italiana](https://github.com/luigibarretta/vistoda-addons/blob/main/GETTING_STARTED.it.md).
+In short: install both **Vistoda** and **Vistoda Blink** through HACS, restart
+Home Assistant, add the **Vistoda Apps** repository, then install and start the
+matching Blink app. Supervisor discovery connects the adapter without YAML, a
+bridge URL or a user-managed token. Complete login/2FA in the discovered flow.
 
 Existing YAML-token installations remain supported and are migrated without
 changing the key used to seal the provider session.
@@ -99,16 +106,19 @@ verified; normal Vistoda operation never reads it.
 The powered Blink Mini is the only automatic production media canary; battery
 cameras are never opened by CI or routine deployment checks.
 
-## Installation and recovery guide
+## Recovery and compatibility
 
-Provider selection, prerequisites, discovery recovery, account reconnection,
-updates, rollback, backups, restore and uninstall are documented in the shared
-[English guide](https://github.com/luigibarretta/vistoda-addons/blob/main/OPERATIONS.md)
-and [Italian guide](https://github.com/luigibarretta/vistoda-addons/blob/main/OPERATIONS.it.md).
+Account reconnection, updates, rollback, restore and uninstall are documented in
+the shared [operations guide](https://github.com/luigibarretta/vistoda-addons/blob/main/OPERATIONS.md).
+The [compatibility matrix](https://github.com/luigibarretta/vistoda-addons/blob/main/COMPATIBILITY.md)
+defines the tested component versions and provider boundaries.
 Published images include licenses and notices under `/usr/share/doc/vistoda`.
 Only exact version tags passing quality, security and provenance gates are released.
 
 ## Development
+
+Read the family [contribution guide](https://github.com/luigibarretta/vistoda-home-assistant/blob/main/CONTRIBUTING.md)
+first to understand repository ownership and cross-repository release order.
 
 ```bash
 python -m pip install ".[dev]"
@@ -139,4 +149,12 @@ The native signaling discovery boundary is recorded in
 [`ADR-0006`](docs/adr/0006-native-audio-signaling-discovery.md).
 Guarded provider-owned USB mutations are recorded in
 [`ADR-0007`](docs/adr/0007-guarded-usb-management.md).
+
+## Author, support and independence
+
+Vistoda Blink is maintained by [Luigi Barretta](https://github.com/luigibarretta).
+[Support the project on Ko-fi](https://ko-fi.com/luigibarretta). Vistoda is an
+independent project; read the shared [disclaimer](https://github.com/luigibarretta/vistoda-home-assistant/blob/main/DISCLAIMER.md)
+and [accessibility statement](https://github.com/luigibarretta/vistoda-home-assistant/blob/main/ACCESSIBILITY.md).
+
 Licensed under the MIT License.
