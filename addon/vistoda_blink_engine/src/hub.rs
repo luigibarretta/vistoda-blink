@@ -36,7 +36,7 @@ pub struct CameraHub {
     protocol_errors: AtomicU64,
 }
 impl CameraHub {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let (sender, _) = broadcast::channel(QUEUE_DEPTH);
         Self {
             sender,
@@ -47,8 +47,10 @@ impl CameraHub {
             protocol_errors: AtomicU64::new(0),
         }
     }
-
-    fn acquire_publisher(self: &Arc<Self>, owner: u8) -> Result<PublisherGuard, EngineError> {
+    pub(crate) fn acquire_publisher(
+        self: &Arc<Self>,
+        owner: u8,
+    ) -> Result<PublisherGuard, EngineError> {
         self.publisher
             .compare_exchange(OWNER_NONE, owner, Ordering::AcqRel, Ordering::Acquire)
             .map_err(|_| EngineError::PublisherBusy)?;
@@ -64,12 +66,10 @@ impl CameraHub {
             hub: self.clone(),
         }
     }
-
     pub fn publish(&self, frame: Bytes) {
         self.packets.fetch_add(1, Ordering::Relaxed);
         let _ = self.sender.send(HubMessage::Data(frame));
     }
-
     pub fn record_protocol_error(&self) {
         self.protocol_errors.fetch_add(1, Ordering::Relaxed);
     }

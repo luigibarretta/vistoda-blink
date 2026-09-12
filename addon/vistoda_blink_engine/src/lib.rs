@@ -40,6 +40,7 @@ pub mod enrollment;
 pub mod error;
 pub mod framing;
 pub mod hub;
+mod immi_audio;
 pub mod live;
 #[cfg(test)]
 mod live_tests;

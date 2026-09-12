@@ -2,7 +2,7 @@
 
 - Status: investigation; not production-enabled
 - Date: 2026-09-12
-- Scope: passive negotiation decoding and offline native-call analysis
+- Scope: passive live negotiation metadata and offline native-call analysis
 
 ## Correction to the earlier interpretation
 
@@ -35,7 +35,14 @@ the binary, disassembly or copied native implementation.
 - The microphone enable path mutes audio output unless both the stream's
   echo-cancellation indication and a local audio-capability flag are true.
   The stream indication is derived from the native audio-format word;
-  the local flag comes from `AudioCapabilityHelper`, not the TLS certificate.
+  the local flag comes from Android `AcousticEchoCanceler.isAvailable()`, not
+  the TLS certificate.
+- Odd format words `0xa0000001`/`0xa0000003` select AAC at 16 kHz, mono,
+  32 kbit/s. The encoder prepends a seven-byte ADTS header to encoded output;
+  IMMI carries it unchanged with a type-specific counter beginning at zero.
+- Even words decode to native codec 1 but the Android microphone pipeline
+  rejects that format. The dummy encoder is a no-op, **not PCM passthrough**.
+  Do not offer raw PCM uplink on that basis.
 
 This is static evidence for a conditional simultaneous-audio path, not proof
 that a browser or a particular deployed camera satisfies its prerequisites.
@@ -49,8 +56,13 @@ they are not classified as supported. Unexpected payload-bearing `0x0c`
 messages are not treated as a valid offer. Existing `push` consumers still
 receive only video, preserving the live playback contract.
 
-No uplink writer, microphone acquisition, provider request or production
-capability change is introduced. Offline fixtures verify fragmentation,
+Release 0.14.1 records only bounded audio-offer metadata during an explicitly
+requested live session. It does not start a session itself, send audio,
+capture a microphone or change a production capability flag. The live reader
+and keepalive writer now share one future: reader failure, cancellation and
+the last subscriber leaving close both transport halves. No detached writer
+can survive the receiver timeout. Offline fixtures verify this lifecycle,
+fragmentation,
 unknown values, malformed offers, truncation and unchanged video filtering.
 They do not constitute a native-client or physical-camera interoperability test.
 

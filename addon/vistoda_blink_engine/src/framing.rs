@@ -40,7 +40,7 @@ impl ImmiDecoder {
     }
 
     /// Preserve the header-only IMMI audio offer for opt-in diagnostics.
-    /// The existing live receiver continues using `push`, without uplink writes.
+    /// Observing this event never authorizes uplink writes.
     pub fn push_events(&mut self, chunk: &[u8]) -> Result<Vec<ImmiEvent>, FramingError> {
         self.buffer.extend_from_slice(chunk);
         let mut frames = Vec::new();

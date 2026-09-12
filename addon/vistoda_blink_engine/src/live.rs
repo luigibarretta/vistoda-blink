@@ -8,7 +8,13 @@ use tokio::{
 };
 use url::Url;
 
-use crate::{blink_client::BlinkClient, framing::ImmiDecoder, hub::PublisherGuard, tls::connector};
+use crate::{
+    blink_client::BlinkClient,
+    framing::{ImmiDecoder, ImmiEvent},
+    hub::PublisherGuard,
+    immi_audio::AudioOffer,
+    tls::connector,
+};
 
 const BATTERY_DEADLINE: Duration = Duration::from_secs(75);
 const POWERED_DEADLINE: Duration = Duration::from_secs(600);
@@ -117,47 +123,68 @@ async fn receive_once(
         &target.connection_id,
     ))
     .await?;
-    let (mut reader, mut writer) = tokio::io::split(tls);
-    let keepalive = tokio::spawn(async move {
-        let mut tick = tokio::time::interval_at(
-            tokio::time::Instant::now() + Duration::from_secs(1),
-            Duration::from_secs(1),
-        );
-        let mut sequence = 0_u32;
-        let mut seconds = 1_u32;
-        loop {
-            tick.tick().await;
-            if seconds.is_multiple_of(10) {
-                sequence = sequence.wrapping_add(1);
-                let mut packet = [0_u8; 9];
-                packet[0] = 0x0a;
-                packet[1..5].copy_from_slice(&sequence.to_be_bytes());
-                writer.write_all(&packet).await?;
-            }
-            writer.write_all(&LATENCY_PACKET).await?;
-            writer.flush().await?;
-            seconds = seconds.wrapping_add(1);
-        }
-        #[allow(unreachable_code)]
-        Ok::<(), std::io::Error>(())
-    });
+    receive_stream(tls, publisher).await
+}
+
+pub(crate) async fn receive_stream(
+    stream: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    publisher: &PublisherGuard,
+) -> Result<bool, LiveError> {
+    // Both halves belong to this future. Errors and timeout cancellation drop
+    // the writer too; no detached task may keep a camera session alive.
+    let (mut reader, mut writer) = tokio::io::split(stream);
+    let mut tick = tokio::time::interval_at(
+        tokio::time::Instant::now() + Duration::from_secs(1),
+        Duration::from_secs(1),
+    );
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut seconds = 1_u32;
+    let mut sequence = 0_u32;
     let mut decoder = ImmiDecoder::default();
+    let offer = AudioOffer::default();
     let mut buffer = vec![0_u8; 64 * 1024].into_boxed_slice();
     let mut media_seen = false;
     loop {
-        let read = reader.read(&mut buffer).await?;
+        let read = tokio::select! {
+            read = reader.read(&mut buffer) => read?,
+            _ = tick.tick() => {
+                if !publisher.has_subscribers() { return Ok(media_seen); }
+                if seconds.is_multiple_of(10) {
+                    sequence = sequence.wrapping_add(1);
+                    let mut packet = [0_u8; 9];
+                    packet[0] = 0x0a;
+                    packet[1..5].copy_from_slice(&sequence.to_be_bytes());
+                    writer.write_all(&packet).await?;
+                }
+                writer.write_all(&LATENCY_PACKET).await?;
+                writer.flush().await?;
+                seconds = seconds.wrapping_add(1);
+                continue;
+            }
+        };
         if read == 0 {
             break;
         }
-        for frame in decoder.push(&buffer[..read])? {
-            media_seen = true;
-            publisher.publish(frame);
+        for event in decoder.push_events(&buffer[..read])? {
+            match event {
+                ImmiEvent::Video(frame) => {
+                    media_seen = true;
+                    publisher.publish(frame);
+                }
+                ImmiEvent::AudioConfig(format) => {
+                    // Metadata only: no media, device ID or connection secret.
+                    if !offer.snapshot().offered {
+                        offer.observe(format);
+                        tracing::info!(offer = ?offer.snapshot(), "Blink IMMI audio offer");
+                    }
+                }
+            }
         }
         if !publisher.has_subscribers() {
             break;
         }
     }
-    keepalive.abort();
+    offer.clear();
     if media_seen {
         decoder.finish()?;
     }
