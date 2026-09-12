@@ -5,6 +5,10 @@
 
 ## Context
 
+Scope correction (2026-09-12): the opening interpretation below is superseded
+by [ADR 0009](0009-walnut-audio-investigation.md). Native Walnut also contains
+an IMMI audio uplink; the WebRTC policy does not rule out that separate path.
+
 The Blink Android 59.1 client no longer treats two-way audio as part of the
 legacy live MPEG-TS path. Its v4 homescreen supplies a private Ring device ID
 and `two_way_audio`, `audio_aec` and `audio_privacy_enabled` capability flags.

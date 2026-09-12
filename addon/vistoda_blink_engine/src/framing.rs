@@ -6,6 +6,13 @@ const HEADER_BYTES: usize = 9;
 const VIDEO_MESSAGE: u8 = 0x00;
 const MPEG_TS_SYNC: u8 = 0x47;
 
+/// Passive observations only: an offer is not permission to transmit audio.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ImmiEvent {
+    Video(Bytes),
+    AudioConfig(u32),
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum FramingError {
     #[error("payload exceeds {MAX_PACKET_BYTES} bytes")]
@@ -22,6 +29,19 @@ pub struct ImmiDecoder {
 
 impl ImmiDecoder {
     pub fn push(&mut self, chunk: &[u8]) -> Result<Vec<Bytes>, FramingError> {
+        Ok(self
+            .push_events(chunk)?
+            .into_iter()
+            .filter_map(|event| match event {
+                ImmiEvent::Video(frame) => Some(frame),
+                ImmiEvent::AudioConfig(_) => None,
+            })
+            .collect())
+    }
+
+    /// Preserve the header-only IMMI audio offer for opt-in diagnostics.
+    /// The existing live receiver continues using `push`, without uplink writes.
+    pub fn push_events(&mut self, chunk: &[u8]) -> Result<Vec<ImmiEvent>, FramingError> {
         self.buffer.extend_from_slice(chunk);
         let mut frames = Vec::new();
         loop {
@@ -30,6 +50,12 @@ impl ImmiDecoder {
                     break;
                 }
                 let message_type = self.buffer[0];
+                let value = u32::from_be_bytes([
+                    self.buffer[1],
+                    self.buffer[2],
+                    self.buffer[3],
+                    self.buffer[4],
+                ]);
                 let payload_length = u32::from_be_bytes([
                     self.buffer[5],
                     self.buffer[6],
@@ -41,6 +67,9 @@ impl ImmiDecoder {
                     return Err(FramingError::Oversized);
                 }
                 if payload_length == 0 {
+                    if message_type == 0x0c {
+                        frames.push(ImmiEvent::AudioConfig(value));
+                    }
                     continue;
                 }
                 self.pending = Some((message_type, payload_length));
@@ -54,7 +83,7 @@ impl ImmiDecoder {
             let payload = self.buffer.split_to(payload_length).freeze();
             self.pending = None;
             if message_type == VIDEO_MESSAGE && payload.first() == Some(&MPEG_TS_SYNC) {
-                frames.push(payload);
+                frames.push(ImmiEvent::Video(payload));
             }
         }
         Ok(frames)
