@@ -44,6 +44,7 @@ pub fn router(state: EngineState) -> Router {
         .merge(crate::api_storage::routes())
         .merge(crate::blink_signaling::routes())
         .merge(crate::blink_webrtc::routes())
+        .merge(crate::walnut_socket::routes())
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }

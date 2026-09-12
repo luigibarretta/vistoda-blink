@@ -4,6 +4,7 @@ use crate::{
     credentials::CredentialStore,
     enrollment::EnrollmentManager,
     error::EngineError,
+    immi_audio_lease::AudioRuntime,
     live,
     recordings::RecordingManager,
 };
@@ -29,6 +30,7 @@ pub enum HubMessage {
 }
 pub struct CameraHub {
     sender: broadcast::Sender<HubMessage>,
+    audio: AudioRuntime,
     publisher: AtomicU8,
     subscribers: AtomicUsize,
     packets: AtomicU64,
@@ -40,6 +42,7 @@ impl CameraHub {
         let (sender, _) = broadcast::channel(QUEUE_DEPTH);
         Self {
             sender,
+            audio: AudioRuntime::default(),
             publisher: AtomicU8::new(OWNER_NONE),
             subscribers: AtomicUsize::new(0),
             packets: AtomicU64::new(0),
@@ -73,11 +76,9 @@ impl CameraHub {
     pub fn record_protocol_error(&self) {
         self.protocol_errors.fetch_add(1, Ordering::Relaxed);
     }
-
     fn has_subscribers(&self) -> bool {
         self.subscribers.load(Ordering::Relaxed) > 0
     }
-
     pub(crate) fn snapshot(&self) -> HubSnapshot {
         HubSnapshot {
             publisher: self.publisher.load(Ordering::Relaxed) != OWNER_NONE,
@@ -88,38 +89,37 @@ impl CameraHub {
         }
     }
 }
-
 pub struct PublisherGuard {
     hub: Arc<CameraHub>,
 }
-
 impl PublisherGuard {
+    pub fn audio(&self) -> AudioRuntime {
+        self.hub.audio.clone()
+    }
     pub fn publish(&self, frame: Bytes) {
         self.hub.publish(frame);
     }
-
     pub fn record_protocol_error(&self) {
         self.hub.record_protocol_error();
     }
-
     pub fn has_subscribers(&self) -> bool {
         self.hub.has_subscribers()
     }
 }
-
 impl Drop for PublisherGuard {
     fn drop(&mut self) {
         self.hub.publisher.store(OWNER_NONE, Ordering::Release);
         let _ = self.hub.sender.send(HubMessage::End);
     }
 }
-
 pub struct Subscriber {
     receiver: broadcast::Receiver<HubMessage>,
     hub: Arc<CameraHub>,
 }
-
 impl Subscriber {
+    pub fn audio(&self) -> AudioRuntime {
+        self.hub.audio.clone()
+    }
     pub async fn recv(&mut self) -> Result<HubMessage, broadcast::error::RecvError> {
         match self.receiver.recv().await {
             Err(broadcast::error::RecvError::Lagged(skipped)) => {

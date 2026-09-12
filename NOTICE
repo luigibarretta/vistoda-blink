@@ -7,5 +7,11 @@ notice are shipped in addon/vistoda_blink_engine/licenses and in the image at
 /usr/share/doc/vistoda. Cargo dependency license files and metadata are shipped
 under /usr/share/doc/vistoda/dependencies.
 
+The audio-enabled app includes the unmodified FFmpeg command-line program,
+Copyright the FFmpeg developers, under LGPL-2.1-or-later. It is a separate
+process, not linked into the MIT Rust engine. Exact FFmpeg source, license,
+build recipe and configuration are included at /usr/share/doc/vistoda/ffmpeg.
+See docs/AUDIO_CODEC.md for the corresponding-source and replacement procedure.
+
 This project is unofficial and is not affiliated with or endorsed by Blink or
 Amazon. Blink and Amazon names and marks belong to their respective owners.

@@ -2,27 +2,15 @@ use std::time::Duration;
 
 use rustls::pki_types::ServerName;
 use thiserror::Error;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-};
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 use url::Url;
 
-use crate::{
-    blink_client::BlinkClient,
-    framing::{ImmiDecoder, ImmiEvent},
-    hub::PublisherGuard,
-    immi_audio::AudioOffer,
-    tls::connector,
-};
+pub(crate) use crate::live_audio::receive_stream;
+use crate::{blink_client::BlinkClient, hub::PublisherGuard, tls::connector};
 
 const BATTERY_DEADLINE: Duration = Duration::from_secs(75);
 const POWERED_DEADLINE: Duration = Duration::from_secs(600);
 const CONNECT_RETRIES: usize = 30;
-const LATENCY_PACKET: [u8; 33] = [
-    0x12, 0, 0, 3, 0xe8, 0, 0, 0, 0x18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0,
-];
 
 #[derive(Debug, Error)]
 pub enum LiveError {
@@ -124,71 +112,6 @@ async fn receive_once(
     ))
     .await?;
     receive_stream(tls, publisher).await
-}
-
-pub(crate) async fn receive_stream(
-    stream: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
-    publisher: &PublisherGuard,
-) -> Result<bool, LiveError> {
-    // Both halves belong to this future. Errors and timeout cancellation drop
-    // the writer too; no detached task may keep a camera session alive.
-    let (mut reader, mut writer) = tokio::io::split(stream);
-    let mut tick = tokio::time::interval_at(
-        tokio::time::Instant::now() + Duration::from_secs(1),
-        Duration::from_secs(1),
-    );
-    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    let mut seconds = 1_u32;
-    let mut sequence = 0_u32;
-    let mut decoder = ImmiDecoder::default();
-    let offer = AudioOffer::default();
-    let mut buffer = vec![0_u8; 64 * 1024].into_boxed_slice();
-    let mut media_seen = false;
-    loop {
-        let read = tokio::select! {
-            read = reader.read(&mut buffer) => read?,
-            _ = tick.tick() => {
-                if !publisher.has_subscribers() { return Ok(media_seen); }
-                if seconds.is_multiple_of(10) {
-                    sequence = sequence.wrapping_add(1);
-                    let mut packet = [0_u8; 9];
-                    packet[0] = 0x0a;
-                    packet[1..5].copy_from_slice(&sequence.to_be_bytes());
-                    writer.write_all(&packet).await?;
-                }
-                writer.write_all(&LATENCY_PACKET).await?;
-                writer.flush().await?;
-                seconds = seconds.wrapping_add(1);
-                continue;
-            }
-        };
-        if read == 0 {
-            break;
-        }
-        for event in decoder.push_events(&buffer[..read])? {
-            match event {
-                ImmiEvent::Video(frame) => {
-                    media_seen = true;
-                    publisher.publish(frame);
-                }
-                ImmiEvent::AudioConfig(format) => {
-                    // Metadata only: no media, device ID or connection secret.
-                    if !offer.snapshot().offered {
-                        offer.observe(format);
-                        tracing::info!(offer = ?offer.snapshot(), "Blink IMMI audio offer");
-                    }
-                }
-            }
-        }
-        if !publisher.has_subscribers() {
-            break;
-        }
-    }
-    offer.clear();
-    if media_seen {
-        decoder.finish()?;
-    }
-    Ok(media_seen)
 }
 
 pub(crate) struct Target {

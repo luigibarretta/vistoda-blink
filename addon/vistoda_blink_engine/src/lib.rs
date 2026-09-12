@@ -4,6 +4,7 @@ mod api_recordings;
 mod api_settings;
 mod api_storage;
 mod api_zones;
+pub mod audio_codec;
 pub mod auth;
 pub mod blink_api;
 mod blink_capabilities;
@@ -41,7 +42,10 @@ pub mod error;
 pub mod framing;
 pub mod hub;
 mod immi_audio;
+pub mod immi_audio_lease;
+pub mod immi_audio_wire;
 pub mod live;
+mod live_audio;
 #[cfg(test)]
 mod live_tests;
 pub mod oauth;
@@ -54,6 +58,8 @@ pub mod recordings;
 mod settings_tests;
 mod tls;
 mod tls_pins;
+mod walnut_microphone;
+mod walnut_socket;
 
 pub use api::router;
 pub use config::{AppConfig, Cli};

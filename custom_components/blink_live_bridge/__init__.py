@@ -24,6 +24,8 @@ from .recording_websocket import async_register as async_register_recording_webs
 from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
 from .services import async_setup_services
 from .storage_websocket import async_register as async_register_storage_websocket
+from .walnut_websocket import async_register as async_register_walnut_websocket
+from .walnut_websocket import async_stop_all as async_stop_walnut_sessions
 from .webrtc_websocket import (
     async_register as async_register_webrtc_websocket,
 )
@@ -44,6 +46,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async_setup_services(hass)
     async_register_websocket(hass)
     async_register_webrtc_websocket(hass)
+    async_register_walnut_websocket(hass)
     async_register_zones_websocket(hass)
     async_register_recording_websocket(hass)
     async_register_storage_websocket(hass)
@@ -94,6 +97,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
     await async_stop_webrtc_sessions(hass)
+    await async_stop_walnut_sessions(hass)
     hass.data[DOMAIN].pop(entry.entry_id, None)
     hass.data[DOMAIN].pop("runtime", None)
     return True
