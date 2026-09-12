@@ -1,5 +1,11 @@
 # Walnut audio codec build
 
+Version 0.15.1 normalizes the outbound ADTS buffer-fullness field to zero to
+match the native Walnut header. AAC payload, frame length, format and counters
+are unchanged. Offline comparison of 17 synthetic encoded frames produced
+identical decoded PCM before/after normalization. This is a compatibility
+alignment, not proof of a diagnosed speaker fault or audible playback.
+
 The audio implementation uses a separate, minimal FFmpeg command-line process.
 The Rust engine does not link FFmpeg libraries. Its input and output use pipes;
 network protocols and file input are disabled in the bundled codec build.

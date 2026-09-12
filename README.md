@@ -11,8 +11,12 @@ it can coexist temporarily as a parity oracle or one-time credential migration
 source.
 
 It does not claim parity with every Blink-app setting or camera model. Cayuga
-WebRTC signaling is implemented, but microphone and full-duplex talk remain
-disabled while the enrolled provider policy does not enable that transport.
+WebRTC signaling is implemented but remains disabled by the enrolled provider
+policy. Separately, Walnut microphone transport is available from engine 0.15.0
+with Vistoda for Home Assistant 0.28.0: it shares the existing video session and
+supports conditional talk/listen controls, not simultaneous full duplex.
+Transport writes are verified on Mini; audible speaker output still requires
+device validation. See [audio requirements and boundaries](docs/AUDIO_CODEC.md).
 Start a HAOS installation with the shared
 [setup guide](https://github.com/luigibarretta/vistoda-addons/blob/main/GETTING_STARTED.md).
 

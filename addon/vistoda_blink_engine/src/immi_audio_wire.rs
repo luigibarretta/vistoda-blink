@@ -129,6 +129,9 @@ impl AudioPacketWriter {
         packet.extend_from_slice(&self.sequence.to_be_bytes());
         packet.extend_from_slice(&length.to_be_bytes());
         packet.extend_from_slice(frame);
+        // Native Walnut ADTS uses fullness=0; preserve length and AAC payload.
+        packet[9 + 5] &= 0xe0;
+        packet[9 + 6] &= 0x03;
         self.sequence = self.sequence.wrapping_add(1);
         Ok(packet)
     }
