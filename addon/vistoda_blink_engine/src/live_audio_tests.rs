@@ -3,7 +3,7 @@ use crate::{
     hub::{CameraHub, HubMessage},
     immi_audio_lease::{AudioLeaseError, AudioRuntime},
 };
-use std::{error::Error, sync::Arc};
+use std::{error::Error, sync::Arc, time::Instant};
 use tokio::time::timeout;
 
 fn frame() -> Vec<u8> {
@@ -19,7 +19,7 @@ async fn live_shares_audio_offer_and_preserves_video_without_config_echo()
     let runtime = subscriber.audio();
     let mut status = runtime.subscribe();
     let (client, mut server) = tokio::io::duplex(1024);
-    let task = tokio::spawn(async move { receive_stream(client, &publisher).await });
+    let task = tokio::spawn(async move { receive_stream(client, &publisher, Some(false)).await });
     server.write_all(&[0x0c, 0xa0, 0, 0, 3, 0, 0, 0, 0]).await?;
     timeout(
         Duration::from_secs(1),
@@ -124,11 +124,11 @@ async fn keepalive_bytes_match_existing_wire_contract() -> Result<(), Box<dyn Er
     let mut keepalive = Keepalive::default();
     let mut writer = Vec::new();
     for _ in 0..9 {
-        keepalive.send(&mut writer).await?;
+        keepalive.send(&mut writer, KEEPALIVE_WRITE_TIMEOUT).await?;
     }
     assert_eq!(writer, LATENCY_PACKET.repeat(9));
     writer.clear();
-    keepalive.send(&mut writer).await?;
+    keepalive.send(&mut writer, KEEPALIVE_WRITE_TIMEOUT).await?;
     assert_eq!(&writer[..9], &[0x0a, 0, 0, 0, 1, 0, 0, 0, 0]);
     assert_eq!(&writer[9..], &LATENCY_PACKET);
     let (mut blocked, _reader) = tokio::io::duplex(1);

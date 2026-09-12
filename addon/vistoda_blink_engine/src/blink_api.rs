@@ -23,6 +23,14 @@ pub struct LiveDescriptor {
     pub command_id: u64,
     #[serde(default = "default_poll_seconds")]
     pub polling_interval: f64,
+    #[serde(default, deserialize_with = "optional_bool")]
+    pub is_multi_client_live_view: Option<bool>,
+}
+
+fn optional_bool<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<bool>, D::Error> {
+    Ok(serde_json::Value::deserialize(deserializer)?.as_bool())
 }
 
 pub enum CameraAction {

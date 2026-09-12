@@ -112,7 +112,7 @@ pub fn audio_config(format: u32) -> Result<[u8; 9], AudioWireError> {
 
 /// Fresh writer per microphone activation: native enable resets the counter.
 /// Start at zero, wrap at 32 bits, and discard the writer on mute/disconnect.
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct AudioPacketWriter {
     sequence: u32,
 }

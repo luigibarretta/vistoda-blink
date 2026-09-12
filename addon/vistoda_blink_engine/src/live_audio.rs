@@ -3,17 +3,16 @@ use crate::{
     framing::{ImmiDecoder, ImmiEvent},
     hub::PublisherGuard,
     immi_audio::AudioOffer,
-    immi_audio_lease::{AudioConnection, AudioFrame},
-    immi_audio_wire::AudioPacketWriter,
+    immi_audio_lease::AudioConnection,
     live::LiveError,
 };
-use std::{
-    io,
-    time::{Duration, Instant},
-};
+use std::{io, time::Duration};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 const KEEPALIVE_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+#[path = "live_audio_uplink.rs"]
+mod uplink;
+use uplink::{CONTROL_WRITE_TIMEOUT, Uplink};
 const LATENCY_PACKET: [u8; 33] = [
     0x12, 0, 0, 3, 0xe8, 0, 0, 0, 0x18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0,
@@ -22,10 +21,12 @@ const LATENCY_PACKET: [u8; 33] = [
 pub async fn receive_stream(
     stream: impl AsyncRead + AsyncWrite + Unpin,
     publisher: &PublisherGuard,
+    multi_client: Option<bool>,
 ) -> Result<bool, LiveError> {
     // Errors and cancellation drop both TLS halves and synchronously revoke audio.
     let (mut reader, mut writer) = tokio::io::split(stream);
-    let (connection, mut audio_frames) = publisher.audio().connect();
+    let (connection, mut audio_frames) = publisher.audio().connect_with_policy(multi_client);
+    let mut changes = connection.changes();
     let mut tick = tokio::time::interval_at(
         tokio::time::Instant::now() + Duration::from_secs(1),
         Duration::from_secs(1),
@@ -34,89 +35,90 @@ pub async fn receive_stream(
     let mut keepalive = Keepalive::default();
     let mut audio = Uplink::default();
     let mut decoder = ImmiDecoder::default();
-    let offer = AudioOffer::default();
+    let mut observation = Observation::default();
     let mut buffer = vec![0_u8; 64 * 1024].into_boxed_slice();
-    let mut media_seen = false;
     loop {
-        if !publisher.has_subscribers() {
-            return Ok(media_seen);
+        if !publisher.has_subscribers() || connection.control().is_none() {
+            return Ok(observation.media_seen);
         }
+        changes.borrow_and_update();
+        audio.reconcile(&mut writer, &connection).await?;
         let read = tokio::select! {
+            notification = changes.changed() => {
+                if notification.is_err() { return Ok(observation.media_seen); }
+                continue;
+            }
             read = reader.read(&mut buffer) => read?,
             frame = audio_frames.recv() => {
-                let Some(frame) = frame else { return Ok(media_seen); };
-                if !publisher.has_subscribers() { return Ok(media_seen); }
+                let Some(frame) = frame else { return Ok(observation.media_seen); };
+                if !publisher.has_subscribers() { return Ok(observation.media_seen); }
                 audio.send(&mut writer, &connection, &frame).await?;
                 continue;
             }
             _ = tick.tick() => {
-                if !publisher.has_subscribers() { return Ok(media_seen); }
-                keepalive.send(&mut writer).await?;
+                if !publisher.has_subscribers() { return Ok(observation.media_seen); }
+                let budget = if multi_client == Some(true) {
+                    CONTROL_WRITE_TIMEOUT
+                } else { KEEPALIVE_WRITE_TIMEOUT };
+                keepalive.send(&mut writer, budget).await?;
                 continue;
             }
         };
         if read == 0 {
             break;
         }
-        for event in decoder.push_events(&buffer[..read])? {
+        observation.process(
+            decoder.push_events(&buffer[..read])?,
+            publisher,
+            &connection,
+        )?;
+    }
+    observation.offer.clear();
+    if observation.media_seen {
+        decoder.finish()?;
+    }
+    Ok(observation.media_seen)
+}
+
+#[derive(Default)]
+struct Observation {
+    offer: AudioOffer,
+    media_seen: bool,
+    availability: Option<bool>,
+}
+impl Observation {
+    fn process(
+        &mut self,
+        events: Vec<ImmiEvent>,
+        publisher: &PublisherGuard,
+        connection: &AudioConnection,
+    ) -> Result<(), LiveError> {
+        for event in events {
             match event {
+                ImmiEvent::AudioAvailability(available) => {
+                    connection
+                        .observe_availability(available)
+                        .map_err(io::Error::other)?;
+                    // Availability is not a per-client ownership grant.
+                    if self.availability != Some(available) {
+                        self.availability = Some(available);
+                        tracing::info!(available, "Blink session audio availability observation");
+                    }
+                }
                 ImmiEvent::Video(frame) => {
-                    media_seen = true;
+                    self.media_seen = true;
                     publisher.publish(frame);
                 }
                 ImmiEvent::AudioConfig(format) => {
                     // Every offer updates authorization; only the first is logged.
-                    if connection.observe_offer(format).is_err() {
-                        return Ok(media_seen);
-                    }
-                    if !offer.snapshot().offered {
-                        offer.observe(format);
-                        tracing::info!(offer = ?offer.snapshot(), "Blink IMMI audio offer");
+                    connection.observe_offer(format).map_err(io::Error::other)?;
+                    if !self.offer.snapshot().offered {
+                        self.offer.observe(format);
+                        tracing::info!(offer = ?self.offer.snapshot(), "Blink IMMI audio offer");
                     }
                 }
             }
         }
-    }
-    offer.clear();
-    if media_seen {
-        decoder.finish()?;
-    }
-    Ok(media_seen)
-}
-
-#[derive(Default)]
-struct Uplink {
-    epoch: Option<u64>,
-    packets: AudioPacketWriter,
-}
-impl Uplink {
-    async fn send(
-        &mut self,
-        writer: &mut (impl AsyncWrite + Unpin),
-        connection: &AudioConnection,
-        frame: &AudioFrame,
-    ) -> Result<(), LiveError> {
-        if !connection.valid_frame(frame, Instant::now()) {
-            return Ok(());
-        }
-        if self.epoch != Some(frame.epoch()) {
-            self.packets = AudioPacketWriter::default();
-            self.epoch = Some(frame.epoch());
-        }
-        // Serialization is synchronous; nothing may await after authorization.
-        if !connection.valid_frame(frame, Instant::now()) {
-            return Ok(());
-        }
-        let packet = self
-            .packets
-            .audio_frame(frame.payload())
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid AAC frame"))?;
-        let Some(remaining) = frame.remaining(Instant::now()) else {
-            return Ok(());
-        };
-        // Socket backpressure must not extend the original PCM freshness budget.
-        bounded_write(writer, &packet, remaining).await?;
-        connection.frame_sent(frame);
         Ok(())
     }
 }
@@ -127,7 +129,11 @@ struct Keepalive {
     sequence: u32,
 }
 impl Keepalive {
-    async fn send(&mut self, writer: &mut (impl AsyncWrite + Unpin)) -> Result<(), LiveError> {
+    async fn send(
+        &mut self,
+        writer: &mut (impl AsyncWrite + Unpin),
+        budget: Duration,
+    ) -> Result<(), LiveError> {
         self.ticks = self.ticks.wrapping_add(1);
         let mut packet = Vec::with_capacity(42);
         if self.ticks.is_multiple_of(10) {
@@ -137,7 +143,7 @@ impl Keepalive {
             packet.extend_from_slice(&[0; 4]);
         }
         packet.extend_from_slice(&LATENCY_PACKET);
-        bounded_write(writer, &packet, KEEPALIVE_WRITE_TIMEOUT).await
+        bounded_write(writer, &packet, budget).await
     }
 }
 
@@ -155,6 +161,9 @@ async fn bounded_write(
     Ok(())
 }
 
+#[cfg(test)]
+#[path = "live_audio_session_tests.rs"]
+mod session_tests;
 #[cfg(test)]
 #[path = "live_audio_tests.rs"]
 mod tests;

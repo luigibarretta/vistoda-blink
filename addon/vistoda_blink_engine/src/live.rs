@@ -44,6 +44,8 @@ async fn produce_inner(
         .start_live(alias)
         .await
         .map_err(|_| LiveError::Negotiation)?;
+    tracing::info!(multi_client = ?descriptor.is_multi_client_live_view,
+        "Blink live session policy observation");
     let deadline = if camera.powered {
         POWERED_DEADLINE
     } else {
@@ -66,8 +68,16 @@ async fn produce_inner(
             }
         }
     });
-    let result =
-        tokio::time::timeout(deadline, receive(serial, &descriptor.server, publisher)).await;
+    let result = tokio::time::timeout(
+        deadline,
+        receive(
+            serial,
+            &descriptor.server,
+            publisher,
+            descriptor.is_multi_client_live_view,
+        ),
+    )
+    .await;
     poller.abort();
     client.finish_live(&camera, descriptor.command_id).await;
     match result {
@@ -76,13 +86,18 @@ async fn produce_inner(
     }
 }
 
-async fn receive(serial: &str, server: &str, publisher: &PublisherGuard) -> Result<(), LiveError> {
+async fn receive(
+    serial: &str,
+    server: &str,
+    publisher: &PublisherGuard,
+    multi_client: Option<bool>,
+) -> Result<(), LiveError> {
     let mut last_error = None;
     for _ in 0..CONNECT_RETRIES {
         if !publisher.has_subscribers() {
             return Ok(());
         }
-        match receive_once(serial, server, publisher).await {
+        match receive_once(serial, server, publisher, multi_client).await {
             Ok(true) => return Ok(()),
             Ok(false) => {}
             Err(error @ LiveError::Framing(_)) => return Err(error),
@@ -100,6 +115,7 @@ async fn receive_once(
     serial: &str,
     server: &str,
     publisher: &PublisherGuard,
+    multi_client: Option<bool>,
 ) -> Result<bool, LiveError> {
     let target = Target::parse(server)?;
     let tcp = TcpStream::connect((target.host.as_str(), target.port)).await?;
@@ -111,7 +127,7 @@ async fn receive_once(
         &target.connection_id,
     ))
     .await?;
-    receive_stream(tls, publisher).await
+    receive_stream(tls, publisher, multi_client).await
 }
 
 pub(crate) struct Target {

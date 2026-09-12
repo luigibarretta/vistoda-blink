@@ -31,7 +31,7 @@ async fn cancelling_receiver_closes_the_writer_too() -> Result<(), Box<dyn Error
     assert!(
         timeout(
             Duration::from_millis(20),
-            receive_stream(client, &publisher)
+            receive_stream(client, &publisher, Some(false))
         )
         .await
         .is_err()
@@ -54,7 +54,11 @@ async fn invalid_frame_closes_transport_without_a_detached_keepalive() -> Result
     server
         .write_all(&[0, 0, 0, 0, 0, 255, 255, 255, 255])
         .await?;
-    assert!(receive_stream(client, &publisher).await.is_err());
+    assert!(
+        receive_stream(client, &publisher, Some(false))
+            .await
+            .is_err()
+    );
     let mut byte = [0];
     assert_eq!(
         timeout(Duration::from_millis(100), server.read(&mut byte)).await??,
@@ -73,7 +77,7 @@ async fn an_idle_socket_closes_when_its_last_subscriber_leaves() -> Result<(), B
     assert!(
         !timeout(
             Duration::from_millis(1500),
-            receive_stream(client, &publisher)
+            receive_stream(client, &publisher, Some(false))
         )
         .await??
     );
@@ -93,7 +97,7 @@ async fn audio_offer_does_not_replace_or_enable_any_media() -> Result<(), Box<dy
         .write_all(&[0, 0, 0, 0, 0, 0, 0, 0, 2, 0x47, 42])
         .await?;
     server.shutdown().await?;
-    assert!(receive_stream(client, &publisher).await?);
+    assert!(receive_stream(client, &publisher, Some(false)).await?);
     let crate::hub::HubMessage::Data(bytes) = subscriber.recv().await? else {
         panic!("expected unchanged media");
     };

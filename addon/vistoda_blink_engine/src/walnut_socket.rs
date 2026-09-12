@@ -147,7 +147,8 @@ async fn session(browser: &mut WebSocket, mut subscriber: Subscriber) -> io::Res
                             .to_string().into())).await?;
                     }
                     send(browser, Message::Text(json!({"type":"audio_offer", "connected":current.connected,
-                        "format":current.format,"supported":matches!(current.format,Some(0xa000_0001|0xa000_0003)),
+                        "format":current.format,"supported":current.supported(),
+                        "multi_client":current.multi_client,"audio_available":current.audio_available,
                         "sent_frames":current.sent_frames,
                         "stream_aec":current.format == Some(0xa000_0003)})
                         .to_string().into())).await?;

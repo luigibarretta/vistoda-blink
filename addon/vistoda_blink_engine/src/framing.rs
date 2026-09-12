@@ -11,6 +11,7 @@ const MPEG_TS_SYNC: u8 = 0x47;
 pub enum ImmiEvent {
     Video(Bytes),
     AudioConfig(u32),
+    AudioAvailability(bool),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -24,7 +25,7 @@ pub enum FramingError {
 #[derive(Default)]
 pub struct ImmiDecoder {
     buffer: BytesMut,
-    pending: Option<(u8, usize)>,
+    pending: Option<(u8, u32, usize)>,
 }
 
 impl ImmiDecoder {
@@ -34,7 +35,7 @@ impl ImmiDecoder {
             .into_iter()
             .filter_map(|event| match event {
                 ImmiEvent::Video(frame) => Some(frame),
-                ImmiEvent::AudioConfig(_) => None,
+                ImmiEvent::AudioConfig(_) | ImmiEvent::AudioAvailability(_) => None,
             })
             .collect())
     }
@@ -69,12 +70,14 @@ impl ImmiDecoder {
                 if payload_length == 0 {
                     if message_type == 0x0c {
                         frames.push(ImmiEvent::AudioConfig(value));
+                    } else if message_type == 0x18 && matches!(value, 4 | 5) {
+                        frames.push(ImmiEvent::AudioAvailability(value == 4));
                     }
                     continue;
                 }
-                self.pending = Some((message_type, payload_length));
+                self.pending = Some((message_type, value, payload_length));
             }
-            let Some((message_type, payload_length)) = self.pending else {
+            let Some((message_type, value, payload_length)) = self.pending else {
                 continue;
             };
             if self.buffer.len() < payload_length {
@@ -84,6 +87,10 @@ impl ImmiDecoder {
             self.pending = None;
             if message_type == VIDEO_MESSAGE && payload.first() == Some(&MPEG_TS_SYNC) {
                 frames.push(ImmiEvent::Video(payload));
+            } else if message_type == 0x18 && matches!(value, 4 | 5) {
+                // Native Java uses the command ID after consuming the payload;
+                // it does not interpret payload bytes as a correlated grant.
+                frames.push(ImmiEvent::AudioAvailability(value == 4));
             }
         }
         Ok(frames)

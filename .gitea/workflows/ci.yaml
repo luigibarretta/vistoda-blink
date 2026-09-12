@@ -11,7 +11,7 @@ jobs:
       - name: Fetch the exact provider kit from the public source of truth
         run: |
           git init .ci/vistoda-provider-kit
-          git -C .ci/vistoda-provider-kit remote add origin https://git.luigibarretta.com/luigibarretta/lib-vistoda-provider-kit.git
+          git -C .ci/vistoda-provider-kit remote add origin https://github.com/luigibarretta/lib-vistoda-provider-kit.git
           git -C .ci/vistoda-provider-kit fetch --depth=1 origin 4f6c74125a673cb9836471122ae0007938b86619
           git -C .ci/vistoda-provider-kit checkout --detach FETCH_HEAD
       - name: Verify pinned Vistoda provider kit
@@ -31,9 +31,12 @@ jobs:
       - run: python -m ruff check .
       - run: python -m compileall -q custom_components tests scripts
       - run: python scripts/check_loc.py
+      - run: python scripts/check-release.py
       - run: python -m pytest
-      - uses: dtolnay/rust-toolchain@2eae45db285e407f22119950686d47e1101e071b # 1.88.0
+      # Use a reachable mainline action commit; version branches are rewritten upstream.
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
+          toolchain: "1.88.0"
           components: clippy,rustfmt
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
