@@ -1,11 +1,8 @@
+use crate::blink_model::{CameraState, LiveTransport, MediaClip};
+use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::hash::BuildHasher;
-
-use serde_json::Value;
 use time::{OffsetDateTime, format_description::well_known::Iso8601};
-
-use crate::blink_model::{CameraState, LiveTransport, MediaClip};
-
 #[must_use]
 pub fn cameras<S1: BuildHasher, S2: BuildHasher>(
     account_id: &str,
@@ -158,6 +155,9 @@ fn thumbnail(source: &Value, context: &CameraContext<'_>, product_type: &str) ->
         } else {
             format!("{value}.jpg")
         });
+    }
+    if value.starts_with('/') {
+        return Some(format!("{}{value}", context.base_url.trim_end_matches('/')));
     }
     Some(format!(
         "{}/api/v3/media/accounts/{}/networks/{}/{}/{}/thumbnail/thumbnail.jpg?ts={value}&ext=",

@@ -81,7 +81,7 @@ advanced surface is implemented by the standalone Rust provider.
 
 ## Version history
 
-### 0.17.1
+### 0.17.2
 
 - Preserve the stable physical serial, thumbnail and status/signals from the
   Blink home-screen summary when a model-specific configuration response is
@@ -89,6 +89,8 @@ advanced surface is implemented by the standalone Rust provider.
   numeric identities after a refresh.
 - USB inventories can now be filtered by an exact, bounded set of camera names
   before pagination; the response retains the complete camera-name facet.
+- Provider-complete thumbnail paths are normalized as paths instead of being
+  embedded again as timestamp tokens, preserving snapshot proxy availability.
 
 ### 0.17.0
 
