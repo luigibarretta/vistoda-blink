@@ -54,6 +54,8 @@ pub enum EngineError {
     RecordingNotFound,
     #[error("local storage operation is invalid for the current support")]
     InvalidStorageOperation,
+    #[error("provider-managed recording requires an active compatible live session")]
+    ProviderRecordingUnavailable,
 }
 
 #[derive(Serialize)]
@@ -70,9 +72,10 @@ impl IntoResponse for EngineError {
             | Self::InvalidStorageOperation
             | Self::Protocol(_)
             | Self::InvalidEnrollment => StatusCode::UNPROCESSABLE_ENTITY,
-            Self::PublisherBusy | Self::SettingsConflict | Self::RecordingActive => {
-                StatusCode::CONFLICT
-            }
+            Self::PublisherBusy
+            | Self::SettingsConflict
+            | Self::RecordingActive
+            | Self::ProviderRecordingUnavailable => StatusCode::CONFLICT,
             Self::RecordingCapacity => StatusCode::TOO_MANY_REQUESTS,
             Self::NotEnrolled => StatusCode::PRECONDITION_REQUIRED,
             Self::WebRtcLegacyDevice | Self::WebRtcFeatureDisabled => {

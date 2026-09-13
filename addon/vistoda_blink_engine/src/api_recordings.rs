@@ -27,6 +27,10 @@ pub fn routes() -> Router<EngineState> {
             get(download_recording),
         )
         .route("/v1/cameras/{alias}/recordings", post(create_recording))
+        .route(
+            "/v1/cameras/{alias}/provider-recording",
+            post(provider_recording),
+        )
 }
 
 #[derive(Deserialize)]
@@ -34,6 +38,46 @@ pub fn routes() -> Router<EngineState> {
 struct RecordingRequest {
     duration_seconds: u64,
     request_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProviderRecordingRequest {
+    save: bool,
+}
+
+async fn provider_recording(
+    State(state): State<EngineState>,
+    headers: HeaderMap,
+    Path(alias): Path<String>,
+    Json(input): Json<ProviderRecordingRequest>,
+) -> Result<impl IntoResponse, EngineError> {
+    authorize(&state, &headers)?;
+    crate::api::validate_alias(&alias)?;
+    let mut status = state.request_provider_recording(&alias, input.save).await?;
+    let expected = if input.save { 1..=2 } else { 3..=3 };
+    let observed = tokio::time::timeout(std::time::Duration::from_secs(8), async {
+        loop {
+            if let Some(value) = status.borrow_and_update().provider_recording_status {
+                if expected.contains(&value) {
+                    return Ok::<u8, EngineError>(value);
+                }
+            }
+            status
+                .changed()
+                .await
+                .map_err(|_| EngineError::ProviderRecordingUnavailable)?;
+        }
+    })
+    .await
+    .map_err(|_| EngineError::ProviderRecordingUnavailable)??;
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": observed,
+            "destination": "provider_managed"
+        })),
+    ))
 }
 
 #[derive(Default, Deserialize)]

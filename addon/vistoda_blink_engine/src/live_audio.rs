@@ -115,6 +115,11 @@ impl Observation {
                         tracing::info!(offer = ?self.offer.snapshot(), "Blink IMMI audio offer");
                     }
                 }
+                ImmiEvent::ProviderRecording(status) => {
+                    connection
+                        .observe_recording(status)
+                        .map_err(io::Error::other)?;
+                }
             }
         }
         Ok(())

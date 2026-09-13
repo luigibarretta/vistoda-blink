@@ -19,6 +19,23 @@ impl AudioConnection {
         })
     }
 
+    pub(crate) fn recording_request(&self) -> Option<bool> {
+        let state = self.runtime.state();
+        (state.generation == self.generation && state.sender.is_some())
+            .then_some(state.recording_request)
+            .flatten()
+    }
+
+    pub fn observe_recording(&self, status: u8) -> Result<(), AudioLeaseError> {
+        let mut state = self.runtime.state();
+        if state.generation != self.generation || state.sender.is_none() {
+            return Err(AudioLeaseError::Closed);
+        }
+        state.recording_status = Some(status);
+        self.runtime.publish(&state);
+        Ok(())
+    }
+
     pub fn observe_availability(&self, available: bool) -> Result<(), AudioLeaseError> {
         let mut state = self.runtime.state();
         if state.generation != self.generation || state.sender.is_none() {
@@ -86,6 +103,8 @@ impl Drop for AudioConnection {
             state.sender = None;
             state.multi_client = None;
             state.available = None;
+            state.recording_request = None;
+            state.recording_status = None;
             self.runtime.publish(&state);
         }
     }

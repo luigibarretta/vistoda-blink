@@ -25,6 +25,8 @@ struct State {
     sender: Option<mpsc::Sender<AudioFrame>>,
     multi_client: Option<bool>,
     available: Option<bool>,
+    recording_request: Option<bool>,
+    recording_status: Option<u8>,
     session_clock: Option<crate::blink_api::timing::SessionClock>,
 }
 struct Inner {
@@ -61,6 +63,7 @@ impl AudioRuntime {
             sent_frames: state.sent_frames,
             multi_client: state.multi_client,
             audio_available: state.available,
+            provider_recording_status: state.recording_status,
             session_clock: state
                 .sender
                 .as_ref()
@@ -99,6 +102,8 @@ impl AudioRuntime {
         state.sender = Some(sender);
         state.multi_client = multi_client;
         state.available = None;
+        state.recording_request = None;
+        state.recording_status = None;
         self.publish(&state);
         (
             AudioConnection {
@@ -133,6 +138,21 @@ impl AudioRuntime {
             generation: state.generation,
             epoch: state.epoch,
         })
+    }
+
+    /// Request the provider-managed live clip; Blink chooses cloud/local storage.
+    pub fn request_recording(
+        &self,
+        save: bool,
+    ) -> Result<watch::Receiver<AudioStatus>, AudioLeaseError> {
+        let mut state = self.state();
+        if state.sender.is_none() {
+            return Err(AudioLeaseError::Closed);
+        }
+        state.recording_request = Some(save);
+        state.recording_status = None;
+        self.publish(&state);
+        Ok(self.subscribe())
     }
 }
 

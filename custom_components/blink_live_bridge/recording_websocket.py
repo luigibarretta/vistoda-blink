@@ -23,6 +23,7 @@ def async_register(hass: HomeAssistant) -> None:
         return
     websocket_api.async_register_command(hass, ws_list_recordings)
     websocket_api.async_register_command(hass, ws_create_recording)
+    websocket_api.async_register_command(hass, ws_provider_recording)
     websocket_api.async_register_command(hass, ws_delete_recording)
     data["recording_websocket_registered"] = True
 
@@ -53,6 +54,39 @@ async def ws_list_recordings(
         )
     except EngineError:
         connection.send_error(msg["id"], "unavailable", "Blink recordings are unavailable")
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "blink_live_bridge/recordings/provider",
+        vol.Required("alias"): ALIAS,
+        vol.Required("save"): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_provider_recording(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Mark or discard the active provider live session for Blink storage."""
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Administrator access required")
+        return
+    runtime = _runtime(hass)
+    if runtime is None:
+        connection.send_error(msg["id"], "unavailable", "Vistoda Blink is not loaded")
+        return
+    try:
+        result = await runtime.client.post(
+            f"/v1/cameras/{msg['alias']}/provider-recording",
+            {"save": msg["save"]},
+        )
+    except EngineError as error:
+        code = "conflict" if error.status == 409 else "unavailable"
+        connection.send_error(msg["id"], code, "Blink provider recording is unavailable")
         return
     connection.send_result(msg["id"], result)
 

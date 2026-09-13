@@ -231,16 +231,9 @@ impl EngineState {
         }
         self.hub(alias).await.acquire_publisher(OWNER_WEBRTC)
     }
-
-    async fn camera_exists(&self, alias: &str) -> bool {
-        self.client
-            .state()
-            .await
-            .cameras
-            .iter()
-            .any(|camera| camera.alias == alias)
-    }
 }
+#[path = "hub_provider_recording.rs"]
+mod provider_recording;
 pub(crate) struct HubSnapshot {
     pub publisher: bool,
     pub subscribers: usize,

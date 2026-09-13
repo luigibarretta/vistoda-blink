@@ -14,12 +14,15 @@ use tokio::io::AsyncWrite;
 pub(super) const CONTROL_WRITE_TIMEOUT: Duration = Duration::from_millis(200);
 const START: [u8; 9] = [0x17, 0, 0, 0, 3, 0, 0, 0, 0];
 const STOP: [u8; 9] = [0x17, 0, 0, 0, 4, 0, 0, 0, 0];
+const SAVE: [u8; 9] = [0x17, 0, 0, 0, 1, 0, 0, 0, 0];
+const DISCARD: [u8; 9] = [0x17, 0, 0, 0, 2, 0, 0, 0, 0];
 
 #[derive(Default)]
 pub(super) struct Uplink {
     epoch: Option<u64>,
     started_epoch: Option<u64>,
     packets: AudioPacketWriter,
+    recording_request: Option<bool>,
 }
 impl Uplink {
     pub(super) fn keepalive_budget(&self, connection: &AudioConnection) -> Duration {
@@ -41,6 +44,17 @@ impl Uplink {
         writer: &mut (impl AsyncWrite + Unpin),
         connection: &AudioConnection,
     ) -> Result<(), LiveError> {
+        if let Some(save) = connection.recording_request() {
+            if self.recording_request != Some(save) {
+                bounded_write(
+                    writer,
+                    if save { &SAVE } else { &DISCARD },
+                    CONTROL_WRITE_TIMEOUT,
+                )
+                .await?;
+                self.recording_request = Some(save);
+            }
+        }
         let Some((multi_client, desired)) = connection.control() else {
             return Ok(());
         };
@@ -121,6 +135,9 @@ impl Uplink {
     }
 }
 
+#[cfg(test)]
+#[path = "live_provider_recording_tests.rs"]
+mod provider_recording_tests;
 #[cfg(test)]
 #[path = "live_audio_control_tests.rs"]
 mod tests;

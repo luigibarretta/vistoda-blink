@@ -13,7 +13,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.17.2"
+    assert manifest["version"] == "0.18.0"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -150,10 +150,12 @@ def test_local_recordings_replace_the_vendor_motion_clip_action() -> None:
     assert "async_register_recording_websocket(hass)" in setup
     assert '"duration_seconds": 30' in camera and "uuid4()" in camera
     assert "blink_live_bridge/recordings/create" in boundary
+    assert "blink_live_bridge/recordings/provider" in boundary
     assert "connection.user.is_admin" in boundary
     assert "vol.In((15, 30, 60))" in boundary
     assert "RecordingMediaView" in http and "requires_auth = True" in http
     assert '"/v1/cameras/{alias}/recordings"' in api
+    assert '"/v1/cameras/{alias}/provider-recording"' in api
     assert "api_token" not in boundary
 
 

@@ -28,6 +28,15 @@ signed media download and the ordinary user-readable inventory. The Vistoda
 control plane may copy ready media to a separately mounted, checksum-verified
 NFS archive. Deleting local media never deletes its NFS copy.
 
+Android 59.1 also shows that saving an active Walnut live is a session command,
+not a direct file upload: `saveLive(true)` submits `SaveClip`, while
+`saveLive(false)` submits `DiscardClip`. The provider acknowledges saved,
+waiting or discarded state. Vistoda implements that bounded command and labels
+its destination “Blink archive”: Blink, not Vistoda, selects cloud or the Sync
+Module USB according to the account's active Local Storage configuration. This
+is the default live-save action; the separate HA capture remains an explicit
+alternative. Stopping the live finalizes a provider-marked clip.
+
 The Sync Module USB archive exposes only a bounded status, manifest inventory
 and authenticated clip stream. The engine serializes these requests, caps the
 inventory at 1,000 entries, returns at most 50 items per page and caps a streamed
@@ -41,10 +50,11 @@ like the native app, Vistoda trusts the exact `active` and `memory_full` states.
 
 ## Consequences
 
-- Recording the live view no longer creates a Blink motion event.
+- HA-local recording does not create a Blink motion event. Provider-managed
+  saving intentionally follows Blink's native live-save behavior.
 - The archive works independently of a Blink subscription or Sync Module USB.
-- Fixed duration is explicit; arbitrary stop is deferred because battery camera
-  session lifetime and interrupted-browser ownership need a durable cancel API.
+- HA-local duration is explicit. Provider-managed saving lasts until the live
+  ends and can be discarded while the compatible session is still active.
 - Vistoda can replace the official app for paginated USB browsing, playback,
   download and NFS copy after live canaries pass; destructive USB administration
   remains official-app-only.

@@ -81,6 +81,13 @@ advanced surface is implemented by the standalone Rust provider.
 
 ## Version history
 
+### 0.18.0
+
+Added the native Walnut `SaveClip`/`DiscardClip` session contract. Blink owns
+the final destination: an account with active Sync Module Local Storage routes
+eligible provider-managed clips to USB. HA-local capture remains separate and
+NFS remains a checksum-verified backup target.
+
 ### 0.17.2
 
 - Preserve the stable physical serial, thumbnail and status/signals from the

@@ -12,6 +12,7 @@ pub enum ImmiEvent {
     Video(Bytes),
     AudioConfig(u32),
     AudioAvailability(bool),
+    ProviderRecording(u8),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -35,7 +36,9 @@ impl ImmiDecoder {
             .into_iter()
             .filter_map(|event| match event {
                 ImmiEvent::Video(frame) => Some(frame),
-                ImmiEvent::AudioConfig(_) | ImmiEvent::AudioAvailability(_) => None,
+                ImmiEvent::AudioConfig(_)
+                | ImmiEvent::AudioAvailability(_)
+                | ImmiEvent::ProviderRecording(_) => None,
             })
             .collect())
     }
@@ -72,6 +75,10 @@ impl ImmiDecoder {
                         frames.push(ImmiEvent::AudioConfig(value));
                     } else if message_type == 0x18 && matches!(value, 4 | 5) {
                         frames.push(ImmiEvent::AudioAvailability(value == 4));
+                    } else if message_type == 0x18 && matches!(value, 1..=3) {
+                        if let Ok(status) = u8::try_from(value) {
+                            frames.push(ImmiEvent::ProviderRecording(status));
+                        }
                     }
                     continue;
                 }
@@ -91,6 +98,10 @@ impl ImmiDecoder {
                 // Native Java uses the command ID after consuming the payload;
                 // it does not interpret payload bytes as a correlated grant.
                 frames.push(ImmiEvent::AudioAvailability(value == 4));
+            } else if message_type == 0x18 && matches!(value, 1..=3) {
+                if let Ok(status) = u8::try_from(value) {
+                    frames.push(ImmiEvent::ProviderRecording(status));
+                }
             }
         }
         Ok(frames)
@@ -110,7 +121,7 @@ impl ImmiDecoder {
 mod tests {
     use bytes::Bytes;
 
-    use super::{FramingError, ImmiDecoder, MAX_PACKET_BYTES};
+    use super::{FramingError, ImmiDecoder, ImmiEvent, MAX_PACKET_BYTES};
 
     fn frame(message_type: u8, payload: &[u8]) -> Vec<u8> {
         let mut value = vec![message_type, 0, 0, 0, 1];
@@ -153,5 +164,27 @@ mod tests {
             .push(&frame(0, &[0x47, 1])[..10])
             .expect("prefix is valid");
         assert_eq!(decoder.finish(), Err(FramingError::Truncated));
+    }
+
+    #[test]
+    fn exposes_provider_save_wait_and_discard_statuses() {
+        let mut wire = frame(0x18, &[]);
+        wire[4] = 1;
+        let mut wait = frame(0x18, &[]);
+        wait[4] = 2;
+        let mut discard = frame(0x18, &[]);
+        discard[4] = 3;
+        wire.extend(wait);
+        wire.extend(discard);
+        assert_eq!(
+            ImmiDecoder::default()
+                .push_events(&wire)
+                .expect("session messages must decode"),
+            vec![
+                ImmiEvent::ProviderRecording(1),
+                ImmiEvent::ProviderRecording(2),
+                ImmiEvent::ProviderRecording(3),
+            ]
+        );
     }
 }

@@ -48,6 +48,8 @@ private API and Vistoda discovery contract during the product rename.
 - H.264/AAC MPEG-TS for Home Assistant and SceneTrove;
 - cached Blink JPEG snapshots;
 - fixed-duration local live recordings with immutable SHA-256 manifests;
+- provider-managed live saving, routed by Blink to Sync Module USB when Local
+  Storage is active, with explicit acknowledgement and discard controls;
 - server-paginated Sync Module USB inventory, authenticated clip playback/download,
   exact clip deletion and compatible-media formatting;
 - native HA camera entities attached to the Vistoda Blink provider device;
@@ -81,6 +83,7 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `POST /v1/cameras/{alias}/zones` | atomic zone update with revision, verification and rollback |
 | `GET /v1/recordings?page=&page_size=&camera=` | server-paginated standalone recording inventory |
 | `POST /v1/cameras/{alias}/recordings` | bounded live capture; requires request ID |
+| `POST /v1/cameras/{alias}/provider-recording` | mark/discard the active compatible live for provider-managed storage |
 | `GET /v1/recordings/{id}/media` | immutable local MPEG-TS media |
 | `DELETE /v1/recordings/{id}` | remove a completed local recording |
 | `GET /v1/local-storage?page=&page_size=` | server-paginated Sync Module USB inventory, Sync Module metadata and provider-reported storage-used percentage |

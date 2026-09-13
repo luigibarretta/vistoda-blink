@@ -8,6 +8,8 @@ pub struct AudioStatus {
     pub multi_client: Option<bool>,
     /// Session availability, never a correlated ownership grant.
     pub audio_available: Option<bool>,
+    /// Last provider acknowledgement: 1 saved, 2 pending, 3 discarded.
+    pub provider_recording_status: Option<u8>,
     pub session_clock: Option<crate::blink_api::timing::SessionClock>,
 }
 
