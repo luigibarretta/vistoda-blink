@@ -23,6 +23,7 @@ pub mod blink_settings;
 mod blink_settings_write;
 mod blink_signaling;
 mod blink_storage;
+mod blink_storage_filter;
 mod blink_storage_mutations;
 mod blink_temperature;
 mod blink_webrtc;

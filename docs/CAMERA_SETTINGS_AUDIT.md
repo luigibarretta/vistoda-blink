@@ -81,6 +81,15 @@ advanced surface is implemented by the standalone Rust provider.
 
 ## Version history
 
+### 0.17.1
+
+- Preserve the stable physical serial, thumbnail and status/signals from the
+  Blink home-screen summary when a model-specific configuration response is
+  sparse. This prevents powered Mini cameras from being rebound to temporary
+  numeric identities after a refresh.
+- USB inventories can now be filtered by an exact, bounded set of camera names
+  before pagination; the response retains the complete camera-name facet.
+
 ### 0.17.0
 
 Added provider-derived temperature out-of-range state, Sync Module metadata and

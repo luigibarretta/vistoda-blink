@@ -1,7 +1,5 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::BuildHasher,
-};
+use std::collections::{HashMap, HashSet};
+use std::hash::BuildHasher;
 
 use serde_json::Value;
 use time::{OffsetDateTime, format_description::well_known::Iso8601};
@@ -82,14 +80,25 @@ fn camera(
     let product_type = text(source, "type")
         .unwrap_or(context.camera_type)
         .to_owned();
-    let signal = signal.unwrap_or_else(|| source.get("signals").unwrap_or(&Value::Null));
-    let battery_state =
-        owned_text(source, "battery_state").or_else(|| owned_text(source, "battery"));
-    let thumbnail_url = thumbnail(source, &context, &product_type);
-    let temperature_f = number(signal, "temp").or_else(|| number(source, "temperature"));
-    let temperature_alerts = boolean(source, "temp_alarm_enable");
-    let temperature_min_f = integer(source, "temp_min");
-    let temperature_max_f = integer(source, "temp_max");
+    let signal = signal.unwrap_or_else(|| {
+        source
+            .get("signals")
+            .or_else(|| summary.get("signals"))
+            .unwrap_or(&Value::Null)
+    });
+    let battery_state = owned_text(source, "battery_state")
+        .or_else(|| owned_text(source, "battery"))
+        .or_else(|| owned_text(summary, "battery_state"))
+        .or_else(|| owned_text(summary, "battery"));
+    let thumbnail_url = thumbnail(source, &context, &product_type)
+        .or_else(|| thumbnail(summary, &context, &product_type));
+    let temperature_f = number(signal, "temp")
+        .or_else(|| number(source, "temperature"))
+        .or_else(|| number(summary, "temperature"));
+    let temperature_alerts =
+        boolean(source, "temp_alarm_enable").or_else(|| boolean(summary, "temp_alarm_enable"));
+    let temperature_min_f = integer(source, "temp_min").or_else(|| integer(summary, "temp_min"));
+    let temperature_max_f = integer(source, "temp_max").or_else(|| integer(summary, "temp_max"));
     let temperature_out_of_range = match (
         temperature_alerts,
         temperature_f,
@@ -105,14 +114,15 @@ fn camera(
         network_id: context.network_id,
         alias: context.alias,
         name: context.name.clone(),
-        serial: owned_text(source, "serial"),
-        firmware: owned_text(source, "fw_version"),
+        serial: owned_text(source, "serial").or_else(|| owned_text(summary, "serial")),
+        firmware: owned_text(source, "fw_version").or_else(|| owned_text(summary, "fw_version")),
         camera_type: context.camera_type.to_owned(),
         product_type: product_type.clone(),
-        enabled: boolean(source, "enabled"),
-        status: owned_text(source, "status"),
+        enabled: boolean(source, "enabled").or_else(|| boolean(summary, "enabled")),
+        status: owned_text(source, "status").or_else(|| owned_text(summary, "status")),
         battery_state: battery_state.clone(),
-        battery_voltage: unsigned(source, "battery_voltage"),
+        battery_voltage: unsigned(source, "battery_voltage")
+            .or_else(|| unsigned(summary, "battery_voltage")),
         battery_level: unsigned(signal, "battery"),
         low_battery: battery_state.as_deref().map(|value| value != "ok"),
         temperature_f,
@@ -120,7 +130,7 @@ fn camera(
         temperature_min_f,
         temperature_max_f,
         temperature_out_of_range,
-        wifi_dbm: integer(source, "wifi_strength"),
+        wifi_dbm: integer(source, "wifi_strength").or_else(|| integer(summary, "wifi_strength")),
         motion_detected: clips
             .iter()
             .any(|clip| clip.camera_name == context.name && recent(&clip.created_at)),
@@ -174,7 +184,6 @@ pub fn media(value: &Value) -> Vec<MediaClip> {
         })
         .collect()
 }
-
 fn unique_alias(name: &str, used: &mut HashSet<String>) -> String {
     let base = name
         .to_ascii_lowercase()
@@ -198,12 +207,10 @@ fn unique_alias(name: &str, used: &mut HashSet<String>) -> String {
     }
     candidate
 }
-
 fn recent(value: &str) -> bool {
     OffsetDateTime::parse(value, &Iso8601::DEFAULT)
         .is_ok_and(|created| OffsetDateTime::now_utc() - created <= time::Duration::minutes(2))
 }
-
 fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
     value
         .get(key)

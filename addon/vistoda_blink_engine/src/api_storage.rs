@@ -13,12 +13,14 @@ use crate::{
     hub::EngineState,
 };
 use serde::Deserialize;
+use std::collections::BTreeSet;
 
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StoragePage {
     page: Option<usize>,
     page_size: Option<usize>,
+    cameras: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -50,11 +52,27 @@ async fn list(
     Query(query): Query<StoragePage>,
 ) -> Result<Json<serde_json::Value>, EngineError> {
     authorize(&state, &headers)?;
+    let cameras = query
+        .cameras
+        .as_deref()
+        .map(parse_camera_filter)
+        .transpose()?;
     let storages: Vec<LocalStorageInventory> = state
         .client()
-        .local_storage_inventories(query.page, query.page_size)
+        .local_storage_inventories(query.page, query.page_size, cameras.as_ref())
         .await?;
     Ok(Json(serde_json::json!({"storages": storages})))
+}
+
+fn parse_camera_filter(value: &str) -> Result<BTreeSet<String>, EngineError> {
+    let cameras = serde_json::from_str::<Vec<String>>(value)
+        .map_err(|_| EngineError::InvalidStorageOperation)?
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    if cameras.is_empty() || cameras.len() > 64 || cameras.iter().any(|name| name.len() > 255) {
+        return Err(EngineError::InvalidStorageOperation);
+    }
+    Ok(cameras)
 }
 
 async fn media(
@@ -101,6 +119,8 @@ async fn format_storage(
 
 #[cfg(test)]
 mod tests {
+    use super::parse_camera_filter;
+
     #[test]
     fn destructive_routes_are_explicit_and_bounded() {
         let source = include_str!("api_storage.rs");
@@ -109,5 +129,15 @@ mod tests {
         assert!(production_source.contains("post(format_storage)"));
         assert!(!production_source.contains("/eject"));
         assert!(!production_source.contains("/mount"));
+    }
+
+    #[test]
+    fn camera_filter_preserves_names_and_rejects_invalid_payloads() {
+        let cameras =
+            parse_camera_filter(r#"["Cucina, interna","Balcone"]"#).expect("valid camera filter");
+        assert!(cameras.contains("Cucina, interna"));
+        assert!(cameras.contains("Balcone"));
+        assert!(parse_camera_filter("[]").is_err());
+        assert!(parse_camera_filter("not-json").is_err());
     }
 }

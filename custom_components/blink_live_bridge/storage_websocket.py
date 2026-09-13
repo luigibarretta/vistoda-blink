@@ -1,6 +1,8 @@
 """Authenticated and guarded Blink Sync Module storage boundary."""
 
+import json
 from typing import Any
+from urllib.parse import urlencode
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
@@ -28,6 +30,9 @@ def async_register(hass: HomeAssistant) -> None:
         vol.Required("type"): "blink_live_bridge/local_storage/list",
         vol.Optional("page", default=1): vol.All(int, vol.Range(min=1)),
         vol.Optional("page_size", default=10): vol.All(int, vol.Range(min=1, max=100)),
+        vol.Optional("cameras", default=[]): vol.All(
+            [vol.All(str, vol.Length(min=1, max=255))], vol.Length(max=64)
+        ),
     }
 )
 @websocket_api.async_response
@@ -42,9 +47,10 @@ async def ws_local_storage(
         connection.send_error(msg["id"], "unavailable", "Vistoda Blink is not loaded")
         return
     try:
-        result = await runtime.client.get_json(
-            f"/v1/local-storage?page={msg['page']}&page_size={msg['page_size']}"
-        )
+        query = {"page": msg["page"], "page_size": msg["page_size"]}
+        if msg["cameras"]:
+            query["cameras"] = json.dumps(list(dict.fromkeys(msg["cameras"])), separators=(",", ":"))
+        result = await runtime.client.get_json(f"/v1/local-storage?{urlencode(query)}")
     except EngineError:
         connection.send_error(msg["id"], "unavailable", "Blink USB storage is unavailable")
         return

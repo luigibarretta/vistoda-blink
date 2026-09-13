@@ -13,7 +13,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.17.0"
+    assert manifest["version"] == "0.17.1"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -164,6 +164,8 @@ def test_sync_module_usb_boundary_is_guarded_and_ha_authenticated() -> None:
     provider = (ROOT / "addon/vistoda_blink_engine/src/api_storage.rs").read_text()
     assert "async_register_storage_websocket(hass)" in setup
     assert "blink_live_bridge/local_storage/list" in boundary
+    assert 'vol.Optional("cameras", default=[])' in boundary
+    assert 'query["cameras"] = json.dumps' in boundary
     assert "LocalStorageMediaView" in http and "requires_auth = True" in http
     assert '"/v1/local-storage"' in provider
     assert "api_token" not in boundary + http

@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use serde::Serialize;
 use serde_json::Value;
+use std::collections::BTreeSet;
 
 use crate::{
     blink_api,
@@ -23,6 +24,7 @@ pub struct LocalStorageInventory {
     pub sync_module_status: Option<String>,
     pub status: LocalStorageStatus,
     pub manifest_id: Option<u64>,
+    pub camera_names: Vec<String>,
     pub clips: Vec<LocalStorageClip>,
     pub pagination: Pagination,
 }
@@ -61,6 +63,7 @@ impl BlinkClient {
         &self,
         page: Option<usize>,
         page_size: Option<usize>,
+        camera_names: Option<&BTreeSet<String>>,
     ) -> Result<Vec<LocalStorageInventory>, EngineError> {
         let _guard = self.inner.storage_lock.lock().await;
         let context = self.context().await?;
@@ -86,6 +89,8 @@ impl BlinkClient {
                 (None, Vec::new())
             };
             clips.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+            let available_camera_names =
+                crate::blink_storage_filter::apply(&mut clips, camera_names);
             let (clips, pagination) = pagination::page(&clips, page, page_size)?;
             result.push(LocalStorageInventory {
                 network_id: network.id,
@@ -96,6 +101,7 @@ impl BlinkClient {
                 sync_module_status: network.status,
                 status,
                 manifest_id,
+                camera_names: available_camera_names,
                 clips,
                 pagination,
             });
