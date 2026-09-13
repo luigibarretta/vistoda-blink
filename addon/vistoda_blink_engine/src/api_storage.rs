@@ -132,12 +132,13 @@ mod tests {
     }
 
     #[test]
-    fn camera_filter_preserves_names_and_rejects_invalid_payloads() {
-        let cameras =
-            parse_camera_filter(r#"["Cucina, interna","Balcone"]"#).expect("valid camera filter");
+    fn camera_filter_preserves_names_and_rejects_invalid_payloads() -> Result<(), super::EngineError>
+    {
+        let cameras = parse_camera_filter(r#"["Cucina, interna","Balcone"]"#)?;
         assert!(cameras.contains("Cucina, interna"));
         assert!(cameras.contains("Balcone"));
         assert!(parse_camera_filter("[]").is_err());
         assert!(parse_camera_filter("not-json").is_err());
+        Ok(())
     }
 }

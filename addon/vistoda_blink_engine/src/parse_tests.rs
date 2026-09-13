@@ -87,12 +87,12 @@ fn derives_temperature_alert_state_from_the_same_camera_configuration() {
 
 #[test]
 fn preserves_homescreen_identity_and_snapshot_when_config_is_sparse() {
-    let home = json!({"owls":[{"id":284471,"network_id":7,"name":"Cucina",
+    let home = json!({"owls":[{"id":284_471,"network_id":7,"name":"Cucina",
         "serial":"G8T1940003110MK9","type":"owl","enabled":true,"status":"online",
         "thumbnail":"1700000000","signals":{"temp":79},"wifi_strength":-51}]});
     let details = HashMap::from([(
         "284471".to_owned(),
-        json!({"id":284471,"name":"Cucina","type":"owl"}),
+        json!({"id":284_471,"name":"Cucina","type":"owl"}),
     )]);
     let result = cameras(
         "42",
