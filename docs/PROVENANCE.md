@@ -1,6 +1,6 @@
 # Protocol provenance and verification status
 
-This dossier records evidence available at the 2026-09-12 audit. It does not
+This dossier records evidence available at the 2026-09-13 audit. It does not
 retroactively establish a clean-room process or certify a legal exception.
 
 | Implemented contract | Recorded evidence | Implementation / checks |

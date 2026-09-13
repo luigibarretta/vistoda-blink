@@ -86,6 +86,20 @@ fn camera(
     let battery_state =
         owned_text(source, "battery_state").or_else(|| owned_text(source, "battery"));
     let thumbnail_url = thumbnail(source, &context, &product_type);
+    let temperature_f = number(signal, "temp").or_else(|| number(source, "temperature"));
+    let temperature_alerts = boolean(source, "temp_alarm_enable");
+    let temperature_min_f = integer(source, "temp_min");
+    let temperature_max_f = integer(source, "temp_max");
+    let temperature_out_of_range = match (
+        temperature_alerts,
+        temperature_f,
+        temperature_min_f.and_then(float_integer),
+        temperature_max_f.and_then(float_integer),
+    ) {
+        (Some(true), Some(value), Some(low), Some(high)) => Some(value < low || value > high),
+        (Some(false), _, _, _) => Some(false),
+        _ => None,
+    };
     CameraState {
         id: context.id,
         network_id: context.network_id,
@@ -101,7 +115,11 @@ fn camera(
         battery_voltage: unsigned(source, "battery_voltage"),
         battery_level: unsigned(signal, "battery"),
         low_battery: battery_state.as_deref().map(|value| value != "ok"),
-        temperature_f: number(signal, "temp").or_else(|| number(source, "temperature")),
+        temperature_f,
+        temperature_alerts,
+        temperature_min_f,
+        temperature_max_f,
+        temperature_out_of_range,
         wifi_dbm: integer(source, "wifi_strength"),
         motion_detected: clips
             .iter()
@@ -212,6 +230,9 @@ fn integer(value: &Value, key: &str) -> Option<i64> {
 }
 fn number(value: &Value, key: &str) -> Option<f64> {
     value.get(key)?.as_f64()
+}
+fn float_integer(value: i64) -> Option<f64> {
+    i32::try_from(value).ok().map(f64::from)
 }
 fn text_or_number(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(|item| {

@@ -27,6 +27,7 @@ DESCRIPTIONS = (
     Description("low_battery", "Batteria scarica", BinarySensorDeviceClass.BATTERY, True),
     Description("enabled", "Camera armata", enabled=False),
     Description("motion_detected", "Movimento", BinarySensorDeviceClass.MOTION),
+    Description("temperature_out_of_range", "Temperatura fuori soglia"),
 )
 
 
@@ -60,3 +61,15 @@ class BlinkBinarySensor(BlinkCameraEntity, BinarySensorEntity):
     def is_on(self) -> bool | None:
         value = self.camera.get(self.key)
         return bool(value) if value is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.key != "temperature_out_of_range":
+            return None
+        return {
+            "alerts_enabled": self.camera.get("temperature_alerts"),
+            "temperature_f": self.camera.get("temperature_f"),
+            "temperature_min_f": self.camera.get("temperature_min_f"),
+            "temperature_max_f": self.camera.get("temperature_max_f"),
+            "alias": self.camera.get("alias"),
+        }

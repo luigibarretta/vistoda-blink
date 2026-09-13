@@ -1,6 +1,6 @@
 # Per-camera temperature alerts
 
-Requires Vistoda Blink 0.14.0 and the Vistoda Home Assistant panel 0.27.0.
+Requires Vistoda Blink 0.17.0 and the Vistoda Home Assistant panel 0.31.0.
 Open a supported camera's **General settings**. Its alert switch is read from
 Blink, not inferred from recent notifications. The cold/hot thresholds are also
 read from Blink. If unset upstream, they remain empty until the user enters both.
@@ -21,10 +21,13 @@ First setup is kept separate from unrelated settings because Blink has no known
 operation to restore an absent threshold. If verification fails, the UI reports
 uncertainty and reloads; it must not claim a successful rollback of first setup.
 
-The alert enable/disable operation configures **Blink's native push service**.
-The Blink app must have notification permission. Home Assistant Companion push
-delivery is not implemented by this setting. Tests do not heat/cool hardware or
-change the user's alert thresholds to manufacture a notification.
+The alert enable/disable operation configures **Blink's native push service**;
+the Blink app still needs notification permission. Separately, the adapter
+publishes one `temperature_out_of_range` binary sensor per camera from the same
+provider values. A Home Assistant automation can notify Companion users on a
+verified `off` to `on` transition without changing camera thresholds. It does
+not claim that Blink delivered its own native push. Tests do not heat/cool
+hardware or change the user's alert thresholds to manufacture a notification.
 
 The adapter accepts a bounded object only for paired initialization:
 `key: temperature_thresholds`, `value: {temperature_min: 32, temperature_max: 95}`,

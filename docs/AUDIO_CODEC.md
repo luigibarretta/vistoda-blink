@@ -1,5 +1,9 @@
 # Walnut audio codec build
 
+Version 0.17.0 leaves the 0.16.0 audio transport contract unchanged; its release
+work concerns settings recovery, temperature state and Sync Module metadata.
+The acoustic acceptance limitations below therefore still apply.
+
 Version 0.16.0 lets independent viewers subscribe without reserving the camera
 microphone. The exclusive talk lease is acquired only on explicit enable.
 Static `reason` codes distinguish contention, policy, encoder and transport

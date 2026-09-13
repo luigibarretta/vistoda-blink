@@ -8,6 +8,8 @@
 - [0006 — Native audio signaling discovery](0006-native-audio-signaling-discovery.md)
 - [0007 — Guarded Sync Module USB management](0007-guarded-usb-management.md)
 - [0008 — Exact Cayuga-to-Walnut live fallback](0008-cayuga-walnut-fallback.md)
+- [0009 — Walnut audio investigation](0009-walnut-audio-investigation.md)
+- [0010 — Versioned camera-settings backups](0010-versioned-settings-backups.md)
 
 ADRs record durable decisions and their consequences. Superseded decisions
 remain in the index with their replacement instead of being silently rewritten.

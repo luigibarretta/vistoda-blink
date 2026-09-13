@@ -1,13 +1,13 @@
 # Blink camera settings audit
 
-Audit date: 2026-09-09
+Audit date: 2026-09-13
 
 ## Outcome
 
 Vistoda Blink now replaces the official app for routine viewing and the verified
 camera-administration surface used by this installation. It still cannot claim
-complete replacement because Blink two-way media negotiation, destructive
-device removal and Owl/Mini v2 zones do not have a proven recoverable contract.
+complete replacement because simultaneous acoustic duplex, destructive device
+removal and Owl/Mini v2 zones do not have a proven recoverable contract.
 
 The references are Home Assistant Core 2026.9.1 with `blinkpy` 0.25.9, the
 supplied official screens, and Blink Android 59.1 build 29797423. The audited
@@ -51,8 +51,8 @@ advanced surface is implemented by the standalone Rust provider.
 | Activity zones | Available on verified v1 cameras | Native grid, revision check and rollback. |
 | Privacy zones | Available on compatible v1 cameras | Native spans, maximum two, fail-closed validation. |
 | Speaker volume | Available on Mini/Owl | Android 59.1 proves integers 1–8 and `volume_control`. |
-| Temperature alerts | Enable/disable available | Thresholds stay read-only until exact rules are proven. |
-| Two-way Blink audio | Present in code but disabled by current production policy | Android 59.1 marks `WEBRTC_LIVE_VIEW` `InProgress`; its resolver selects Walnut directly. Vistoda retains the Cayuga broker but does not advertise talk until a later enabled build and SDP/ICE/uplink recovery canary. |
+| Versioned settings backup | Available for the whole enrolled camera set | Up to 25 named snapshots, stable serial/ID matching, complete preflight, optimistic revisions, read-back and a separately retained rollback snapshot. The backend accepts a future single-camera subset; the current panel intentionally does not expose it. |
+| Two-way Blink audio | Conditional Walnut talk/listen; Cayuga remains policy-gated | The actual provider offer gates microphone availability. AAC uplink, exclusive talk ownership and listen restoration are implemented. Simultaneous listening requires both camera and browser AEC; audible output and echo remain hardware acceptance items. |
 | Sync Module USB clips | Guarded management in 0.11.0 | Paginated playback/download/NFS copy, revalidated exact deletion and format only when the provider declares compatibility; eject and mount remain absent. |
 | Delete device | Deliberately deferred | Requires reauthentication, typed confirmation and recovery. |
 
@@ -68,19 +68,36 @@ advanced surface is implemented by the standalone Rust provider.
 7. Sync Module USB inventory, playback, download and NFS copy: complete in 0.10.0.
 8. Revalidated exact clip deletion and compatible-support formatting: complete
    in 0.11.0; live destructive release tests remain prohibited on retained media.
-9. Blink talk: intentionally gated because Android 59.1 selects Walnut before
-   signaling; a later enabled build still requires media negotiation, uplink and
-   recovery evidence. Device removal remains gated on reauthentication and
-   recovery evidence.
+9. Versioned all-camera settings backup and fail-closed restore: complete in
+   0.17.0 through an administrator-only Home Assistant WebSocket boundary.
+10. Sync Module status, serial and firmware metadata: complete in 0.17.0.
+    Wi-Fi migration, safe eject and module removal remain visibly unavailable;
+    no provider mutation route exists for them.
+11. Blink talk/listen: implemented through the existing Walnut session with an
+    exclusive microphone lease and bounded recovery. AEC-dependent simultaneous
+    duplex remains conditional and must not be claimed without per-device
+    acoustic acceptance. Device removal remains gated on reauthentication and
+    recovery evidence.
 
 ## Version history
+
+### 0.17.0
+
+Added provider-derived temperature out-of-range state, Sync Module metadata and
+storage-used percentage. Home Assistant can now retain multiple named settings
+snapshots and restore the complete camera set only after stable identity,
+writability, reversibility and revision preflight. Restore verifies every value
+and leaves a separately selectable rollback backup. This release does not add
+Wi-Fi migration, safe eject, Sync Module deletion or any automatic destructive
+storage action.
 
 ### 0.11.0
 
 Added exact current-manifest clip deletion and compatible-media formatting from
 the native Android 59.1 contract. Both are administrator-only and fail closed;
 formatting requires an exact typed target phrase at both HA and Rust boundaries.
-The status exposes only the provider-derived available-space percentage.
+The status exposes the provider-derived storage-used percentage and a compatible
+available-space derivation; the current panel presents storage used.
 
 ### 0.10.0
 
@@ -151,8 +168,8 @@ the enrolled Mini rejects that route; Vistoda does not guess a translation.
 The official Blink app is optional only when every setting the user needs passes
 live read/write/read-back tests on the enrolled model and the explicitly blocked
 surfaces are acceptable. Today Vistoda is a daily-use and verified-settings
-replacement. Keep the official app for Blink talk, device removal, unsupported
-v2 zones and future fields not returned by an enrolled camera. USB deletion and
+replacement. Keep the official app when acoustically verified duplex is required,
+for device removal, unsupported v2 zones and future fields not returned by an enrolled camera. USB deletion and
 compatible-media formatting are implemented but intentionally not release-tested
 against retained household media.
 

@@ -61,6 +61,9 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
             "sync_module": self._network_name(),
             "sync_signal_strength": None,
             "temperature": temperature,
+            "temperature_alerts": camera.get("temperature_alerts"),
+            "temperature_min_f": camera.get("temperature_min_f"),
+            "temperature_max_f": camera.get("temperature_max_f"),
             "temperature_c": round((temperature - 32) * 5 / 9, 1)
             if isinstance(temperature, int | float)
             else None,

@@ -60,3 +60,27 @@ fn adds_only_onboarded_sync_less_networks_once() {
     assert_eq!(result.len(), 2);
     assert_eq!(result[1].id, "9");
 }
+
+#[test]
+fn derives_temperature_alert_state_from_the_same_camera_configuration() {
+    let usage = json!({"networks":[{"network_id":7,"cameras":[{"id":1,"name":"Balcone"}]}]});
+    let details = HashMap::from([(
+        "1".to_owned(),
+        json!({"id":1,"name":"Balcone","serial":"ABC","temp_alarm_enable":true,
+            "temp_min":39,"temp_max":90}),
+    )]);
+    let signals = HashMap::from([("1".to_owned(), json!({"temp":94}))]);
+    let result = cameras(
+        "42",
+        "https://rest-prod.immedia-semi.com",
+        &usage,
+        &json!({}),
+        &details,
+        &signals,
+        &[],
+    );
+    assert_eq!(result[0].temperature_alerts, Some(true));
+    assert_eq!(result[0].temperature_min_f, Some(39));
+    assert_eq!(result[0].temperature_max_f, Some(90));
+    assert_eq!(result[0].temperature_out_of_range, Some(true));
+}

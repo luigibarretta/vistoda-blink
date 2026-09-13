@@ -53,6 +53,8 @@ private API and Vistoda discovery contract during the product rename.
 - native HA camera entities attached to the Vistoda Blink provider device;
 - redacted, model-aware camera settings with optimistic concurrency,
   read-back verification and rollback attempts;
+- up to 25 named, all-camera settings backups in Home Assistant, matched by
+  provider serial/ID and restored with fail-closed preflight and revision checks;
 - native v1 activity/privacy-zone editing on verified camera generations;
 - stable device-ID aliases across provider-side camera renames;
 - 75-second battery-camera and 600-second powered-camera session limits;
@@ -81,7 +83,7 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `POST /v1/cameras/{alias}/recordings` | bounded live capture; requires request ID |
 | `GET /v1/recordings/{id}/media` | immutable local MPEG-TS media |
 | `DELETE /v1/recordings/{id}` | remove a completed local recording |
-| `GET /v1/local-storage?page=&page_size=` | server-paginated Sync Module USB inventory and available percentage |
+| `GET /v1/local-storage?page=&page_size=` | server-paginated Sync Module USB inventory, Sync Module metadata and provider-reported storage-used percentage |
 | `GET /v1/local-storage/{network}/{sync}/{manifest}/{clip}/media` | one USB clip without mutation |
 | `DELETE /v1/local-storage/{network}/{sync}/{manifest}/{clip}` | delete one revalidated exact USB clip |
 | `POST /v1/local-storage/{network}/{sync}/format` | format only provider-declared compatible media |
@@ -153,6 +155,8 @@ The native signaling discovery boundary is recorded in
 [`ADR-0006`](docs/adr/0006-native-audio-signaling-discovery.md).
 Guarded provider-owned USB mutations are recorded in
 [`ADR-0007`](docs/adr/0007-guarded-usb-management.md).
+Settings-backup identity and restore safety are recorded in
+[`ADR-0010`](docs/adr/0010-versioned-settings-backups.md).
 
 ## Author, support and independence
 

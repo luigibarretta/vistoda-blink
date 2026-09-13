@@ -6,6 +6,11 @@ discovery, state, controls, snapshots, clips and live IMMI sessions. The small
 Home Assistant integration talks only to its private API; the official Blink
 integration is not required.
 
+The app reports Sync Module status, firmware and provider storage-used values.
+Wi-Fi migration, safe eject and Sync Module removal have no engine route. The
+Vistoda panel may show those actions as unavailable so users know to use the
+official Blink recovery flow; it cannot invoke them.
+
 Enrollment is normally completed from **Settings → Devices & services → Add
 integration → Vistoda Blink**. Email and password exist only for the duration
 of the OAuth exchange. The long-lived refresh token is sealed under `/data`
@@ -15,3 +20,8 @@ The `token` option is managed as a secret by the production deployment. It must
 contain exactly 64 lowercase hexadecimal characters. Do not publish it or add a
 host port for the engine. Production pins engine and adapter versions
 independently so an adapter-only fix does not rebuild the Rust app.
+
+Named camera-settings backups live in Home Assistant storage, not in this app's
+credential file. Restore still uses this app's typed setting endpoint and
+optimistic provider revisions; it never copies OAuth material into a settings
+backup.

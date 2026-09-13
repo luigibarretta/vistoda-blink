@@ -106,7 +106,7 @@ impl BlinkClient {
         let mut signals = HashMap::new();
         for camera in cameras
             .iter()
-            .filter(|camera| camera.camera_type == "default")
+            .filter(|camera| matches!(camera.camera_type.as_str(), "default" | "mini"))
         {
             if let Ok(value) = self
                 .get_json(

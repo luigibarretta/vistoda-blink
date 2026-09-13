@@ -51,6 +51,14 @@ pub struct CameraState {
     pub battery_level: Option<u64>,
     pub low_battery: Option<bool>,
     pub temperature_f: Option<f64>,
+    #[serde(default)]
+    pub temperature_alerts: Option<bool>,
+    #[serde(default)]
+    pub temperature_min_f: Option<i64>,
+    #[serde(default)]
+    pub temperature_max_f: Option<i64>,
+    #[serde(default)]
+    pub temperature_out_of_range: Option<bool>,
     pub wifi_dbm: Option<i64>,
     pub motion_detected: bool,
     pub thumbnail_url: Option<String>,

@@ -13,7 +13,7 @@ def test_component_layout_and_identity() -> None:
     manifest = json.loads((COMPONENT / "manifest.json").read_text())
     assert manifest["domain"] == "blink_live_bridge"
     assert manifest["name"] == "Vistoda Blink"
-    assert manifest["version"] == "0.16.0"
+    assert manifest["version"] == "0.17.0"
     assert manifest["documentation"].endswith("/vistoda-blink")
     assert manifest["issue_tracker"].endswith("/vistoda-blink/issues")
 
@@ -96,6 +96,19 @@ def test_camera_settings_boundary_is_redacted_and_admin_only() -> None:
     assert '("key", "value", "revision")' in source
     assert "api_token" not in source
     assert "Authorization" not in source
+
+
+def test_settings_backups_are_admin_only_versioned_and_fail_closed() -> None:
+    boundary = (COMPONENT / "settings_backup_websocket.py").read_text()
+    manager = (COMPONENT / "settings_backup.py").read_text()
+    restore = (COMPONENT / "settings_restore.py").read_text()
+    setup = (COMPONENT / "__init__.py").read_text()
+    assert "connection.user.is_admin" in boundary
+    assert "settings/backups/create" in boundary and "settings/backups/apply" in boundary
+    assert "MAX_BACKUPS = 25" in manager and "rollback_backup_id" in manager
+    assert "expected_revision" in restore and "status != 409" in manager
+    assert "async_register_settings_backup(hass)" in setup
+    assert "Authorization" not in boundary + manager + restore
 
 
 def test_zone_boundary_is_typed_bounded_and_admin_only() -> None:

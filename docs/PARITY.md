@@ -16,6 +16,7 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Motion detected | binary sensor | binary sensor | state fixture + live state |
 | Low battery | binary sensor | binary sensor | state fixture |
 | Temperature | °F sensor | °F sensor | state fixture |
+| Temperature out of configured range | native push | HA binary sensor plus optional HA automation | provider thresholds + state fixture |
 | Wi-Fi strength | dBm sensor | dBm sensor | state fixture |
 | Record clip | entity service | entity service | command fixture + bounded live call |
 | Trigger snapshot | entity service | entity service | command + fresh JPEG canary |
@@ -26,11 +27,14 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Live video | absent | bounded MPEG-TS | parser/fan-out + powered-camera canary |
 | Private consumers | absent | HA + SceneTrove API | auth and stream contract tests |
 | Camera settings | official app only | typed model-aware state and writes | unit + reversible live canary |
+| Settings backups | absent | named all-camera snapshots and fail-closed restore | admin boundary + offline restore/CAS tests |
 | Speaker volume | official app | Mini/Owl integer 1–8 | Android 59.1 contract + reversible canary |
 | Activity zones | official app | native v1 20×15 grid | model tests + reversible live canary |
 | Privacy zones | official app | native v1 spans, maximum two | model tests + reversible live canary |
 | Sync Module USB clips | official app | paginated browse/copy + guarded delete/format | Android 59.1 routes; non-destructive live canaries only |
-| Blink talk | official app | Walnut selected by current official policy; Cayuga signaling retained but gated | Android 59.1 marks WebRTC `InProgress`; later enabled build + powered-camera SDP/ICE/audio canary |
+| Sync Module metadata | official app | serial, firmware, status and storage-used gauge | read-only status fixture |
+| Wi-Fi migration/eject/module removal | official app | visible but unavailable | no mutation route until recovery is proven |
+| Blink talk | official app | conditional Walnut talk/listen; Cayuga signaling retained but gated | transport/lease tests + per-model acoustic acceptance still required |
 | Device removal | official app | deliberately deferred | reauth and recovery contract required |
 
 Parity means behavioral coverage, not identical internal implementation. The

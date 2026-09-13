@@ -25,3 +25,8 @@ workload-token file, then start the app and reload its discovered HA adapter.
 If provider credentials were disclosed, revoke the Vistoda session using the
 Blink app and reconnect the account in Home Assistant. Preserve private backups
 as sensitive credentials: restoring one also restores its authorization.
+
+Vistoda camera-settings backups are different: they contain only allowlisted
+provider setting values and stable camera identity, never OAuth tokens, workload
+tokens, signed media URLs or camera images. Their restore boundary is restricted
+to Home Assistant administrators and uses optimistic provider revisions.
