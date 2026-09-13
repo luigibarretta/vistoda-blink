@@ -49,7 +49,9 @@ async def ws_local_storage(
     try:
         query = {"page": msg["page"], "page_size": msg["page_size"]}
         if msg["cameras"]:
-            query["cameras"] = json.dumps(list(dict.fromkeys(msg["cameras"])), separators=(",", ":"))
+            query["cameras"] = json.dumps(
+                list(dict.fromkeys(msg["cameras"])), separators=(",", ":")
+            )
         result = await runtime.client.get_json(f"/v1/local-storage?{urlencode(query)}")
     except EngineError:
         connection.send_error(msg["id"], "unavailable", "Blink USB storage is unavailable")
