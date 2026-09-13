@@ -89,6 +89,32 @@ class LiveView(BridgeView):
         return response
 
 
+class ProviderRecordingView(BridgeView):
+    """Save or discard the active live through Blink-managed storage."""
+
+    url = f"{API_PREFIX}/v1/cameras/{{alias}}/provider-recording"
+    name = f"api:{DOMAIN}:provider-recording"
+
+    async def post(self, request: web.Request, alias: str) -> web.Response:
+        try:
+            payload = await request.json()
+        except (ValueError, TypeError) as error:
+            raise web.HTTPBadRequest(text="invalid recording request") from error
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != {"save"}
+            or not isinstance(payload["save"], bool)
+        ):
+            raise web.HTTPBadRequest(text="invalid recording request")
+        try:
+            result = await self.runtime(request).client.post(
+                f"/v1/cameras/{alias}/provider-recording", payload
+            )
+        except EngineError as error:
+            raise web.HTTPBadGateway(text="provider recording unavailable") from error
+        return self.json(result)
+
+
 class RecordingMediaView(HomeAssistantView):
     """Stream a local recording through HA authentication or a signed path."""
 
@@ -171,6 +197,7 @@ def register_views(hass: HomeAssistant) -> None:
         CamerasView,
         SnapshotView,
         LiveView,
+        ProviderRecordingView,
         RecordingMediaView,
         LocalStorageMediaView,
     ):

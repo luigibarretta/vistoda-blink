@@ -81,6 +81,12 @@ advanced surface is implemented by the standalone Rust provider.
 
 ## Version history
 
+### 0.18.1
+
+Exposed the authenticated provider-recording proxy used by the deployment
+canary. It validates the exact `{ "save": boolean }` body and forwards only to
+the existing native SaveClip/DiscardClip route; storage ownership is unchanged.
+
 ### 0.18.0
 
 Added the native Walnut `SaveClip`/`DiscardClip` session contract. Blink owns
