@@ -9,7 +9,7 @@ license = "MIT"
 repository = "https://git.luigibarretta.com/luigibarretta/vistoda-blink"
 
 [dependencies]
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 async-stream = "0.3"
 axum = { version = "0.8", features = ["json", "ws"] }
 base64 = "0.22"
