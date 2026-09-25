@@ -2115,7 +2115,7 @@ dependencies = [
  "clap",
  "futures-util",
  "http-body-util",
- "rand 0.9.5",
+ "rand 0.10.2",
  "rcgen",
  "reqwest",
  "rustls",
