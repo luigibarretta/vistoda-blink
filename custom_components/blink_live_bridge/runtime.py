@@ -11,6 +11,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .client import EngineClient, EngineError
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .motion import BlinkMotionCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class BridgeRuntime:
     coordinator: BlinkCoordinator
     token: str
     parent_device_id: str
+    motion: BlinkMotionCoordinator | None = None
 
     @property
     def cameras(self) -> list[dict[str, Any]]:

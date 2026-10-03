@@ -103,6 +103,7 @@ async fn create_recording(
             &alias,
             input.duration_seconds,
             &input.request_id,
+            None,
         )
         .await?;
     Ok((StatusCode::ACCEPTED, Json(manifest)))

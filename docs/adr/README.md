@@ -11,6 +11,7 @@
 - [0009 — Walnut audio investigation](0009-walnut-audio-investigation.md)
 - [0010 — Versioned camera-settings backups](0010-versioned-settings-backups.md)
 - [0011 — Native Sync Module USB state parity](0011-native-usb-state-parity.md)
+- [0012 — Motion events and USB-free motion recording](0012-motion-events-and-local-motion-recording.md)
 
 ADRs record durable decisions and their consequences. Superseded decisions
 remain in the index with their replacement instead of being silently rewritten.

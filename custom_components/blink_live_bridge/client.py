@@ -47,6 +47,13 @@ class EngineClient:
         finally:
             response.release()
 
+    async def put_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        response = await self._request("PUT", path, payload)
+        try:
+            return await response.json()
+        finally:
+            response.release()
+
     async def stream(self, path: str) -> ClientResponse:
         return await self._request("GET", path, request_timeout=None)
 

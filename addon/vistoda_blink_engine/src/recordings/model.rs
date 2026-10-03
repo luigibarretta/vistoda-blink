@@ -17,10 +17,13 @@ pub struct RecordingManifest {
     pub bytes: Option<u64>,
     pub sha256: Option<String>,
     pub error_code: Option<String>,
+    /// `motion` for engine-started motion recordings; absent for manual ones.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger: Option<String>,
 }
 
 impl RecordingManifest {
-    pub fn pending(camera: &str, duration_seconds: u64) -> Self {
+    pub fn pending(camera: &str, duration_seconds: u64, trigger: Option<&str>) -> Self {
         Self {
             schema_version: 1,
             recording_id: Uuid::new_v4().to_string(),
@@ -35,6 +38,7 @@ impl RecordingManifest {
             bytes: None,
             sha256: None,
             error_code: None,
+            trigger: trigger.map(str::to_owned),
         }
     }
 

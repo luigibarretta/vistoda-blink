@@ -87,6 +87,8 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `GET /v1/recordings/{id}/media` | immutable local MPEG-TS media |
 | `DELETE /v1/recordings/{id}` | remove a completed local recording |
 | `GET /v1/local-storage?page=&page_size=` | server-paginated Sync Module USB inventory, Sync Module metadata and provider-reported storage-used percentage |
+| `GET /v1/motion` | cached per-camera motion from the native v4 event list, no Blink call |
+| `GET`/`PUT /v1/motion/recording` | opt-in motion recording settings (duration, cameras) |
 | `GET /v1/local-storage/status` | status-only refresh; never requests a new Sync Module manifest |
 | `GET /v1/local-storage/{network}/{sync}/{manifest}/{clip}/media` | one USB clip without mutation |
 | `DELETE /v1/local-storage/{network}/{sync}/{manifest}/{clip}` | delete one revalidated exact USB clip |

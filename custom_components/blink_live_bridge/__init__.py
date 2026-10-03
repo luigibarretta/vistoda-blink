@@ -20,6 +20,8 @@ from .const import (
 )
 from .http import register_views
 from .migration import async_import_official_credentials
+from .motion import BlinkMotionCoordinator
+from .motion_websocket import async_register as async_register_motion_websocket
 from .recording_websocket import async_register as async_register_recording_websocket
 from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
 from .services import async_setup_services
@@ -50,6 +52,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async_register_walnut_websocket(hass)
     async_register_zones_websocket(hass)
     async_register_recording_websocket(hass)
+    async_register_motion_websocket(hass)
     async_register_storage_websocket(hass)
     async_register_settings_backup(hass)
     data = hass.data.setdefault(DOMAIN, {})
@@ -70,6 +73,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("Vistoda Blink requires standalone enrollment")
     coordinator = BlinkCoordinator(hass, client, scan_interval(entry.options))
     await coordinator.async_config_entry_first_refresh()
+    motion = BlinkMotionCoordinator(hass, client)
+    await motion.async_refresh()
     parent_device = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(VISTODA_DOMAIN, VISTODA_BLINK_IDENTIFIER)},
@@ -82,6 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator=coordinator,
         token=token,
         parent_device_id=parent_device.id,
+        motion=motion,
     )
     data["runtime"] = data[entry.entry_id]
     if not data.get("views_registered"):

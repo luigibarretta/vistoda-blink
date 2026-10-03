@@ -81,6 +81,16 @@ advanced surface is implemented by the standalone Rust provider.
 
 ## Version history
 
+### 0.20.0
+
+Motion events now come from the native `POST v4/accounts/{id}/media` list
+(ADR 0012), including events without video (`no_subscription`), deduplicated
+by Blink media ID instead of a two-minute window. `GET /v1/motion` serves the
+cached state and the HA motion sensors poll it every 15 seconds. Optional,
+administrator-controlled motion recording starts a bounded HA-local recording
+on armed networks for selected cameras; motion recordings are a rolling buffer
+that never evicts manual recordings. Includes the unreleased 0.19.1 logging.
+
 ### 0.19.1
 
 Log Blink's own status, status code and bounded `status_msg` whenever it

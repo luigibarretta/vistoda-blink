@@ -25,6 +25,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(false) => tracing::info!("waiting for standalone Blink enrollment"),
         Err(error) => tracing::warn!(%error, "could not restore Blink enrollment"),
     }
+    // The motion poller tolerates a missing enrollment and starts reading once enrolled.
+    tokio::spawn(vistoda_blink_engine::motion::run(state.clone()));
     tracing::info!(listen = %cli.listen, version = env!("CARGO_PKG_VERSION"), "engine ready");
     axum::serve(listener, router(state))
         .with_graceful_shutdown(shutdown())

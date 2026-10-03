@@ -57,13 +57,28 @@ class BlinkBinarySensor(BlinkCameraEntity, BinarySensorEntity):
         self._attr_entity_category = EntityCategory.DIAGNOSTIC if description.diagnostic else None
         self._attr_entity_registry_enabled_default = description.enabled
 
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if self.key == "motion_detected" and self.runtime.motion is not None:
+            self.async_on_remove(self.runtime.motion.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def _motion(self) -> dict[str, Any] | None:
+        motion = self.runtime.motion
+        return motion.data.get(self.alias) if motion is not None and motion.data else None
+
     @property
     def is_on(self) -> bool | None:
+        if self.key == "motion_detected" and self._motion is not None:
+            return bool(self._motion.get("motion_detected"))
         value = self.camera.get(self.key)
         return bool(value) if value is not None else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.key == "motion_detected":
+            motion = self._motion or {}
+            return {key: motion.get(key) for key in ("last_motion_at", "event_type", "has_media")}
         if self.key != "temperature_out_of_range":
             return None
         return {

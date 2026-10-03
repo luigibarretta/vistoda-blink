@@ -1,7 +1,8 @@
 mod job;
 mod model;
+mod motion;
 mod recovery;
-mod storage;
+pub(crate) mod storage;
 
 pub use model::RecordingManifest;
 
@@ -73,6 +74,7 @@ impl RecordingManager {
         camera: &str,
         duration_seconds: u64,
         request_id: &str,
+        trigger: Option<&str>,
     ) -> Result<RecordingManifest, EngineError> {
         if !(1..=self.max_duration).contains(&duration_seconds)
             || !(8..=128).contains(&request_id.len())
@@ -109,7 +111,7 @@ impl RecordingManager {
         {
             return Err(EngineError::RecordingCapacity);
         }
-        let manifest = RecordingManifest::pending(camera, duration_seconds);
+        let manifest = RecordingManifest::pending(camera, duration_seconds, trigger);
         state
             .idempotency
             .insert(request_id.to_owned(), manifest.recording_id.clone());

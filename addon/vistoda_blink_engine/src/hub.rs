@@ -6,6 +6,8 @@ use crate::{
     error::EngineError,
     immi_audio_lease::AudioRuntime,
     live,
+    motion::MotionTracker,
+    motion_settings::MotionSettingsStore,
     recordings::RecordingManager,
 };
 use bytes::Bytes;
@@ -144,6 +146,8 @@ pub struct EngineState {
     client: BlinkClient,
     enrollment: EnrollmentManager,
     recordings: Arc<RecordingManager>,
+    pub(crate) motion: Arc<MotionTracker>,
+    pub(crate) motion_settings: Arc<MotionSettingsStore>,
 }
 
 impl EngineState {
@@ -156,6 +160,7 @@ impl EngineState {
     ) -> Result<Self, EngineError> {
         let aliases_path = credentials_path.with_file_name("camera-aliases.json");
         let recordings_path = credentials_path.with_file_name("recordings");
+        let motion_settings = Arc::new(MotionSettingsStore::new(&credentials_path));
         let client = BlinkClient::new(
             CredentialStore::new(credentials_path, &token),
             AliasStore::new(aliases_path),
@@ -172,6 +177,8 @@ impl EngineState {
                 recording_quota_bytes,
             )?,
             client,
+            motion: Arc::new(MotionTracker::default()),
+            motion_settings,
         })
     }
 
