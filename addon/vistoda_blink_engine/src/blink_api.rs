@@ -232,9 +232,9 @@ pub fn local_storage_clip_delete(
     )
 }
 
-pub fn local_storage_format(account: &str, network: &str, sync: &str) -> String {
+pub fn local_storage_action(account: &str, network: &str, sync: &str, action: &str) -> String {
     format!(
-        "/api/v1/accounts/{account}/networks/{network}/sync_modules/{sync}/local_storage/format"
+        "/api/v1/accounts/{account}/networks/{network}/sync_modules/{sync}/local_storage/{action}"
     )
 }
 

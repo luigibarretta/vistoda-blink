@@ -9,6 +9,7 @@ use axum::{
 use crate::{
     api::{authorize, media_response},
     blink_storage::LocalStorageInventory,
+    blink_storage_mutations::StorageCommand,
     error::EngineError,
     hub::EngineState,
 };
@@ -32,6 +33,7 @@ struct FormatRequest {
 pub fn routes() -> Router<EngineState> {
     Router::new()
         .route("/v1/local-storage", get(list))
+        .route("/v1/local-storage/status", get(statuses))
         .route(
             "/v1/local-storage/{network}/{sync}/{manifest}/{clip}/media",
             get(media),
@@ -44,6 +46,50 @@ pub fn routes() -> Router<EngineState> {
             "/v1/local-storage/{network}/{sync}/format",
             post(format_storage),
         )
+        .route("/v1/local-storage/{network}/{sync}/eject", post(eject))
+        .route("/v1/local-storage/{network}/{sync}/mount", post(mount))
+}
+
+async fn statuses(
+    State(state): State<EngineState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, EngineError> {
+    authorize(&state, &headers)?;
+    let storages = state.client().local_storage_statuses().await?;
+    Ok(Json(serde_json::json!({"storages": storages})))
+}
+
+async fn eject(
+    State(state): State<EngineState>,
+    headers: HeaderMap,
+    Path((network, sync)): Path<(u64, u64)>,
+) -> Result<axum::http::StatusCode, EngineError> {
+    run_command(&state, &headers, network, sync, StorageCommand::Eject).await
+}
+
+async fn mount(
+    State(state): State<EngineState>,
+    headers: HeaderMap,
+    Path((network, sync)): Path<(u64, u64)>,
+) -> Result<axum::http::StatusCode, EngineError> {
+    run_command(&state, &headers, network, sync, StorageCommand::Mount).await
+}
+
+/// Eject and mount are the reversible native pair: no typed confirmation,
+/// matching the official app, but still revalidated against fresh status.
+async fn run_command(
+    state: &EngineState,
+    headers: &HeaderMap,
+    network: u64,
+    sync: u64,
+    command: StorageCommand,
+) -> Result<axum::http::StatusCode, EngineError> {
+    authorize(state, headers)?;
+    state
+        .client()
+        .local_storage_command(network, sync, command)
+        .await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 async fn list(
@@ -127,8 +173,10 @@ mod tests {
         let production_source = source.split("#[cfg(test)]").next().unwrap_or(source);
         assert!(production_source.contains("delete(delete_clip)"));
         assert!(production_source.contains("post(format_storage)"));
-        assert!(!production_source.contains("/eject"));
-        assert!(!production_source.contains("/mount"));
+        assert!(production_source.contains("{sync}/eject\", post(eject)"));
+        assert!(production_source.contains("{sync}/mount\", post(mount)"));
+        assert!(!production_source.contains("delete_all"));
+        assert!(!production_source.contains("change_wifi"));
     }
 
     #[test]

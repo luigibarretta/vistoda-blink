@@ -37,9 +37,11 @@ pub struct LocalStorageStatus {
     pub usb_storage_used: Option<u64>,
     pub usb_storage_available_percentage: Option<u64>,
     pub usb_storage_full: bool,
+    pub storage_warning: Option<u64>,
     pub can_delete_clips: bool,
     pub can_format_usb: bool,
     pub can_eject_usb: bool,
+    pub can_mount_usb: bool,
     pub can_change_wifi: bool,
     pub can_delete_sync_module: bool,
     pub backup_enabled: bool,
@@ -174,7 +176,7 @@ fn has_readable_media(state: &str) -> bool {
     matches!(state, "active" | "memory_full")
 }
 
-fn storage_status(value: &Value) -> LocalStorageStatus {
+pub fn storage_status(value: &Value) -> LocalStorageStatus {
     let used = number(value, "usb_storage_used").filter(|value| *value <= 100);
     let readable = text(value, "usb_state").is_some_and(|state| has_readable_media(&state));
     LocalStorageStatus {
@@ -183,17 +185,18 @@ fn storage_status(value: &Value) -> LocalStorageStatus {
         usb_storage_used: used,
         usb_storage_available_percentage: used.map(|value| 100 - value),
         usb_storage_full: boolean(value, "usb_storage_full"),
+        storage_warning: number(value, "storage_warning"),
         can_delete_clips: readable,
         can_format_usb: boolean(value, "usb_format_compatible"),
-        // Kept false until each provider mutation has an independently
-        // verified endpoint, response and rollback/re-onboarding path.
-        can_eject_usb: false,
+        // Eject and mount are the native reversible pair (ADR 0011); Wi-Fi and removal stay absent.
+        can_eject_usb: readable,
+        can_mount_usb: text(value, "usb_state").as_deref() == Some("unmounted"),
         can_change_wifi: false,
         can_delete_sync_module: false,
         backup_enabled: boolean(value, "sm_backup_enabled"),
         backup_in_progress: boolean(value, "sm_backup_in_progress"),
-        last_backup_completed: optional_text(value, "last_backup_completed"),
-        last_backup_result: optional_text(value, "last_backup_result"),
+        last_backup_completed: text(value, "last_backup_completed"),
+        last_backup_result: text(value, "last_backup_result"),
     }
 }
 
@@ -220,7 +223,7 @@ fn parse_clip(value: &Value) -> Option<LocalStorageClip> {
         created_at: text(value, "created_at")
             .or_else(|| number(value, "clip_start_millis").map(|millis| millis.to_string()))
             .unwrap_or_default(),
-        event_type: optional_text(value, "event_type"),
+        event_type: text(value, "event_type"),
         clip_length_ms: number(value, "clip_length_ms")
             .or_else(|| number(value, "clip_length").map(|seconds| seconds * 1_000)),
         media_available: value.get("media").and_then(Value::as_str).is_some(),
@@ -232,9 +235,6 @@ fn boolean(value: &Value, key: &str) -> bool {
 }
 fn number(value: &Value, key: &str) -> Option<u64> {
     value.get(key).and_then(Value::as_u64)
-}
-fn optional_text(value: &Value, key: &str) -> Option<String> {
-    text(value, key)
 }
 fn text(value: &Value, key: &str) -> Option<String> {
     value

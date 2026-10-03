@@ -166,8 +166,8 @@ impl BlinkClient {
                     &blink_api::current_command(&context.account_id, network, id),
                 )
                 .await?;
-            if status.get("complete").and_then(Value::as_bool) == Some(true) {
-                return Ok(status);
+            if let Some(result) = crate::blink_command_result::completed(&status) {
+                return result.map(|()| status);
             }
             tokio::time::sleep(Duration::from_secs(2)).await;
         }

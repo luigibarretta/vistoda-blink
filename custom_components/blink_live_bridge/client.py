@@ -31,15 +31,17 @@ class EngineClient:
         self._headers = {"Authorization": f"Bearer {token}"}
         self._base_url = base_url.rstrip("/")
 
-    async def get_json(self, path: str) -> dict[str, Any]:
-        response = await self._request("GET", path)
+    async def get_json(self, path: str, request_timeout: float | None = 30) -> dict[str, Any]:
+        response = await self._request("GET", path, request_timeout=request_timeout)
         try:
             return await response.json()
         finally:
             response.release()
 
-    async def post(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-        response = await self._request("POST", path, payload)
+    async def post(
+        self, path: str, payload: dict[str, Any] | None = None, request_timeout: float | None = 30
+    ) -> dict[str, Any]:
+        response = await self._request("POST", path, payload, request_timeout)
         try:
             return await response.json() if response.status != 204 else {}
         finally:
@@ -62,8 +64,8 @@ class EngineClient:
         except (ClientError, TimeoutError) as error:
             raise EngineError("standalone provider websocket failed") from error
 
-    async def delete(self, path: str) -> None:
-        response = await self._request("DELETE", path)
+    async def delete(self, path: str, request_timeout: float | None = 30) -> None:
+        response = await self._request("DELETE", path, request_timeout=request_timeout)
         response.release()
 
     async def bytes(self, path: str) -> bytes:

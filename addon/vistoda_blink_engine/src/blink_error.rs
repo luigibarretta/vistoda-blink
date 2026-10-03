@@ -22,6 +22,8 @@ pub enum BlinkError {
     NetworkNotFound,
     #[error("Blink command timed out")]
     CommandTimeout,
+    #[error("Blink rejected the command")]
+    CommandFailed,
     #[error("Blink media exceeded its safety limit")]
     MediaTooLarge,
     #[error("camera settings are not supported for this device")]

@@ -68,8 +68,12 @@ fn builds_reviewed_destructive_local_storage_paths() {
         "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/manifest/4/clip/delete/5"
     );
     assert_eq!(
-        super::local_storage_format("1", "2", "3"),
+        super::local_storage_action("1", "2", "3", "format"),
         "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/format"
+    );
+    assert_eq!(
+        super::local_storage_action("1", "2", "3", "eject"),
+        "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/eject"
     );
 }
 
@@ -77,12 +81,16 @@ fn builds_reviewed_destructive_local_storage_paths() {
 fn provider_storage_contract_contains_only_reviewed_destructive_endpoints() {
     let source = concat!(
         include_str!("blink_api.rs"),
-        include_str!("blink_storage.rs")
+        include_str!("blink_storage.rs"),
+        include_str!("blink_storage_mutations.rs")
     );
     assert!(source.contains("clip/delete"));
-    assert!(source.contains("local_storage/format"));
-    assert!(!source.contains("local_storage/eject"));
-    assert!(!source.contains("local_storage/mount"));
+    assert!(source.contains(concat!("local_storage/", "{", "action}")));
+    // Only the native format/eject/mount commands may reach the action path.
+    for action in ["\"format\"", "\"eject\"", "\"mount\""] {
+        assert!(source.contains(action), "{action}");
+    }
+    assert!(!source.contains("delete_all"));
 }
 
 #[test]

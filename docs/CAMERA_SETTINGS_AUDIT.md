@@ -81,6 +81,16 @@ advanced surface is implemented by the standalone Rust provider.
 
 ## Version history
 
+### 0.19.0
+
+Aligned Sync Module USB handling with Blink Android 59.1 (ADR 0011). A storage
+command now succeeds only when Blink reports `complete` with `status` 0; a
+rejected command returns HTTP 409 and an unconfirmed one HTTP 504 instead of a
+false success. The status exposes `storage_warning`, `can_eject_usb` and
+`can_mount_usb`; `GET /v1/local-storage/status` refreshes state without asking
+the Sync Module for a new manifest; safely eject and reconnect use the native
+`eject`/`mount` commands. The HA adapter waits up to 120 s for these commands.
+
 ### 0.18.1
 
 Exposed the authenticated provider-recording proxy used by the deployment

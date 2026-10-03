@@ -31,10 +31,11 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Speaker volume | official app | Mini/Owl integer 1–8 | Android 59.1 contract + reversible canary |
 | Activity zones | official app | native v1 20×15 grid | model tests + reversible live canary |
 | Privacy zones | official app | native v1 spans, maximum two | model tests + reversible live canary |
-| Sync Module USB clips | official app | paginated browse/copy + guarded delete/format | Android 59.1 routes; non-destructive live canaries only |
+| Sync Module USB clips | official app | paginated browse/copy + guarded delete/format, native per-state screens and 30 s status refresh | Android 59.1 routes; non-destructive live canaries only |
+| USB safe eject/reconnect | official app | native `eject`/`mount`, HA administrator only | Android 59.1 routes; live eject→mount canary pending a healthy drive |
 | Save active live | official app | provider-managed save/discard; USB when Blink Local Storage routes it there | Android 59.1 Walnut session-command contract + bounded canary |
 | Sync Module metadata | official app | serial, firmware, status and storage-used gauge | read-only status fixture |
-| Wi-Fi migration/eject/module removal | official app | visible but unavailable | no mutation route until recovery is proven |
+| Wi-Fi migration/module removal | official app | visible but unavailable | no mutation route until recovery is proven |
 | Blink talk | official app | conditional Walnut talk/listen; Cayuga signaling retained but gated | transport/lease tests + per-model acoustic acceptance still required |
 | Device removal | official app | deliberately deferred | reauth and recovery contract required |
 

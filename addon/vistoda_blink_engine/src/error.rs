@@ -56,6 +56,10 @@ pub enum EngineError {
     InvalidStorageOperation,
     #[error("provider-managed recording requires an active compatible live session")]
     ProviderRecordingUnavailable,
+    #[error("Blink rejected the Sync Module command")]
+    ProviderCommandFailed,
+    #[error("Blink has not confirmed the Sync Module command yet")]
+    ProviderCommandPending,
 }
 
 #[derive(Serialize)]
@@ -75,7 +79,9 @@ impl IntoResponse for EngineError {
             Self::PublisherBusy
             | Self::SettingsConflict
             | Self::RecordingActive
-            | Self::ProviderRecordingUnavailable => StatusCode::CONFLICT,
+            | Self::ProviderRecordingUnavailable
+            | Self::ProviderCommandFailed => StatusCode::CONFLICT,
+            Self::ProviderCommandPending => StatusCode::GATEWAY_TIMEOUT,
             Self::RecordingCapacity => StatusCode::TOO_MANY_REQUESTS,
             Self::NotEnrolled => StatusCode::PRECONDITION_REQUIRED,
             Self::WebRtcLegacyDevice | Self::WebRtcFeatureDisabled => {
@@ -110,6 +116,8 @@ impl From<BlinkError> for EngineError {
             BlinkError::SettingsConflict => Self::SettingsConflict,
             BlinkError::SettingsVerification => Self::SettingsVerification,
             BlinkError::InvalidStorageOperation => Self::InvalidStorageOperation,
+            BlinkError::CommandFailed => Self::ProviderCommandFailed,
+            BlinkError::CommandTimeout => Self::ProviderCommandPending,
             _ => Self::Cloud,
         }
     }

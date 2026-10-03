@@ -11,6 +11,12 @@ from homeassistant.core import HomeAssistant, callback
 from .client import EngineError
 from .const import DOMAIN
 from .runtime import BridgeRuntime
+from .storage_command_websocket import (
+    STORAGE_COMMAND_TIMEOUT,
+    command_error_code,
+    ws_local_storage_command,
+    ws_local_storage_status,
+)
 
 
 @callback
@@ -22,6 +28,8 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_local_storage)
     websocket_api.async_register_command(hass, ws_delete_local_storage_clip)
     websocket_api.async_register_command(hass, ws_format_local_storage)
+    websocket_api.async_register_command(hass, ws_local_storage_status)
+    websocket_api.async_register_command(hass, ws_local_storage_command)
     data["storage_websocket_registered"] = True
 
 
@@ -52,7 +60,9 @@ async def ws_local_storage(
             query["cameras"] = json.dumps(
                 list(dict.fromkeys(msg["cameras"])), separators=(",", ":")
             )
-        result = await runtime.client.get_json(f"/v1/local-storage?{urlencode(query)}")
+        result = await runtime.client.get_json(
+            f"/v1/local-storage?{urlencode(query)}", STORAGE_COMMAND_TIMEOUT
+        )
     except EngineError:
         connection.send_error(msg["id"], "unavailable", "Blink USB storage is unavailable")
         return
@@ -113,7 +123,7 @@ async def ws_delete_local_storage_clip(
         f"{msg['manifest_id']}/{msg['clip_id']}"
     )
     try:
-        await runtime.client.delete(path)
+        await runtime.client.delete(path, STORAGE_COMMAND_TIMEOUT)
     except EngineError as error:
         code = "conflict" if error.status in {409, 422} else "unavailable"
         connection.send_error(msg["id"], code, "Blink USB clip could not be deleted")
@@ -151,8 +161,11 @@ async def ws_format_local_storage(
         await runtime.client.post(
             f"/v1/local-storage/{msg['network_id']}/{msg['sync_module_id']}/format",
             {"confirmation": expected},
+            STORAGE_COMMAND_TIMEOUT,
         )
-    except EngineError:
-        connection.send_error(msg["id"], "unavailable", "Blink USB could not be formatted")
+    except EngineError as error:
+        connection.send_error(
+            msg["id"], command_error_code(error), "Blink USB could not be formatted"
+        )
         return
     connection.send_result(msg["id"], {})

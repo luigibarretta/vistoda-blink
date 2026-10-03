@@ -10,6 +10,7 @@
 - [0008 — Exact Cayuga-to-Walnut live fallback](0008-cayuga-walnut-fallback.md)
 - [0009 — Walnut audio investigation](0009-walnut-audio-investigation.md)
 - [0010 — Versioned camera-settings backups](0010-versioned-settings-backups.md)
+- [0011 — Native Sync Module USB state parity](0011-native-usb-state-parity.md)
 
 ADRs record durable decisions and their consequences. Superseded decisions
 remain in the index with their replacement instead of being silently rewritten.
