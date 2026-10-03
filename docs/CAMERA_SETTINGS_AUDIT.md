@@ -81,6 +81,12 @@ advanced surface is implemented by the standalone Rust provider.
 
 ## Version history
 
+### 0.19.1
+
+Log Blink's own status, status code and bounded `status_msg` whenever it
+rejects a Sync Module command, so a failed format, eject or reconnect can be
+diagnosed from the app log. The vendor reply carries no credentials.
+
 ### 0.19.0
 
 Aligned Sync Module USB handling with Blink Android 59.1 (ADR 0011). A storage

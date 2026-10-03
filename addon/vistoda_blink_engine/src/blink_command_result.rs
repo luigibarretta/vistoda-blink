@@ -1,6 +1,10 @@
 use serde_json::Value;
+use tracing::warn;
 
 use crate::blink_client::BlinkError;
+
+/// Vendor diagnostics are short; bound them so a hostile reply cannot flood logs.
+const STATUS_MESSAGE_LIMIT: usize = 160;
 
 /// Mirrors the native `SupervisorKommand.isSuccessful`: a command succeeds only
 /// when it is complete and its numeric `status` is zero. `None` means pending.
@@ -15,11 +19,27 @@ pub fn completed(status: &Value) -> Option<Result<(), BlinkError>> {
         Some(Value::String(state)) => state != "failed",
         Some(_) => false,
     };
-    Some(if succeeded {
-        Ok(())
-    } else {
-        Err(BlinkError::CommandFailed)
-    })
+    if succeeded {
+        return Some(Ok(()));
+    }
+    // Keep Blink's own reason: without it a rejected format or eject cannot be
+    // diagnosed later (the vendor reply carries no credentials or identifiers).
+    let message: String = status
+        .get("status_msg")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .chars()
+        .take(STATUS_MESSAGE_LIMIT)
+        .collect();
+    let code = status.get("status").cloned().unwrap_or(Value::Null);
+    let status_code = status.get("status_code").and_then(Value::as_i64);
+    warn!(
+        status = %code,
+        status_code = ?status_code,
+        status_msg = %message,
+        "Blink rejected a Sync Module command"
+    );
+    Some(Err(BlinkError::CommandFailed))
 }
 
 #[cfg(test)]
