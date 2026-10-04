@@ -12,6 +12,7 @@
 - [0010 — Versioned camera-settings backups](0010-versioned-settings-backups.md)
 - [0011 — Native Sync Module USB state parity](0011-native-usb-state-parity.md)
 - [0012 — Motion events and USB-free motion recording](0012-motion-events-and-local-motion-recording.md)
+- [0013 — Device health entities and Blink re-login](0013-device-health-and-blink-reauth.md)
 
 ADRs record durable decisions and their consequences. Superseded decisions
 remain in the index with their replacement instead of being silently rewritten.

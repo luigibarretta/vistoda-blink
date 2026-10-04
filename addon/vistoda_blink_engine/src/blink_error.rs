@@ -37,3 +37,32 @@ pub enum BlinkError {
     #[error("local storage operation is invalid for the current support")]
     InvalidStorageOperation,
 }
+
+impl BlinkError {
+    /// Only a rejected refresh grant needs a new sign-in; transport failures
+    /// and unexpected token-endpoint answers stay retryable cloud errors.
+    pub(crate) fn from_refresh(error: OAuthError) -> Self {
+        match error {
+            OAuthError::InvalidCredentials => Self::Authentication,
+            other => Self::OAuth(other),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BlinkError;
+    use crate::oauth::OAuthError;
+
+    #[test]
+    fn only_a_rejected_refresh_grant_is_an_authentication_failure() {
+        assert!(matches!(
+            BlinkError::from_refresh(OAuthError::InvalidCredentials),
+            BlinkError::Authentication
+        ));
+        assert!(matches!(
+            BlinkError::from_refresh(OAuthError::Unexpected),
+            BlinkError::OAuth(_)
+        ));
+    }
+}

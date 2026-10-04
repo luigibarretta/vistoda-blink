@@ -144,7 +144,7 @@ impl BlinkClient {
                 &session.credentials.hardware_id,
             )
             .await
-            .map_err(|_| BlinkError::Authentication)?;
+            .map_err(BlinkError::from_refresh)?;
             session
                 .credentials
                 .refresh_token

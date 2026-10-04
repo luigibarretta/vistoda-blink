@@ -8,13 +8,15 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | --- | --- | --- | --- |
 | OAuth2 PKCE login | yes | standalone Rust | fixture + live enrollment |
 | Email/SMS 2FA | yes | standalone Rust | fixture + enrollment state machine |
-| Refresh and reauth | yes | sealed token + native reauth flow | 401 contract + live refresh |
+| Refresh and reauth | yes | sealed token + native reauth flow on 403 `reauth_required`; bridge-token 401 is a repair issue | ADR 0013; engine status/body + adapter mapping tests + live refresh |
 | Scan interval | configurable | configurable | config-flow test |
 | Sync Module arm/disarm | alarm panel | alarm panel | API + entity + live command |
 | Camera snapshot | cached camera | cached camera | JPEG contract + live refresh |
 | Motion control | camera + switch | camera + switch | API + entity + live command |
 | Motion detected | binary sensor | binary sensor | state fixture + live state |
 | Low battery | binary sensor | binary sensor | state fixture |
+| Camera connectivity | official app device status | `CONNECTIVITY` binary sensor "Connessione"; unknown status stays unknown | ADR 0013; status-mapping fixtures |
+| Sync Module connectivity | official app / blinkpy `online` | `CONNECTIVITY` binary sensor "Connessione" on the Sync Module device | ADR 0013; module-status fixtures |
 | Temperature | °F sensor | °F sensor | state fixture |
 | Temperature out of configured range | native push | HA binary sensor plus optional HA automation | provider thresholds + state fixture |
 | Wi-Fi strength | dBm sensor | dBm sensor | state fixture |
@@ -38,6 +40,7 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | USB safe eject/reconnect | official app | native `eject`/`mount`, HA administrator only | Android 59.1 routes; live eject→mount canary pending a healthy drive |
 | Save active live | official app | provider-managed save/discard; USB when Blink Local Storage routes it there | Android 59.1 Walnut session-command contract + bounded canary |
 | Sync Module metadata | official app | serial, firmware, status and storage-used gauge | read-only status fixture |
+| Sync Module USB health | official app banners | "Archivio USB" state sensor + `PROBLEM` binary sensor, refreshed every 5 min | ADR 0013; mapping unit tests |
 | Wi-Fi migration/module removal | official app | visible but unavailable | no mutation route until recovery is proven |
 | Blink talk | official app | conditional Walnut talk/listen; Cayuga signaling retained but gated | transport/lease tests + per-model acoustic acceptance still required |
 | Device removal | official app | deliberately deferred | reauth and recovery contract required |

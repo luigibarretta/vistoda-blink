@@ -20,6 +20,7 @@ fn camera(kind: &str) -> CameraState {
         product_type: kind.into(),
         enabled: None,
         status: None,
+        online: None,
         battery_state: None,
         battery_voltage: None,
         battery_level: None,

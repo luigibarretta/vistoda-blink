@@ -53,6 +53,9 @@ private API and Vistoda discovery contract during the product rename.
 - server-paginated Sync Module USB inventory, authenticated clip playback/download,
   exact clip deletion and compatible-media formatting;
 - native HA camera entities attached to the Vistoda Blink provider device;
+- camera and Sync Module connectivity sensors, a 5-minute Sync Module USB
+  health sensor with a problem flag, and a Blink re-login flow that is never
+  triggered by a wrong local bridge token (ADR 0013);
 - redacted, model-aware camera settings with optimistic concurrency,
   read-back verification and rollback attempts;
 - up to 25 named, all-camera settings backups in Home Assistant, matched by

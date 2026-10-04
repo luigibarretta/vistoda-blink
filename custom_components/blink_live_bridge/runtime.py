@@ -7,13 +7,16 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .client import EngineClient, EngineError
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 from .motion import BlinkMotionCoordinator
+from .storage_status import BlinkStorageCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+BRIDGE_TOKEN_ISSUE = "bridge_token_rejected"
 
 
 class BlinkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -39,11 +42,24 @@ class BlinkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self.client.post("/v1/refresh")
             state = await self.client.get_json("/v1/state")
             self._initial_update = False
-            return state
         except EngineError as error:
+            if error.reauth_required:
+                # Blink revoked the session: the existing reauth flow signs in again.
+                raise ConfigEntryAuthFailed("Blink authorization was revoked") from error
             if error.status == 401:
-                raise ConfigEntryAuthFailed("Blink authorization expired") from error
+                # The local bridge token is wrong; new Blink credentials cannot fix it.
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    BRIDGE_TOKEN_ISSUE,
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.ERROR,
+                    translation_key=BRIDGE_TOKEN_ISSUE,
+                )
+                raise UpdateFailed("Vistoda Blink engine rejected the bridge token") from error
             raise UpdateFailed("Standalone Blink provider is unavailable") from error
+        ir.async_delete_issue(self.hass, DOMAIN, BRIDGE_TOKEN_ISSUE)
+        return state
 
 
 @dataclass(slots=True)
@@ -55,6 +71,7 @@ class BridgeRuntime:
     token: str
     parent_device_id: str
     motion: BlinkMotionCoordinator | None = None
+    storage: BlinkStorageCoordinator | None = None
 
     @property
     def cameras(self) -> list[dict[str, Any]]:

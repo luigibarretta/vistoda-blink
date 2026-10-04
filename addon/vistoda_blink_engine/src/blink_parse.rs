@@ -1,3 +1,4 @@
+use crate::blink_json::{array, boolean, owned_text, text, text_or_number};
 use crate::blink_model::{CameraState, LiveTransport, MediaClip};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -89,6 +90,7 @@ fn camera(
         .or_else(|| owned_text(summary, "battery"));
     let thumbnail_url = thumbnail(source, &context, &product_type)
         .or_else(|| thumbnail(summary, &context, &product_type));
+    let status = owned_text(source, "status").or_else(|| owned_text(summary, "status"));
     let temperature_f = number(signal, "temp")
         .or_else(|| number(source, "temperature"))
         .or_else(|| number(summary, "temperature"));
@@ -116,7 +118,8 @@ fn camera(
         camera_type: context.camera_type.to_owned(),
         product_type: product_type.clone(),
         enabled: boolean(source, "enabled").or_else(|| boolean(summary, "enabled")),
-        status: owned_text(source, "status").or_else(|| owned_text(summary, "status")),
+        online: crate::blink_connectivity::online(status.as_deref()),
+        status,
         battery_state: battery_state.clone(),
         battery_voltage: unsigned(source, "battery_voltage")
             .or_else(|| unsigned(summary, "battery_voltage")),
@@ -211,21 +214,6 @@ fn recent(value: &str) -> bool {
     OffsetDateTime::parse(value, &Iso8601::DEFAULT)
         .is_ok_and(|created| OffsetDateTime::now_utc() - created <= time::Duration::minutes(2))
 }
-fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
-    value
-        .get(key)
-        .and_then(Value::as_array)
-        .map_or(&[], Vec::as_slice)
-}
-fn text<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
-    value.get(key)?.as_str()
-}
-fn owned_text(value: &Value, key: &str) -> Option<String> {
-    text(value, key).map(ToOwned::to_owned)
-}
-fn boolean(value: &Value, key: &str) -> Option<bool> {
-    value.get(key)?.as_bool()
-}
 fn unsigned(value: &Value, key: &str) -> Option<u64> {
     value.get(key).and_then(|item| {
         item.as_u64()
@@ -240,11 +228,4 @@ fn number(value: &Value, key: &str) -> Option<f64> {
 }
 fn float_integer(value: i64) -> Option<f64> {
     i32::try_from(value).ok().map(f64::from)
-}
-fn text_or_number(value: &Value, key: &str) -> Option<String> {
-    value.get(key).and_then(|item| {
-        item.as_str()
-            .map(ToOwned::to_owned)
-            .or_else(|| item.as_u64().map(|number| number.to_string()))
-    })
 }

@@ -28,6 +28,12 @@ pub struct NetworkState {
     pub name: String,
     pub armed: Option<bool>,
     pub status: Option<String>,
+    /// `None` when Blink's status string is unknown (`blink_connectivity`).
+    #[serde(default)]
+    pub online: Option<bool>,
+    /// Lets adapters create USB entities without exposing the module ID.
+    #[serde(default)]
+    pub has_sync_module: bool,
     pub serial: Option<String>,
     pub firmware: Option<String>,
     #[serde(skip_serializing)]
@@ -46,6 +52,8 @@ pub struct CameraState {
     pub product_type: String,
     pub enabled: Option<bool>,
     pub status: Option<String>,
+    #[serde(default)]
+    pub online: Option<bool>,
     pub battery_state: Option<String>,
     pub battery_voltage: Option<u64>,
     pub battery_level: Option<u64>,

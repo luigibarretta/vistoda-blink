@@ -11,6 +11,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import API_PREFIX, DOMAIN
 from .entity import BlinkCameraEntity
+from .network_health import network_binary_sensors
 from .runtime import BridgeRuntime
 
 
@@ -28,6 +29,7 @@ DESCRIPTIONS = (
     Description("enabled", "Camera armata", enabled=False),
     Description("motion_detected", "Movimento", BinarySensorDeviceClass.MOTION),
     Description("temperature_out_of_range", "Temperatura fuori soglia"),
+    Description("online", "Connessione", BinarySensorDeviceClass.CONNECTIVITY, True),
 )
 
 
@@ -42,6 +44,7 @@ async def async_setup_entry(
         for camera in runtime.cameras
         for description in DESCRIPTIONS
     )
+    async_add_entities(network_binary_sensors(runtime))
 
 
 class BlinkBinarySensor(BlinkCameraEntity, BinarySensorEntity):
@@ -90,6 +93,9 @@ class BlinkBinarySensor(BlinkCameraEntity, BinarySensorEntity):
                 else None
             )
             return attributes
+        if self.key == "online":
+            # The raw value explains an unknown state (ADR 0013).
+            return {"status": self.camera.get("status")}
         if self.key != "temperature_out_of_range":
             return None
         return {

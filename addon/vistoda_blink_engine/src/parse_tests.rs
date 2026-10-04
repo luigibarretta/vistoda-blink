@@ -116,3 +116,62 @@ fn preserves_homescreen_identity_and_snapshot_when_config_is_sparse() {
             .is_some_and(|url| url == "https://rest-prod.immedia-semi.com/api/v3/media/accounts/85085/networks/85507/owl/284471/thumbnail/thumbnail.jpg?ts=1789316623&ext=")
     );
 }
+
+#[test]
+fn exposes_camera_connectivity_only_for_known_status_values() {
+    let usage = json!({"networks":[{"network_id":7,"cameras":[
+        {"id":1,"name":"Balcone","status":"done"},
+        {"id":2,"name":"Garage","status":"offline"},
+        {"id":3,"name":"Cortile","status":"busy"},
+        {"id":4,"name":"Ingresso"}]}]});
+    let result = cameras(
+        "42",
+        "https://rest-prod.immedia-semi.com",
+        &usage,
+        &json!({}),
+        &HashMap::new(),
+        &HashMap::new(),
+        &[],
+    );
+    let online = result
+        .iter()
+        .map(|camera| camera.online)
+        .collect::<Vec<_>>();
+    assert_eq!(online, [Some(true), Some(false), None, None]);
+    assert_eq!(result[2].status.as_deref(), Some("busy"));
+    let value = serde_json::to_value(&result[1]).unwrap_or_default();
+    assert_eq!(value["online"], false);
+}
+
+#[test]
+fn sync_module_status_drives_network_connectivity() {
+    let catalog = json!({"summary":{
+        "7":{"id":7,"name":"Casa","onboarded":true},
+        "8":{"id":8,"name":"Garage","onboarded":true}}});
+    let home = json!({
+        "sync_modules": [{"id":77,"network_id":7,"status":"offline"}],
+        "owls": [{"id":3,"network_id":9,"name":"Mini","onboarded":true,"status":"online"}]
+    });
+    let updates = HashMap::from([(
+        "8".to_owned(),
+        json!({"network":{"name":"Garage","status":"ok"},
+            "_vistoda_sync":{"syncmodule":{"id":88,"status":"online"}}}),
+    )]);
+    let result = networks(&catalog, &home, &updates);
+    let casa = result.iter().find(|network| network.id == "7");
+    let garage = result.iter().find(|network| network.id == "8");
+    let mini = result.iter().find(|network| network.id == "9");
+    assert_eq!(
+        casa.map(|item| (item.online, item.has_sync_module)),
+        Some((Some(false), true))
+    );
+    assert_eq!(garage.and_then(|item| item.online), Some(true));
+    assert_eq!(garage.and_then(|item| item.status.as_deref()), Some("ok"));
+    assert_eq!(
+        mini.map(|item| (item.online, item.has_sync_module)),
+        Some((Some(true), false))
+    );
+    let value = serde_json::to_value(casa).unwrap_or_default();
+    assert_eq!(value["has_sync_module"], true);
+    assert!(value.get("sync_module_id").is_none());
+}

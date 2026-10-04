@@ -26,6 +26,7 @@ from .recording_websocket import async_register as async_register_recording_webs
 from .runtime import BlinkCoordinator, BridgeRuntime, scan_interval
 from .services import async_setup_services
 from .settings_backup_websocket import async_register as async_register_settings_backup
+from .storage_status import BlinkStorageCoordinator
 from .storage_websocket import async_register as async_register_storage_websocket
 from .walnut_websocket import async_register as async_register_walnut_websocket
 from .walnut_websocket import async_stop_all as async_stop_walnut_sessions
@@ -75,6 +76,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     motion = BlinkMotionCoordinator(hass, client)
     await motion.async_refresh()
+    # USB health polls only while a Sync Module exists (entities subscribe).
+    storage = None
+    if any(network.get("has_sync_module") for network in coordinator.data.get("networks", [])):
+        storage = BlinkStorageCoordinator(hass, client)
+        await storage.async_refresh()
     parent_device = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(VISTODA_DOMAIN, VISTODA_BLINK_IDENTIFIER)},
@@ -88,6 +94,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         token=token,
         parent_device_id=parent_device.id,
         motion=motion,
+        storage=storage,
     )
     data["runtime"] = data[entry.entry_id]
     if not data.get("views_registered"):

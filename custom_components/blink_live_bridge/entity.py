@@ -2,8 +2,9 @@
 
 from typing import Any
 
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 
 from .const import DOMAIN
 from .runtime import BlinkCoordinator, BridgeRuntime
@@ -45,3 +46,41 @@ def camera_device(camera: dict[str, Any], parent_device_id: str) -> DeviceInfo:
         model=camera.get("camera_type"),
         via_device_id=parent_device_id,
     )
+
+
+class BlinkNetworkEntity(CoordinatorEntity[DataUpdateCoordinator[Any]]):
+    """Sync Module health entity on the same device as the network alarm panel."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        runtime: BridgeRuntime,
+        network: dict[str, Any],
+        coordinator: DataUpdateCoordinator[Any],
+        suffix: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self.runtime = runtime
+        self.network_id = network["id"]
+        serial = network.get("serial") or f"network-{self.network_id}"
+        # The alarm panel owns ``vistoda-{serial}``; health entities append a key.
+        self._attr_unique_id = f"vistoda-{serial}-{suffix}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            serial_number=network.get("serial"),
+            sw_version=network.get("firmware"),
+            name=network["name"],
+            manufacturer="Blink",
+            via_device_id=runtime.parent_device_id,
+        )
+
+    @property
+    def network(self) -> dict[str, Any]:
+        return next((item for item in self.runtime.networks if item["id"] == self.network_id), {})
+
+
+def sync_module_networks(runtime: BridgeRuntime) -> list[dict[str, Any]]:
+    """Networks backed by a Sync Module; Mini-only systems have no module or USB."""
+    return [network for network in runtime.networks if network.get("has_sync_module")]

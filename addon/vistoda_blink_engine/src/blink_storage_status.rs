@@ -22,16 +22,25 @@ impl BlinkClient {
     pub async fn local_storage_statuses(&self) -> Result<Vec<LocalStorageSummary>, BlinkError> {
         let context = self.context().await?;
         let mut result = Vec::new();
+        let mut failure = None;
         for network in self.state().await.networks {
             let Some(sync) = network.sync_module_id.clone() else {
                 continue;
             };
-            let raw = self
-                .get_json(
-                    &context,
-                    &blink_api::local_storage_status(&context.account_id, &network.id, &sync),
-                )
-                .await?;
+            let path = blink_api::local_storage_status(&context.account_id, &network.id, &sync);
+            // One Sync Module without USB support or a transient error must not
+            // hide the others; authentication failures still propagate.
+            let raw = match self.get_json(&context, &path).await {
+                Ok(raw) => raw,
+                Err(error @ (BlinkError::Authentication | BlinkError::OAuth(_))) => {
+                    return Err(error);
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "Blink USB status unavailable for one Sync Module");
+                    failure = Some(error);
+                    continue;
+                }
+            };
             result.push(LocalStorageSummary {
                 network_id: network.id,
                 network_name: network.name,
@@ -41,6 +50,9 @@ impl BlinkClient {
                 status: storage_status(&raw),
             });
         }
-        Ok(result)
+        match failure {
+            Some(error) if result.is_empty() => Err(error),
+            _ => Ok(result),
+        }
     }
 }

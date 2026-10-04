@@ -10,7 +10,7 @@ use url::Url;
 use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use crate::oauth_support::{authorize_parameters, extract_csrf, pkce};
+use crate::oauth_support::{authorize_parameters, extract_csrf, pkce, refresh_revoked};
 
 const BASE: &str = "https://api.oauth.blink.com";
 const AUTHORIZE: &str = "https://api.oauth.blink.com/oauth/v2/authorize";
@@ -179,8 +179,14 @@ pub async fn refresh(refresh_token: &str, hardware_id: &str) -> Result<TokenResp
         ])
         .send()
         .await?;
-    if response.status() == StatusCode::UNAUTHORIZED {
-        return Err(OAuthError::InvalidCredentials);
+    let status = response.status();
+    if status == StatusCode::UNAUTHORIZED || status == StatusCode::BAD_REQUEST {
+        let body = response.bytes().await?;
+        return Err(if refresh_revoked(status.as_u16(), &body) {
+            OAuthError::InvalidCredentials
+        } else {
+            OAuthError::Unexpected
+        });
     }
     Ok(response.error_for_status()?.json().await?)
 }

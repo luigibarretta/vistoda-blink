@@ -18,9 +18,18 @@ from .const import ENGINE_URL
 class EngineError(Exception):
     """Safe provider failure without response-body secret leakage."""
 
-    def __init__(self, message: str, status: int | None = None) -> None:
+    def __init__(self, message: str, status: int | None = None, code: str | None = None) -> None:
         super().__init__(message)
         self.status = status
+        self.code = code
+
+    @property
+    def reauth_required(self) -> bool:
+        """Blink revoked the authorization; only a new sign-in can fix it.
+
+        A plain 401 means the local bridge token was rejected instead.
+        """
+        return self.status == 403 and self.code == "reauth_required"
 
 
 class EngineClient:
@@ -99,8 +108,19 @@ class EngineClient:
             )
             if response.status >= 400:
                 status = response.status
+                code = await _error_code(response) if status == 403 else None
                 response.release()
-                raise EngineError(f"provider returned HTTP {status}", status)
+                raise EngineError(f"provider returned HTTP {status}", status, code)
             return response
         except (ClientError, TimeoutError) as error:
             raise EngineError("standalone provider request failed") from error
+
+
+async def _error_code(response: ClientResponse) -> str | None:
+    """Read only the engine's short machine-readable error code."""
+    try:
+        body = await response.json(content_type=None)
+    except (ClientError, ValueError, TimeoutError):
+        return None
+    code = body.get("error") if isinstance(body, dict) else None
+    return code if isinstance(code, str) and len(code) <= 64 else None

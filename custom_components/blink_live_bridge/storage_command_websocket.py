@@ -22,6 +22,12 @@ def command_error_code(error: EngineError) -> str:
     )
 
 
+async def refresh_storage_entities(runtime: BridgeRuntime) -> None:
+    """Let the USB health entities follow a completed command without waiting."""
+    if runtime.storage is not None:
+        await runtime.storage.async_request_refresh()
+
+
 @websocket_api.websocket_command({vol.Required("type"): "blink_live_bridge/local_storage/status"})
 @websocket_api.async_response
 async def ws_local_storage_status(
@@ -75,3 +81,4 @@ async def ws_local_storage_command(
         connection.send_error(msg["id"], command_error_code(error), "Blink USB command failed")
         return
     connection.send_result(msg["id"], {})
+    await refresh_storage_entities(runtime)

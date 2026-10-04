@@ -1,4 +1,4 @@
-"""Standalone Blink temperature and Wi-Fi sensors."""
+"""Standalone Blink temperature, Wi-Fi and Sync Module USB sensors."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
 from .entity import BlinkCameraEntity
+from .network_health import network_sensors
 from .runtime import BridgeRuntime
 
 
@@ -50,6 +51,7 @@ async def async_setup_entry(
         for camera in runtime.cameras
         for description in DESCRIPTIONS
     )
+    async_add_entities(network_sensors(runtime))
 
 
 class BlinkSensor(BlinkCameraEntity, SensorEntity):

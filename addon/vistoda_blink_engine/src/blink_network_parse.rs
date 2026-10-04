@@ -5,7 +5,11 @@ use std::{
 
 use serde_json::Value;
 
-use crate::blink_model::NetworkState;
+use crate::{
+    blink_connectivity::online,
+    blink_json::{array, boolean, owned_text, text, text_or_number},
+    blink_model::NetworkState,
+};
 
 #[must_use]
 pub fn networks<S: BuildHasher>(
@@ -26,11 +30,14 @@ pub fn networks<S: BuildHasher>(
             if boolean(device, "onboarded") != Some(true) || !ids.insert(id.clone()) {
                 continue;
             }
+            let status = owned_text(device, "status");
             result.push(NetworkState {
                 id,
                 name: text(device, "name").unwrap_or("Blink system").to_owned(),
                 armed: boolean(device, "enabled"),
-                status: owned_text(device, "status"),
+                online: online(status.as_deref()),
+                has_sync_module: false,
+                status,
                 serial: owned_text(device, "serial"),
                 firmware: owned_text(device, "fw_version"),
                 sync_module_id: None,
@@ -98,43 +105,22 @@ fn network<S: BuildHasher>(
                 .or(Some(value))
         })
         .or(homescreen_module);
+    let module_status = module.and_then(|value| owned_text(value, "status"));
+    let status = owned_text(source, "status").or_else(|| module_status.clone());
+    let sync_module_id = module.and_then(|value| text_or_number(value, "id"));
     NetworkState {
         id,
         name: text(source, "name").unwrap_or("Blink system").to_owned(),
         armed: boolean(source, "armed"),
-        status: owned_text(source, "status")
-            .or_else(|| module.and_then(|value| owned_text(value, "status"))),
+        // The Sync Module's own status is the authoritative connectivity
+        // signal; the network object's status is only a fallback.
+        online: online(module_status.as_deref()).or_else(|| online(status.as_deref())),
+        has_sync_module: sync_module_id.is_some(),
+        status,
         serial: owned_text(source, "serial")
             .or_else(|| module.and_then(|value| owned_text(value, "serial"))),
         firmware: owned_text(source, "fw_version")
             .or_else(|| module.and_then(|value| owned_text(value, "fw_version"))),
-        sync_module_id: module.and_then(|value| text_or_number(value, "id")),
+        sync_module_id,
     }
-}
-
-fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
-    value
-        .get(key)
-        .and_then(Value::as_array)
-        .map_or(&[], Vec::as_slice)
-}
-
-fn text<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
-    value.get(key)?.as_str()
-}
-
-fn owned_text(value: &Value, key: &str) -> Option<String> {
-    text(value, key).map(ToOwned::to_owned)
-}
-
-fn boolean(value: &Value, key: &str) -> Option<bool> {
-    value.get(key)?.as_bool()
-}
-
-fn text_or_number(value: &Value, key: &str) -> Option<String> {
-    value.get(key).and_then(|item| {
-        item.as_str()
-            .map(ToOwned::to_owned)
-            .or_else(|| item.as_u64().map(|number| number.to_string()))
-    })
 }

@@ -110,6 +110,7 @@ mod tests {
             product_type: "catalina".into(),
             enabled: None,
             status: None,
+            online: None,
             battery_state: None,
             battery_voltage: None,
             battery_level: None,

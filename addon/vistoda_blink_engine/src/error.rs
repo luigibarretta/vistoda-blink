@@ -10,8 +10,13 @@ use crate::blink_client::BlinkError;
 
 #[derive(Debug, Error)]
 pub enum EngineError {
+    /// The local bridge bearer token is missing or wrong (HTTP 401).
     #[error("authentication required")]
     Unauthorized,
+    /// Blink revoked the stored authorization and a refresh cannot fix it:
+    /// the user must sign in again (HTTP 403, machine-readable body).
+    #[error("reauth_required")]
+    ReauthRequired,
     #[error("invalid camera alias")]
     InvalidAlias,
     #[error("camera publisher already active")]
@@ -71,6 +76,7 @@ impl IntoResponse for EngineError {
     fn into_response(self) -> Response {
         let status = match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::ReauthRequired => StatusCode::FORBIDDEN,
             Self::InvalidAlias
             | Self::InvalidSetting
             | Self::InvalidStorageOperation
@@ -108,7 +114,7 @@ impl IntoResponse for EngineError {
 impl From<BlinkError> for EngineError {
     fn from(error: BlinkError) -> Self {
         match error {
-            BlinkError::Authentication => Self::Unauthorized,
+            BlinkError::Authentication => Self::ReauthRequired,
             BlinkError::NotEnrolled => Self::NotEnrolled,
             BlinkError::CameraNotFound => Self::CameraNotFound,
             BlinkError::NetworkNotFound => Self::NetworkNotFound,
@@ -128,6 +134,22 @@ mod tests {
     use axum::response::IntoResponse;
 
     use super::EngineError;
+    use crate::blink_client::BlinkError;
+
+    #[tokio::test]
+    async fn blink_and_bridge_authentication_failures_are_distinct() {
+        let bridge = EngineError::Unauthorized.into_response();
+        assert_eq!(bridge.status(), axum::http::StatusCode::UNAUTHORIZED);
+        let blink = EngineError::from(BlinkError::Authentication).into_response();
+        assert_eq!(blink.status(), axum::http::StatusCode::FORBIDDEN);
+        let body = axum::body::to_bytes(blink.into_body(), 1024).await;
+        assert_eq!(
+            body.ok().as_deref(),
+            Some(br#"{"error":"reauth_required"}"#.as_slice())
+        );
+        let cloud = EngineError::from(BlinkError::InvalidResponse).into_response();
+        assert_eq!(cloud.status(), axum::http::StatusCode::BAD_GATEWAY);
+    }
 
     #[test]
     fn legacy_webrtc_precondition_has_a_dedicated_status() {

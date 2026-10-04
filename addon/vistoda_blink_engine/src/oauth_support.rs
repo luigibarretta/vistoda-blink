@@ -44,9 +44,35 @@ pub fn extract_csrf(html: &str) -> Option<String> {
     value.get("csrf-token")?.as_str().map(ToOwned::to_owned)
 }
 
+/// True when Blink's token endpoint has permanently rejected the refresh
+/// grant: HTTP 401, or the OAuth 2.0 `invalid_grant` error on HTTP 400.
+/// Transport failures, rate limits and 5xx stay retryable, so a network
+/// outage never forces the user through a new sign-in.
+pub fn refresh_revoked(status: u16, body: &[u8]) -> bool {
+    match status {
+        401 => true,
+        400 => serde_json::from_slice::<serde_json::Value>(body)
+            .ok()
+            .and_then(|value| value.get("error")?.as_str().map(ToOwned::to_owned))
+            .is_some_and(|error| error == "invalid_grant"),
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::extract_csrf;
+    use super::{extract_csrf, refresh_revoked};
+
+    #[test]
+    fn only_a_rejected_grant_requires_a_new_sign_in() {
+        assert!(refresh_revoked(401, b""));
+        assert!(refresh_revoked(400, br#"{"error":"invalid_grant"}"#));
+        assert!(!refresh_revoked(400, br#"{"error":"invalid_request"}"#));
+        assert!(!refresh_revoked(400, b"<html>"));
+        assert!(!refresh_revoked(403, br#"{"error":"invalid_grant"}"#));
+        assert!(!refresh_revoked(429, b""));
+        assert!(!refresh_revoked(503, b""));
+    }
 
     #[test]
     fn extracts_only_json_from_oauth_script() {

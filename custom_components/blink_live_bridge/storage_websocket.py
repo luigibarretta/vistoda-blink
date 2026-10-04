@@ -14,6 +14,7 @@ from .runtime import BridgeRuntime
 from .storage_command_websocket import (
     STORAGE_COMMAND_TIMEOUT,
     command_error_code,
+    refresh_storage_entities,
     ws_local_storage_command,
     ws_local_storage_status,
 )
@@ -169,3 +170,4 @@ async def ws_format_local_storage(
         )
         return
     connection.send_result(msg["id"], {})
+    await refresh_storage_entities(runtime)
