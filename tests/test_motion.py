@@ -27,7 +27,7 @@ def test_motion_sensor_follows_the_fast_cached_motion_state() -> None:
     assert "timedelta(seconds=15)" in motion and 'get_json("/v1/motion")' in motion
     assert "error.status == 404" in motion, "older providers keep the clip-based state"
     assert "self.runtime.motion.async_add_listener" in sensor
-    assert '"last_motion_at", "event_type", "has_media"' in sensor
+    assert '"last_motion_at", "event_type", "has_media", "event_id"' in sensor
     # Entity identity is unchanged: the motion sensor keeps its key and name.
     assert 'Description("motion_detected", "Movimento"' in sensor
 
@@ -54,3 +54,16 @@ def test_motion_recordings_are_bounded_and_never_evict_manual_ones() -> None:
     assert "enabled: false" in settings, "motion recording is opt-in"
     routes = read(ENGINE / "api_motion.rs")
     assert '"/v1/motion"' in routes and '"/v1/motion/recording"' in routes
+
+
+def test_motion_thumbnail_is_a_blink_hosted_still_behind_ha_auth() -> None:
+    http = read(COMPONENT / "http.py")
+    view = http[http.index("class MotionThumbnailView") : http.index("class LiveView")]
+    # Companion apps fetch notification images with the user's HA session.
+    assert "requires_auth = True" in view and "require_bridge_auth" not in view
+    assert "{event_id:[0-9]{{1,20}}}" in view and "MotionThumbnailView," in http
+    sensor = read(COMPONENT / "binary_sensor.py")
+    assert 'motion.get("thumbnail_available")' in sensor
+    media = read(ENGINE / "blink_media_v4.rs")
+    assert 'BLINK_HOST_SUFFIX: &str = ".immedia-semi.com"' in media
+    assert '"/v1/motion/events/{id}/thumbnail.jpg"' in read(ENGINE / "api_motion.rs")

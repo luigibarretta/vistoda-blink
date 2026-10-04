@@ -19,6 +19,7 @@ const LOOKBACK: time::Duration = time::Duration::minutes(15);
 /// A camera reports motion for this long after its latest event.
 const MOTION_WINDOW: time::Duration = time::Duration::seconds(90);
 const SEEN_LIMIT: usize = 1_024;
+const THUMBNAIL_LIMIT: usize = 256;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct PollerStatus {
@@ -30,6 +31,7 @@ pub struct PollerStatus {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct CameraMotion {
+    pub event_id: String,
     pub last_motion_at: String,
     pub event_type: Option<String>,
     pub has_media: bool,
@@ -48,6 +50,9 @@ struct Inner {
     warmed: bool,
     /// Latest event per Blink camera ID (or name when the ID is missing).
     cameras: HashMap<String, CameraMotion>,
+    /// Thumbnail path per recent event; Blink may add it after the event.
+    thumbnails: HashMap<String, String>,
+    thumbnail_order: VecDeque<String>,
 }
 
 impl MotionTracker {
@@ -68,6 +73,11 @@ impl MotionTracker {
         Some((motion, active))
     }
 
+    /// Thumbnail path of a recent event, when Blink published one.
+    pub async fn thumbnail(&self, event_id: &str) -> Option<String> {
+        self.inner.read().await.thumbnails.get(event_id).cloned()
+    }
+
     /// Record events; returns only those first seen after the warm-up poll.
     async fn absorb(&self, events: Vec<MotionEvent>) -> Vec<MotionEvent> {
         let mut inner = self.inner.write().await;
@@ -75,6 +85,19 @@ impl MotionTracker {
         inner.warmed = true;
         let mut fresh = Vec::new();
         for event in events {
+            if let Some(thumbnail) = &event.thumbnail
+                && inner
+                    .thumbnails
+                    .insert(event.id.clone(), thumbnail.clone())
+                    .is_none()
+            {
+                inner.thumbnail_order.push_back(event.id.clone());
+                while inner.thumbnail_order.len() > THUMBNAIL_LIMIT {
+                    if let Some(old) = inner.thumbnail_order.pop_front() {
+                        inner.thumbnails.remove(&old);
+                    }
+                }
+            }
             if !inner.seen.insert(event.id.clone()) {
                 continue;
             }
@@ -96,6 +119,7 @@ impl MotionTracker {
                 inner.cameras.insert(
                     key,
                     CameraMotion {
+                        event_id: event.id.clone(),
                         last_motion_at: event.created_at.clone(),
                         event_type: event.event_type.clone(),
                         has_media: event.has_media,

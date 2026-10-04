@@ -17,7 +17,28 @@ fn event(id: &str, device: &str, seconds_ago: i64) -> MotionEvent {
         event_type: Some("pir".into()),
         has_media: false,
         no_media_reason: Some("no_subscription".into()),
+        thumbnail: None,
     }
+}
+
+#[tokio::test]
+async fn a_thumbnail_published_after_the_event_is_still_recorded() -> TestResult {
+    let tracker = MotionTracker::default();
+    tracker.absorb(vec![event("7", "11", 5)]).await;
+    assert!(tracker.thumbnail("7").await.is_none());
+    let mut later = event("7", "11", 5);
+    later.thumbnail = Some("/api/v2/thumb/7".into());
+    tracker.absorb(vec![later]).await;
+    assert_eq!(
+        tracker.thumbnail("7").await.as_deref(),
+        Some("/api/v2/thumb/7")
+    );
+    let (motion, _) = tracker
+        .camera("11", "Camera 11")
+        .await
+        .ok_or("camera state")?;
+    assert_eq!(motion.event_id, "7");
+    Ok(())
 }
 
 #[tokio::test]

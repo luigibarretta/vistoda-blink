@@ -36,6 +36,14 @@ drive works. Users asked for motion clips without a USB drive.
 - The HA-owned hourly NFS backup also copies HA-local recordings, so motion
   clips reach the NAS without a USB drive.
 
+- Events can carry Blink's `thumbnail` (the still behind the official app's
+  rich notification), sometimes only in a later poll. The engine keeps the
+  thumbnail path of the latest 256 events, accepting only relative Blink paths
+  or HTTPS URLs on `*.immedia-semi.com`, and serves it at
+  `/v1/motion/events/{id}/thumbnail.jpg`. The adapter re-serves it to
+  authenticated HA users, so Companion notifications can attach it, and the
+  motion sensor exposes the relative URL as its `thumbnail` attribute (0.21.0).
+
 ## Consequences
 
 - Motion latency is bounded by Blink publishing the event plus up to 30 s of

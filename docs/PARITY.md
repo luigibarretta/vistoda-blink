@@ -33,6 +33,7 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Privacy zones | official app | native v1 spans, maximum two | model tests + reversible live canary |
 | Sync Module USB clips | official app | paginated browse/copy + guarded delete/format, native per-state screens and 30 s status refresh | Android 59.1 routes; non-destructive live canaries only |
 | Motion events | official app push + clip list | native v4 event list every 30 s while armed, HA sensor every 15 s | ADR 0012; parser and poller tests |
+| Motion notification image | official app rich push (event thumbnail) | event thumbnail from the v4 list, served to HA users at `/api/blink_live_bridge/motion/{event}/thumbnail.jpg`; `thumbnail` sensor attribute | ADR 0012; parser, tracker and view tests |
 | Motion clips without USB | official app (needs USB or plan) | opt-in HA-local motion recording, rolling buffer, NFS backup by HA | ADR 0012; recorder and eviction tests |
 | USB safe eject/reconnect | official app | native `eject`/`mount`, HA administrator only | Android 59.1 routes; live eject→mount canary pending a healthy drive |
 | Save active live | official app | provider-managed save/discard; USB when Blink Local Storage routes it there | Android 59.1 Walnut session-command contract + bounded canary |

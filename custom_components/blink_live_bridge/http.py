@@ -54,6 +54,33 @@ class SnapshotView(BridgeView):
         return web.Response(body=image, content_type="image/jpeg")
 
 
+class MotionThumbnailView(HomeAssistantView):
+    """Blink's still for one motion event, for authenticated HA users.
+
+    Companion apps download notification images with the user's HA session,
+    so this view uses Home Assistant authentication instead of the bridge
+    token used by the consumer API.
+    """
+
+    requires_auth = True
+    url = f"{API_PREFIX}/motion/{{event_id:[0-9]{{1,20}}}}/thumbnail.jpg"
+    name = f"api:{DOMAIN}:motion_thumbnail"
+
+    async def get(self, request: web.Request, event_id: str) -> web.Response:
+        runtime: BridgeRuntime = request.app["hass"].data[DOMAIN]["runtime"]
+        try:
+            image = await runtime.client.bytes(f"/v1/motion/events/{event_id}/thumbnail.jpg")
+        except EngineError as error:
+            if error.status == 404:
+                raise web.HTTPNotFound(text="motion thumbnail unavailable") from error
+            raise web.HTTPServiceUnavailable(text="motion thumbnail unavailable") from error
+        return web.Response(
+            body=image,
+            content_type="image/jpeg",
+            headers={"Cache-Control": "private, max-age=3600"},
+        )
+
+
 class LiveView(BridgeView):
     url = f"{API_PREFIX}/v1/cameras/{{alias}}/{{stream_format:live\\.(?:ts|mpegts)}}"
     name = f"api:{DOMAIN}:live"
@@ -196,6 +223,7 @@ def register_views(hass: HomeAssistant) -> None:
         HealthView,
         CamerasView,
         SnapshotView,
+        MotionThumbnailView,
         LiveView,
         ProviderRecordingView,
         RecordingMediaView,

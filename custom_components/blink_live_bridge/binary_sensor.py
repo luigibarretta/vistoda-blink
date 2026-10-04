@@ -9,7 +9,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN
+from .const import API_PREFIX, DOMAIN
 from .entity import BlinkCameraEntity
 from .runtime import BridgeRuntime
 
@@ -78,7 +78,18 @@ class BlinkBinarySensor(BlinkCameraEntity, BinarySensorEntity):
     def extra_state_attributes(self) -> dict[str, Any] | None:
         if self.key == "motion_detected":
             motion = self._motion or {}
-            return {key: motion.get(key) for key in ("last_motion_at", "event_type", "has_media")}
+            attributes = {
+                key: motion.get(key)
+                for key in ("last_motion_at", "event_type", "has_media", "event_id")
+            }
+            # Relative HA URL: Companion notifications fetch it with the user's session.
+            event_id = motion.get("event_id")
+            attributes["thumbnail"] = (
+                f"{API_PREFIX}/motion/{event_id}/thumbnail.jpg"
+                if motion.get("thumbnail_available") and str(event_id or "").isdigit()
+                else None
+            )
+            return attributes
         if self.key != "temperature_out_of_range":
             return None
         return {

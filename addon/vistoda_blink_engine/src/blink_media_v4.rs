@@ -3,10 +3,18 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::blink_client::{BlinkClient, BlinkError};
+use bytes::Bytes;
+
+use crate::{
+    blink_client::{BlinkClient, BlinkError},
+    blink_http::absolute,
+};
 
 /// Bounded pages per poll; the native client stops when no key is returned.
 const MAX_PAGES: usize = 3;
+const THUMBNAIL_LIMIT: usize = 4 * 1024 * 1024;
+/// Event thumbnails are fetched only from Blink's own hosts.
+const BLINK_HOST_SUFFIX: &str = ".immedia-semi.com";
 
 /// One provider event, with or without video (`type == "event"`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -19,6 +27,9 @@ pub struct MotionEvent {
     pub event_type: Option<String>,
     pub has_media: bool,
     pub no_media_reason: Option<String>,
+    /// Blink's still for the event (the official app's rich notification).
+    #[serde(skip)]
+    pub thumbnail: Option<String>,
 }
 
 impl BlinkClient {
@@ -47,6 +58,49 @@ impl BlinkClient {
         }
         Ok(events)
     }
+
+    /// Download one event thumbnail recorded by [`parse_page`].
+    pub async fn event_thumbnail(&self, thumbnail: &str) -> Result<Bytes, BlinkError> {
+        let context = self.context().await?;
+        let mut url = if thumbnail.starts_with('/') {
+            absolute(&context.base_url, thumbnail)
+        } else {
+            thumbnail.to_owned()
+        };
+        if !url.contains('?') && !url.to_ascii_lowercase().ends_with(".jpg") {
+            url.push_str(".jpg");
+        }
+        // The download carries the Blink bearer token: re-check the final URL.
+        let url = blink_https_url(&url).ok_or(BlinkError::InvalidResponse)?;
+        self.download(&url, THUMBNAIL_LIMIT).await
+    }
+}
+
+/// A relative Blink path or an HTTPS URL on a Blink host; anything else is dropped.
+fn thumbnail_path(value: String) -> Option<String> {
+    if value.len() > 2_048
+        || value.contains(|ch: char| ch.is_whitespace() || ch == '\\' || ch == '#')
+    {
+        return None;
+    }
+    if value.starts_with('/') {
+        return (!value.starts_with("//")).then_some(value);
+    }
+    blink_https_url(&value)
+}
+
+/// Parse as the HTTP client does and accept only `https://*.immedia-semi.com`
+/// without credentials, port or fragment, so the token never leaves Blink.
+fn blink_https_url(value: &str) -> Option<String> {
+    let url = reqwest::Url::parse(value).ok()?;
+    let host = url.host_str()?;
+    (url.scheme() == "https"
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.port().is_none()
+        && url.fragment().is_none()
+        && host.ends_with(BLINK_HOST_SUFFIX))
+    .then(|| url.to_string())
 }
 
 /// Parse one page; unknown fields are ignored and missing fields stay optional.
@@ -80,6 +134,7 @@ fn parse_event(item: &Value) -> Option<MotionEvent> {
         event_type,
         has_media,
         no_media_reason: text(item, "no_media_reason").filter(|reason| reason != "none"),
+        thumbnail: text(item, "thumbnail").and_then(thumbnail_path),
     })
 }
 
@@ -132,5 +187,33 @@ mod tests {
         );
         assert!(events[1].has_media);
         assert_eq!(events[1].no_media_reason, None);
+    }
+
+    #[test]
+    fn keeps_only_blink_hosted_thumbnails() {
+        let (events, _) = parse_page(&json!({"media": [
+            {"id": 1, "created_at": "x", "thumbnail": "/api/v2/accounts/1/media/thumb/abc"},
+            {"id": 2, "created_at": "x", "thumbnail": "https://rest-e006.immedia-semi.com/t.jpg?ts=1"},
+            {"id": 3, "created_at": "x", "thumbnail": "https://evil.example/t.jpg"},
+            {"id": 4, "created_at": "x", "thumbnail": "//evil.example/t"},
+            {"id": 5, "created_at": "x", "thumbnail": "https://a@b.immedia-semi.com/x"},
+            {"id": 6, "created_at": "x", "thumbnail": "https://evil.com#.immedia-semi.com"},
+            {"id": 7, "created_at": "x", "thumbnail": "https://evil.com\\.immedia-semi.com/x"},
+            {"id": 8, "created_at": "x", "thumbnail": "https://169.254.169.254#.immedia-semi.com/"},
+            {"id": 9, "created_at": "x", "thumbnail": "https://b.immedia-semi.com:8443/x"},
+            {"id": 10, "created_at": "x", "thumbnail": "http://b.immedia-semi.com/x"},
+            {"id": 11, "created_at": "x", "thumbnail": "https://x.immedia-semi.com.evil.com/x"}
+        ]}));
+        let thumbnails: Vec<_> = events
+            .iter()
+            .map(|event| event.thumbnail.is_some())
+            .collect();
+        let mut expected = vec![false; 11];
+        expected[0] = true;
+        expected[1] = true;
+        assert_eq!(thumbnails, expected);
+        // Defence in depth on the final URL handed to the authenticated download.
+        assert!(super::blink_https_url("https://evil.com\\.immedia-semi.com/x").is_none());
+        assert!(super::blink_https_url("https://rest-e006.immedia-semi.com/t.jpg").is_some());
     }
 }
