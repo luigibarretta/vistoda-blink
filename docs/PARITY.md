@@ -34,8 +34,9 @@ the applicable rows pass a bounded live canary against the enrolled account.
 | Activity zones | official app | native v1 20×15 grid | model tests + reversible live canary |
 | Privacy zones | official app | native v1 spans, maximum two | model tests + reversible live canary |
 | Sync Module USB clips | official app | paginated browse/copy + guarded delete/format, native per-state screens and 30 s status refresh | Android 59.1 routes; non-destructive live canaries only |
-| Motion events | official app push + clip list | native v4 event list every 30 s while armed, HA sensor every 15 s | ADR 0012; parser and poller tests |
-| Motion notification image | official app rich push (event thumbnail) | event thumbnail from the v4 list, served to HA users at `/api/blink_live_bridge/motion/{event}/thumbnail.jpg`; `thumbnail` sensor attribute | ADR 0012; parser, tracker and view tests |
+| Motion events | official app push + clip list | native v4 event list every 15 s ± 3 s while armed (30 s for 30 min after Blink 429/403), pushed to the HA sensor by a `/v1/motion` long-poll | ADR 0012, ADR 0015; parser, poller-cadence and long-poll tests |
+| Motion notification image | official app rich push (event thumbnail) | event thumbnail from the v4 list, else a JPEG still from the HA-local motion recording, served to HA users at `/api/blink_live_bridge/motion/{event}/thumbnail.jpg`; `thumbnail` sensor attribute | ADR 0012, ADR 0015; parser, tracker, still-extraction and route tests |
+| Arm/disarm schedules | official app programs | `Programma: <name>` config switches (enable/disable with read-back) and a local-time schedule summary; no create/edit/delete | ADR 0014; synthetic Android 59.1 fixtures and schedule tests |
 | Motion clips without USB | official app (needs USB or plan) | opt-in HA-local motion recording, rolling buffer, NFS backup by HA | ADR 0012; recorder and eviction tests |
 | USB safe eject/reconnect | official app | native `eject`/`mount`, HA administrator only | Android 59.1 routes; live eject→mount canary pending a healthy drive |
 | Save active live | official app | provider-managed save/discard; USB when Blink Local Storage routes it there | Android 59.1 Walnut session-command contract + bounded canary |

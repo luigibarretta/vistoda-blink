@@ -20,6 +20,9 @@ pub struct ProviderState {
     pub networks: Vec<NetworkState>,
     pub cameras: Vec<CameraState>,
     pub clips: Vec<MediaClip>,
+    /// Arm/disarm schedules, refreshed at most every 10 minutes (ADR 0014).
+    #[serde(default)]
+    pub programs: Vec<crate::blink_programs::Program>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

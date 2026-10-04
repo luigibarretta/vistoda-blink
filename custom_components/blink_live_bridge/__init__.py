@@ -76,6 +76,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     motion = BlinkMotionCoordinator(hass, client)
     await motion.async_refresh()
+    # Cancelled with the entry; it ends at once on providers without long-poll.
+    entry.async_create_background_task(hass, motion.async_long_poll(), f"{DOMAIN}_motion_long_poll")
     # USB health polls only while a Sync Module exists (entities subscribe).
     storage = None
     if any(network.get("has_sync_module") for network in coordinator.data.get("networks", [])):

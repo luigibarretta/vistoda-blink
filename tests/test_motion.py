@@ -34,13 +34,17 @@ def test_motion_sensor_follows_the_fast_cached_motion_state() -> None:
 
 def test_engine_reads_native_v4_events_and_never_loops_on_live_views() -> None:
     media = read(ENGINE / "blink_media_v4.rs")
-    poller = read(ENGINE / "motion.rs")
+    poller = read(ENGINE / "motion_poller.rs")
     assert "/api/v4/accounts/{}/media?start_time=" in media
     assert "Some(json!({}))" in media and "MAX_PAGES" in media
     assert '"liveview" | "snapshot"' in media
     assert 'text(item, "type").as_deref() != Some("event")' in media
-    assert "Duration::from_secs(30)" in poller and "Duration::from_secs(900)" in poller
-    assert "warmed" in poller, "the first poll must not record backlog events"
+    # ADR 0015: 15 s +/- 3 s while armed, never below 12 s, 30 s after a rate limit.
+    assert "FAST_ARMED_MS: u64 = 15_000" in poller and "JITTER_MS: i64 = 3_000" in poller
+    assert "MIN_ARMED_MS: u64 = 12_000" in poller
+    assert "CONSERVATIVE_ARMED: Duration = Duration::from_secs(30)" in poller
+    assert "Duration::from_secs(900)" in poller and "error.is_rate_limited()" in poller
+    assert "warmed" in read(ENGINE / "motion.rs"), "the first poll must not record backlog events"
 
 
 def test_motion_recordings_are_bounded_and_never_evict_manual_ones() -> None:

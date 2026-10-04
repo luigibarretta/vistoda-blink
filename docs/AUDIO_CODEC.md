@@ -50,6 +50,13 @@ The selected build includes PCM16/AAC conversion and MPEG-TS/MP4 remux support.
 The released microphone endpoint uses only PCM-to-AAC encoding: it does not
 remux or replace Home Assistant's existing video player.
 
+Version 0.23.0 adds H.264 decoding, `scale`/`format` (libswscale) and the
+MJPEG encoder/muxer to the same LGPL build, for the local motion still of
+ADR 0015: MPEG-TS of an already running motion recording enters on `pipe:0`,
+keyframes only are decoded, one full-range JPEG of at most 1280×720 leaves on
+`pipe:1`. Input (8 MiB), output (1 MiB), time (30 s) and concurrency (two
+processes) are bounded; no file, device or network path is involved.
+
 FFmpeg 9.0.1 is built from the unmodified release archive:
 
 - Source: <https://ffmpeg.org/releases/ffmpeg-9.0.1.tar.xz>

@@ -1,21 +1,19 @@
-//! Lightweight motion poller over the native v4 event list (ADR 0012).
+//! Cached motion state fed by the v4 event poller (ADR 0012, ADR 0015).
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
 
 use serde::Serialize;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 
-use crate::{blink_client::BlinkError, blink_media_v4::MotionEvent, hub::EngineState};
+use crate::{blink_media_v4::MotionEvent, hub::EngineState, motion_still::StillStore};
 
-const ARMED_INTERVAL: Duration = Duration::from_secs(30);
-const DISARMED_INTERVAL: Duration = Duration::from_secs(300);
-const MAX_BACKOFF: Duration = Duration::from_secs(900);
-/// Look back far enough to cover a slow Blink publication of the event.
-const LOOKBACK: time::Duration = time::Duration::minutes(15);
+/// Upper bound of one `/v1/motion` long-poll.
+pub const MAX_WAIT: Duration = Duration::from_secs(30);
 /// A camera reports motion for this long after its latest event.
 const MOTION_WINDOW: time::Duration = time::Duration::seconds(90);
 const SEEN_LIMIT: usize = 1_024;
@@ -24,7 +22,13 @@ const THUMBNAIL_LIMIT: usize = 256;
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct PollerStatus {
     pub state: &'static str,
+    /// Effective wait before the next Blink poll, jitter included.
     pub interval_seconds: u64,
+    /// `fast` (15 s while armed), `conservative` (30 s after a rate limit),
+    /// `idle` (disarmed) or `backoff`.
+    pub mode: &'static str,
+    /// Conservative polling lasts until this time after Blink HTTP 429/403.
+    pub rate_limited_until: Option<String>,
     pub last_error: Option<String>,
     pub updated_at: Option<String>,
 }
@@ -40,6 +44,10 @@ pub struct CameraMotion {
 #[derive(Default)]
 pub struct MotionTracker {
     inner: RwLock<Inner>,
+    /// Bumped whenever a camera's latest event or still changes.
+    sequence: AtomicU64,
+    changed: Notify,
+    pub(crate) stills: StillStore,
 }
 
 #[derive(Default)]
@@ -73,17 +81,38 @@ impl MotionTracker {
         Some((motion, active))
     }
 
+    pub fn sequence(&self) -> u64 {
+        self.sequence.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn mark_changed(&self) {
+        self.sequence.fetch_add(1, Ordering::AcqRel);
+        self.changed.notify_waiters();
+    }
+
+    /// Long-poll: return once the sequence differs from `since` or `wait` ends.
+    pub async fn wait_for_change(&self, since: u64, wait: Duration) {
+        let notified = self.changed.notified();
+        tokio::pin!(notified);
+        notified.as_mut().enable();
+        if self.sequence() != since {
+            return;
+        }
+        let _ = tokio::time::timeout(wait.min(MAX_WAIT), notified).await;
+    }
+
     /// Thumbnail path of a recent event, when Blink published one.
     pub async fn thumbnail(&self, event_id: &str) -> Option<String> {
         self.inner.read().await.thumbnails.get(event_id).cloned()
     }
 
     /// Record events; returns only those first seen after the warm-up poll.
-    async fn absorb(&self, events: Vec<MotionEvent>) -> Vec<MotionEvent> {
+    pub(crate) async fn absorb(&self, events: Vec<MotionEvent>) -> Vec<MotionEvent> {
         let mut inner = self.inner.write().await;
         let warmed = inner.warmed;
         inner.warmed = true;
         let mut fresh = Vec::new();
+        let mut changed = false;
         for event in events {
             if let Some(thumbnail) = &event.thumbnail
                 && inner
@@ -91,6 +120,7 @@ impl MotionTracker {
                     .insert(event.id.clone(), thumbnail.clone())
                     .is_none()
             {
+                changed = true;
                 inner.thumbnail_order.push_back(event.id.clone());
                 while inner.thumbnail_order.len() > THUMBNAIL_LIMIT {
                     if let Some(old) = inner.thumbnail_order.pop_front() {
@@ -116,6 +146,7 @@ impl MotionTracker {
                 .get(&key)
                 .is_none_or(|current| current.last_motion_at < event.created_at);
             if newer {
+                changed = true;
                 inner.cameras.insert(
                     key,
                     CameraMotion {
@@ -130,70 +161,18 @@ impl MotionTracker {
                 fresh.push(event);
             }
         }
+        drop(inner);
+        if changed {
+            self.mark_changed();
+        }
         fresh
     }
 
-    async fn set_status(&self, state: &'static str, interval: Duration, error: Option<String>) {
+    pub(crate) async fn set_status(&self, status: PollerStatus) {
         self.inner.write().await.status = PollerStatus {
-            state,
-            interval_seconds: interval.as_secs(),
-            last_error: error,
             updated_at: OffsetDateTime::now_utc().format(&Rfc3339).ok(),
+            ..status
         };
-    }
-}
-
-/// Run forever: poll while enrolled, faster while any network is armed.
-pub async fn run(engine: EngineState) {
-    let mut backoff = ARMED_INTERVAL;
-    loop {
-        let armed = engine
-            .client()
-            .state()
-            .await
-            .networks
-            .iter()
-            .any(|network| network.armed == Some(true));
-        let interval = if armed {
-            ARMED_INTERVAL
-        } else {
-            DISARMED_INTERVAL
-        };
-        let since = (OffsetDateTime::now_utc() - LOOKBACK)
-            .format(&Rfc3339)
-            .unwrap_or_default();
-        let wait = match engine.client().motion_events(&since).await {
-            Ok(events) => {
-                backoff = ARMED_INTERVAL;
-                let fresh = engine.motion().absorb(events).await;
-                let state = if armed { "active" } else { "idle" };
-                engine.motion().set_status(state, interval, None).await;
-                crate::motion_recorder::handle(&engine, fresh).await;
-                interval
-            }
-            Err(BlinkError::NotEnrolled) => {
-                engine
-                    .motion()
-                    .set_status("disabled", DISARMED_INTERVAL, None)
-                    .await;
-                DISARMED_INTERVAL
-            }
-            Err(error) => {
-                let state = if matches!(error, BlinkError::Authentication) {
-                    "unauthorized"
-                } else {
-                    "backoff"
-                };
-                backoff = (backoff * 2).min(MAX_BACKOFF);
-                tracing::warn!(%error, seconds = backoff.as_secs(), "Blink motion poll failed");
-                engine
-                    .motion()
-                    .set_status(state, backoff, Some(error.to_string()))
-                    .await;
-                backoff
-            }
-        };
-        tokio::time::sleep(wait).await;
     }
 }
 

@@ -1,14 +1,15 @@
-"""Standalone Blink motion detection switches."""
+"""Standalone Blink motion detection and program switches."""
 
 from typing import Any
 
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
 from .entity import BlinkCameraEntity
+from .program import program_switches
 from .runtime import BridgeRuntime
 
 
@@ -19,6 +20,16 @@ async def async_setup_entry(
 ) -> None:
     runtime: BridgeRuntime = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(BlinkMotionSwitch(runtime, camera) for camera in runtime.cameras)
+    known: set[str] = set()
+
+    @callback
+    def add_programs() -> None:
+        # Programs arrive with the state refresh; new ones appear without a reload.
+        if entities := program_switches(runtime, known):
+            async_add_entities(entities)
+
+    add_programs()
+    entry.async_on_unload(runtime.coordinator.async_add_listener(add_programs))
 
 
 class BlinkMotionSwitch(BlinkCameraEntity, SwitchEntity):

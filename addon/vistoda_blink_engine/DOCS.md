@@ -25,3 +25,11 @@ Named camera-settings backups live in Home Assistant storage, not in this app's
 credential file. Restore still uses this app's typed setting endpoint and
 optimistic provider revisions; it never copies OAuth material into a settings
 backup.
+
+Blink arm/disarm programs keep running on Blink's servers after the official
+app is removed. The app reads them every 10 minutes and Home Assistant shows
+one "Programma: …" switch per program to enable or disable it (ADR 0014).
+While a network is armed, motion events are read every 15 seconds (30 seconds
+for half an hour after a Blink rate limit). With motion recording enabled, a
+JPEG still from the recording backs notifications when Blink sends no event
+image (ADR 0015).

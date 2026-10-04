@@ -131,11 +131,11 @@ fn log_failure(status: StatusCode, path: &str) {
     if status.is_success() {
         return;
     }
-    if status == StatusCode::NOT_FOUND && is_optional_sync_module(path) {
+    if status == StatusCode::NOT_FOUND && (is_optional_sync_module(path) || is_programs(path)) {
         debug!(
             endpoint = endpoint_class(path),
             status = status.as_u16(),
-            "Blink account has no optional Sync Module endpoint"
+            "Blink account has no optional Sync Module or program endpoint"
         );
         return;
     }
@@ -163,9 +163,15 @@ fn endpoint_class(path: &str) -> &'static str {
         "camera_signals"
     } else if is_optional_sync_module(path) {
         "sync_module"
+    } else if is_programs(path) {
+        "programs"
     } else {
         "provider"
     }
+}
+
+fn is_programs(path: &str) -> bool {
+    path.contains("/programs")
 }
 
 fn is_optional_sync_module(path: &str) -> bool {

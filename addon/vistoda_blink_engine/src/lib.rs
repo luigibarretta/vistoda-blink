@@ -1,6 +1,7 @@
 mod alias_store;
 pub mod api;
 mod api_motion;
+mod api_programs;
 mod api_recordings;
 mod api_settings;
 mod api_storage;
@@ -20,6 +21,8 @@ mod blink_media_v4;
 pub mod blink_model;
 mod blink_network_parse;
 mod blink_parse;
+mod blink_program_sync;
+pub mod blink_programs;
 mod blink_refresh;
 mod blink_setting_advanced;
 mod blink_setting_fields;
@@ -56,8 +59,10 @@ mod live_audio;
 #[cfg(test)]
 mod live_tests;
 pub mod motion;
+pub mod motion_poller;
 mod motion_recorder;
 mod motion_settings;
+mod motion_still;
 pub mod oauth;
 mod oauth_support;
 mod pagination;

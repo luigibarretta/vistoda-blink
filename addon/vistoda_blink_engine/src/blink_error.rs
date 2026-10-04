@@ -20,6 +20,8 @@ pub enum BlinkError {
     CameraNotFound,
     #[error("Blink network does not exist")]
     NetworkNotFound,
+    #[error("Blink program does not exist")]
+    ProgramNotFound,
     #[error("Blink command timed out")]
     CommandTimeout,
     #[error("Blink rejected the command")]
@@ -39,6 +41,14 @@ pub enum BlinkError {
 }
 
 impl BlinkError {
+    /// Blink answers HTTP 429, or 403 outside the OAuth refresh, when a client
+    /// polls too often (ADR 0015).
+    pub(crate) fn is_rate_limited(&self) -> bool {
+        matches!(self, Self::Transport(error) if error.status().is_some_and(|status| {
+            status == reqwest::StatusCode::TOO_MANY_REQUESTS || status == reqwest::StatusCode::FORBIDDEN
+        }))
+    }
+
     /// Only a rejected refresh grant needs a new sign-in; transport failures
     /// and unexpected token-endpoint answers stay retryable cloud errors.
     pub(crate) fn from_refresh(error: OAuthError) -> Self {

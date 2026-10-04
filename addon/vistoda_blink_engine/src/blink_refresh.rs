@@ -42,16 +42,24 @@ impl BlinkClient {
             &clips,
         );
         self.inner.aliases.reconcile(&mut cameras).await?;
-        *self.inner.state.write().await = ProviderState {
+        let networks = blink_model::networks(&network_catalog, &home, &network_updates);
+        let fresh_programs = self.refreshed_programs(&context, &networks).await;
+        let mut state = self.inner.state.write().await;
+        // Read the cache under the write lock so a concurrent toggle is kept.
+        let mut programs = fresh_programs.unwrap_or_else(|| state.programs.clone());
+        programs.retain(|program| networks.iter().any(|item| item.id == program.network_id));
+        *state = ProviderState {
             account_id: context.account_id,
             updated_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs(),
-            networks: blink_model::networks(&network_catalog, &home, &network_updates),
+            networks,
             cameras,
             clips,
+            programs,
         };
+        drop(state);
         Ok(())
     }
 

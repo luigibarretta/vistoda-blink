@@ -1,5 +1,6 @@
 #!/bin/sh
 # Original build recipe; FFmpeg sources are unmodified and shipped alongside it.
+# Audio codecs for talk/live, plus H.264 decode -> MJPEG for motion stills (ADR 0015).
 set -eu
 version=9.0.1
 archive="ffmpeg-${version}.tar.xz"
@@ -14,12 +15,12 @@ cd "ffmpeg-${version}"
 ./configure --disable-autodetect --disable-gpl --disable-nonfree \
     --disable-doc --disable-debug --disable-network --disable-x86asm \
     --disable-programs --enable-ffmpeg --disable-everything \
-    --disable-avdevice --disable-swscale --disable-iconv \
+    --disable-avdevice --disable-iconv \
     --enable-protocol=pipe --enable-demuxer=pcm_s16le,mpegts,aac \
-    --enable-decoder=pcm_s16le,aac --enable-encoder=aac,pcm_s16le \
-    --enable-parser=aac,h264 --enable-muxer=adts,pcm_s16le,mp4 \
+    --enable-decoder=pcm_s16le,aac,h264 --enable-encoder=aac,pcm_s16le,mjpeg \
+    --enable-parser=aac,h264 --enable-muxer=adts,pcm_s16le,mp4,mjpeg \
     --enable-bsf=aac_adtstoasc,extract_extradata \
-    --enable-filter=aresample,aformat,anull --enable-small
+    --enable-filter=aresample,aformat,anull,scale,format --enable-small
 make -j2 ffmpeg
 ./ffmpeg -L > /audio-output/sources/LICENSE-BUILD.txt 2>&1
 grep -q 'Lesser General Public License' /audio-output/sources/LICENSE-BUILD.txt

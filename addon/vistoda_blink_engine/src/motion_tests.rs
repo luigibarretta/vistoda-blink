@@ -98,3 +98,22 @@ async fn seen_ids_stay_bounded() {
     assert_eq!(inner.seen.len(), SEEN_LIMIT);
     assert_eq!(inner.order.len(), SEEN_LIMIT);
 }
+
+#[tokio::test]
+async fn new_events_and_late_thumbnails_bump_the_long_poll_sequence() {
+    let tracker = MotionTracker::default();
+    let start = tracker.sequence();
+    tracker.absorb(vec![event("20", "14", 5)]).await;
+    let after_event = tracker.sequence();
+    assert!(after_event > start);
+    tracker.absorb(vec![event("20", "14", 5)]).await;
+    assert_eq!(
+        tracker.sequence(),
+        after_event,
+        "a repeated poll changes nothing"
+    );
+    let mut later = event("20", "14", 5);
+    later.thumbnail = Some("/api/v2/thumb/20".into());
+    tracker.absorb(vec![later]).await;
+    assert!(tracker.sequence() > after_event);
+}

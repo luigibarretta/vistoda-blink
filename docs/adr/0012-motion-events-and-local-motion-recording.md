@@ -1,6 +1,6 @@
 # ADR 0012: Motion events and USB-free motion recording
 
-- Status: accepted
+- Status: accepted; polling cadence and thumbnails extended by ADR 0015
 - Date: 2026-10-04
 
 ## Context

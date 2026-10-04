@@ -1,6 +1,6 @@
 use std::{
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use reqwest::{
@@ -43,6 +43,8 @@ pub(crate) struct Inner {
     pub settings_lock: Mutex<()>,
     pub storage_lock: Mutex<()>,
     pub state: RwLock<ProviderState>,
+    /// Last program-list read; programs refresh slower than the state.
+    pub programs_read_at: Mutex<Option<Instant>>,
 }
 
 #[derive(Clone)]
@@ -65,6 +67,7 @@ impl BlinkClient {
                 settings_lock: Mutex::new(()),
                 storage_lock: Mutex::new(()),
                 state: RwLock::new(ProviderState::default()),
+                programs_read_at: Mutex::new(None),
             }),
         })
     }

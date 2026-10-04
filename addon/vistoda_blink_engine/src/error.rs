@@ -35,6 +35,8 @@ pub enum EngineError {
     WebRtcFeatureDisabled,
     #[error("Blink network was not found")]
     NetworkNotFound,
+    #[error("Blink program was not found")]
+    ProgramNotFound,
     #[error("Blink cloud request failed")]
     Cloud,
     #[error("enrollment request is invalid or expired")]
@@ -93,9 +95,10 @@ impl IntoResponse for EngineError {
             Self::WebRtcLegacyDevice | Self::WebRtcFeatureDisabled => {
                 StatusCode::PRECONDITION_FAILED
             }
-            Self::CameraNotFound | Self::NetworkNotFound | Self::RecordingNotFound => {
-                StatusCode::NOT_FOUND
-            }
+            Self::CameraNotFound
+            | Self::NetworkNotFound
+            | Self::ProgramNotFound
+            | Self::RecordingNotFound => StatusCode::NOT_FOUND,
             Self::Transport(_) | Self::Cloud | Self::SettingsVerification | Self::RecordingIo => {
                 StatusCode::BAD_GATEWAY
             }
@@ -118,6 +121,7 @@ impl From<BlinkError> for EngineError {
             BlinkError::NotEnrolled => Self::NotEnrolled,
             BlinkError::CameraNotFound => Self::CameraNotFound,
             BlinkError::NetworkNotFound => Self::NetworkNotFound,
+            BlinkError::ProgramNotFound => Self::ProgramNotFound,
             BlinkError::InvalidSetting | BlinkError::SettingsUnsupported => Self::InvalidSetting,
             BlinkError::SettingsConflict => Self::SettingsConflict,
             BlinkError::SettingsVerification => Self::SettingsVerification,

@@ -56,6 +56,11 @@ private API and Vistoda discovery contract during the product rename.
 - camera and Sync Module connectivity sensors, a 5-minute Sync Module USB
   health sensor with a problem flag, and a Blink re-login flow that is never
   triggered by a wrong local bridge token (ADR 0013);
+- Blink arm/disarm programs as "Programma: …" switches with a local-time
+  schedule summary, toggled with read-back verification (ADR 0014);
+- 15-second armed motion polling with rate-limit fallback, a `/v1/motion`
+  long-poll and a local JPEG still from the motion recording when Blink
+  publishes no event thumbnail (ADR 0015);
 - redacted, model-aware camera settings with optimistic concurrency,
   read-back verification and rollback attempts;
 - up to 25 named, all-camera settings backups in Home Assistant, matched by
@@ -90,7 +95,10 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `GET /v1/recordings/{id}/media` | immutable local MPEG-TS media |
 | `DELETE /v1/recordings/{id}` | remove a completed local recording |
 | `GET /v1/local-storage?page=&page_size=` | server-paginated Sync Module USB inventory, Sync Module metadata and provider-reported storage-used percentage |
-| `GET /v1/motion` | cached per-camera motion from the native v4 event list, no Blink call |
+| `GET /v1/motion?since=&wait=` | cached per-camera motion from the native v4 event list, no Blink call; optional long-poll (≤30 s) on the change `sequence` |
+| `GET /v1/motion/events/{id}/thumbnail.jpg` | Blink event still, else the local still of the motion recording |
+| `GET /v1/programs` | cached Blink arm/disarm programs (read every 10 minutes) |
+| `POST /v1/networks/{network}/programs/{program}/enabled` | enable/disable one program, verified by read-back |
 | `GET`/`PUT /v1/motion/recording` | opt-in motion recording settings (duration, cameras) |
 | `GET /v1/local-storage/status` | status-only refresh; never requests a new Sync Module manifest |
 | `GET /v1/local-storage/{network}/{sync}/{manifest}/{clip}/media` | one USB clip without mutation |

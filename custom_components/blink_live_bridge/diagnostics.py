@@ -35,6 +35,7 @@ async def async_get_config_entry_diagnostics(
             "networks": state.get("networks", []),
             "cameras": state.get("cameras", []),
             "clips": {"count": len(state.get("clips", []))},
+            "programs": {"count": len(state.get("programs", []))},
         },
         TO_REDACT,
     )

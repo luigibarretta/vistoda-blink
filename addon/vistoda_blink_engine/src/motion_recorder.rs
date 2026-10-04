@@ -36,11 +36,15 @@ pub async fn handle(engine: &EngineState, events: Vec<MotionEvent>) {
             .await;
         match result {
             Ok(_) => tracing::info!(camera = %camera.alias, "motion recording started"),
-            // One recorder per camera: a burst of events extends nothing.
+            // One recorder per camera: a burst of events extends nothing, but
+            // each event still gets a frame of the recording already running.
             Err(EngineError::RecordingActive) => {}
             Err(error) => {
                 tracing::warn!(camera = %camera.alias, %error, "motion recording not started");
+                continue;
             }
         }
+        // Fallback image for events without a Blink thumbnail (ADR 0015).
+        crate::motion_still::spawn(engine.clone(), camera.alias.clone(), event.id.clone());
     }
 }
