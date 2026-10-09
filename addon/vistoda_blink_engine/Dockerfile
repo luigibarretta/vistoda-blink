@@ -3,7 +3,7 @@ RUN apk add --no-cache build-base curl perl xz
 COPY build-audio-codec.sh /usr/local/bin/build-audio-codec
 RUN sh /usr/local/bin/build-audio-codec
 
-FROM rust:1.88-alpine3.22@sha256:9dfaae478ecd298b6b5a039e1f2cc4fc040fc818a2de9aa78fa714dea036574d AS builder
+FROM rust:1.99-alpine3.22@sha256:c3a5ad77ff2e5ec99fffaf62cb518e61a9dcbd9e1d7526d281a380db0be3bb3b AS builder
 
 RUN apk add --no-cache musl-dev
 WORKDIR /build
