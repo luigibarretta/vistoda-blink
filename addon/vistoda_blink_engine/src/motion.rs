@@ -48,6 +48,7 @@ pub struct MotionTracker {
     sequence: AtomicU64,
     changed: Notify,
     pub(crate) stills: StillStore,
+    poll_failures: AtomicU64,
 }
 
 #[derive(Default)]
@@ -166,6 +167,14 @@ impl MotionTracker {
             self.mark_changed();
         }
         fresh
+    }
+
+    pub(crate) fn record_poll_failure(&self) {
+        self.poll_failures.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn poll_failures(&self) -> u64 {
+        self.poll_failures.load(Ordering::Relaxed)
     }
 
     pub(crate) async fn set_status(&self, status: PollerStatus) {

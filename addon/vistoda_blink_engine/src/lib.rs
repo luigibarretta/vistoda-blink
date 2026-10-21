@@ -24,6 +24,8 @@ mod blink_parse;
 mod blink_program_sync;
 pub mod blink_programs;
 mod blink_refresh;
+mod blink_session;
+mod blink_session_health;
 mod blink_setting_advanced;
 mod blink_setting_fields;
 mod blink_setting_helpers;
@@ -35,6 +37,7 @@ mod blink_storage_filter;
 mod blink_storage_mutations;
 mod blink_storage_status;
 mod blink_temperature;
+mod blink_url;
 mod blink_webrtc;
 mod blink_webrtc_commands;
 mod blink_webrtc_events;
@@ -64,6 +67,8 @@ mod motion_recorder;
 mod motion_settings;
 mod motion_still;
 pub mod oauth;
+#[cfg(test)]
+mod oauth_fake;
 mod oauth_support;
 mod pagination;
 #[cfg(test)]

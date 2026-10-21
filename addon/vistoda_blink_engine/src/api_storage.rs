@@ -8,6 +8,7 @@ use axum::{
 
 use crate::{
     api::{authorize, media_response},
+    blink_client::BlinkError,
     blink_storage::LocalStorageInventory,
     blink_storage_mutations::StorageCommand,
     error::EngineError,
@@ -85,10 +86,12 @@ async fn run_command(
     command: StorageCommand,
 ) -> Result<axum::http::StatusCode, EngineError> {
     authorize(state, headers)?;
-    state
+    let result = state
         .client()
         .local_storage_command(network, sync, command)
-        .await?;
+        .await;
+    audit(command.name(), network, sync, None, &result);
+    result?;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
@@ -142,10 +145,12 @@ async fn delete_clip(
     Path((network, sync, manifest, clip)): Path<(u64, u64, u64, u64)>,
 ) -> Result<axum::http::StatusCode, EngineError> {
     authorize(&state, &headers)?;
-    state
+    let result = state
         .client()
         .delete_local_storage_clip(network, sync, manifest, clip)
-        .await?;
+        .await;
+    audit("delete", network, sync, Some((manifest, clip)), &result);
+    result?;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
@@ -159,8 +164,43 @@ async fn format_storage(
     if request.confirmation != format!("FORMATTA {network}/{sync}") {
         return Err(EngineError::InvalidStorageOperation);
     }
-    state.client().format_local_storage(network, sync).await?;
+    let result = state.client().format_local_storage(network, sync).await;
+    audit("format", network, sync, None, &result);
+    result?;
     Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+/// One structured record per USB mutation, kept in the app log so a later
+/// storage incident can be matched against what Vistoda actually sent.
+fn audit(
+    action: &'static str,
+    network: u64,
+    sync: u64,
+    clip: Option<(u64, u64)>,
+    result: &Result<(), BlinkError>,
+) {
+    let (manifest, clip) = clip.unzip();
+    match result {
+        Ok(()) => tracing::info!(
+            action,
+            network,
+            sync_module = sync,
+            manifest,
+            clip,
+            result = "ok",
+            "Blink USB storage mutation"
+        ),
+        Err(error) => tracing::info!(
+            action,
+            network,
+            sync_module = sync,
+            manifest,
+            clip,
+            result = "failed",
+            error = %error.redacted(),
+            "Blink USB storage mutation"
+        ),
+    }
 }
 
 #[cfg(test)]

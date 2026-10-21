@@ -36,7 +36,8 @@ impl BlinkClient {
                     return Err(error);
                 }
                 Err(error) => {
-                    tracing::warn!(%error, "Blink USB status unavailable for one Sync Module");
+                    tracing::warn!(error = %error.redacted(),
+                        "Blink USB status unavailable for one Sync Module");
                     failure = Some(error);
                     continue;
                 }

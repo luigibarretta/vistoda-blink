@@ -8,13 +8,12 @@ use bytes::Bytes;
 use crate::{
     blink_client::{BlinkClient, BlinkError},
     blink_http::absolute,
+    blink_url::blink_https_url,
 };
 
 /// Bounded pages per poll; the native client stops when no key is returned.
 const MAX_PAGES: usize = 3;
 const THUMBNAIL_LIMIT: usize = 4 * 1024 * 1024;
-/// Event thumbnails are fetched only from Blink's own hosts.
-const BLINK_HOST_SUFFIX: &str = ".immedia-semi.com";
 
 /// One provider event, with or without video (`type == "event"`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -87,20 +86,6 @@ fn thumbnail_path(value: String) -> Option<String> {
         return (!value.starts_with("//")).then_some(value);
     }
     blink_https_url(&value)
-}
-
-/// Parse as the HTTP client does and accept only `https://*.immedia-semi.com`
-/// without credentials, port or fragment, so the token never leaves Blink.
-fn blink_https_url(value: &str) -> Option<String> {
-    let url = reqwest::Url::parse(value).ok()?;
-    let host = url.host_str()?;
-    (url.scheme() == "https"
-        && url.username().is_empty()
-        && url.password().is_none()
-        && url.port().is_none()
-        && url.fragment().is_none()
-        && host.ends_with(BLINK_HOST_SUFFIX))
-    .then(|| url.to_string())
 }
 
 /// Parse one page; unknown fields are ignored and missing fields stay optional.
@@ -213,7 +198,11 @@ mod tests {
         expected[1] = true;
         assert_eq!(thumbnails, expected);
         // Defence in depth on the final URL handed to the authenticated download.
-        assert!(super::blink_https_url("https://evil.com\\.immedia-semi.com/x").is_none());
-        assert!(super::blink_https_url("https://rest-e006.immedia-semi.com/t.jpg").is_some());
+        assert!(
+            crate::blink_url::blink_https_url("https://evil.com\\.immedia-semi.com/x").is_none()
+        );
+        assert!(
+            crate::blink_url::blink_https_url("https://rest-e006.immedia-semi.com/t.jpg").is_some()
+        );
     }
 }

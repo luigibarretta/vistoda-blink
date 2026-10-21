@@ -1,6 +1,9 @@
 use std::{
-    sync::Arc,
-    time::{Duration, Instant, SystemTime},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 use reqwest::{
@@ -14,13 +17,15 @@ use crate::{
     alias_store::AliasStore,
     blink_api::{self, TierInfo},
     blink_model::ProviderState,
+    blink_session_health::{SessionHealth, SessionHealthSnapshot},
     credentials::{CredentialStore, ProviderCredentials},
-    oauth::{self, AccessToken, OAuthCompletion},
+    oauth::{AccessToken, Endpoints, OAuthCompletion},
 };
 
 pub use crate::blink_error::BlinkError;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const BLINK_APP_BUILD: &str = "ANDROID_29715642";
 const BLINK_USER_AGENT: &str = "Blink/57.1 (samsung SM-G998B; Android 14)";
 
@@ -40,6 +45,12 @@ pub(crate) struct Inner {
     pub store: CredentialStore,
     pub aliases: AliasStore,
     pub session: Mutex<Option<Session>>,
+    /// Serializes OAuth refreshes and credential-file writes (`blink_session`).
+    pub refresh_lock: Arc<Mutex<()>>,
+    /// Bumped whenever enrollment, import or startup replaces the session.
+    pub generation: AtomicU64,
+    pub health: SessionHealth,
+    pub oauth: Endpoints,
     pub settings_lock: Mutex<()>,
     pub storage_lock: Mutex<()>,
     pub state: RwLock<ProviderState>,
@@ -54,7 +65,16 @@ pub struct BlinkClient {
 
 impl BlinkClient {
     pub fn new(store: CredentialStore, aliases: AliasStore) -> Result<Self, BlinkError> {
+        Self::with_oauth(store, aliases, Endpoints::production())
+    }
+
+    pub(crate) fn with_oauth(
+        store: CredentialStore,
+        aliases: AliasStore,
+        oauth: Endpoints,
+    ) -> Result<Self, BlinkError> {
         let http = Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
             .default_headers(provider_headers())
             .build()?;
@@ -64,6 +84,10 @@ impl BlinkClient {
                 store,
                 aliases,
                 session: Mutex::new(None),
+                refresh_lock: Arc::new(Mutex::new(())),
+                generation: AtomicU64::new(0),
+                health: SessionHealth::default(),
+                oauth,
                 settings_lock: Mutex::new(()),
                 storage_lock: Mutex::new(()),
                 state: RwLock::new(ProviderState::default()),
@@ -76,10 +100,13 @@ impl BlinkClient {
         let Some(credentials) = self.inner.store.load().await? else {
             return Ok(false);
         };
-        *self.inner.session.lock().await = Some(Session {
+        let guard = self.credential_lock().await;
+        self.replace_session(Session {
             credentials,
             access: None,
-        });
+        })
+        .await;
+        drop(guard);
         self.refresh_state().await?;
         Ok(true)
     }
@@ -90,6 +117,8 @@ impl BlinkClient {
         username: Option<String>,
     ) -> Result<(), BlinkError> {
         let tier = self.tier_info(&completion.tokens.access_token).await?;
+        // The tier becomes a host name: reject anything but `[a-z0-9]+`.
+        blink_api::base_url(&tier.tier).ok_or(BlinkError::InvalidResponse)?;
         let credentials = ProviderCredentials {
             refresh_token: completion.tokens.refresh_token.clone(),
             hardware_id: completion.hardware_id,
@@ -98,29 +127,55 @@ impl BlinkClient {
             user_id: None,
             username,
         };
+        let guard = self.credential_lock().await;
         self.inner.store.save(&credentials).await?;
-        *self.inner.session.lock().await = Some(Session {
+        self.replace_session(Session {
             credentials,
             access: Some(AccessToken::from(&completion.tokens)),
-        });
+        })
+        .await;
+        self.inner.health.persisted();
+        drop(guard);
         self.refresh_state().await
     }
 
+    /// The refresh inside `context` rotates and saves the imported token; the
+    /// explicit write below makes a failed save visible to the importer. An
+    /// import Blink refuses restores the previous session.
     pub async fn import(&self, credentials: ProviderCredentials) -> Result<(), BlinkError> {
-        *self.inner.session.lock().await = Some(Session {
+        // Validate everything `context` needs before the refresh: a failure
+        // after Blink rotated the token would otherwise burn the import.
+        let region = credentials.region_id.as_deref().unwrap_or_default();
+        if blink_api::base_url(region).is_none()
+            || credentials.account_id.as_deref().is_none_or(str::is_empty)
+            || credentials.refresh_token.is_empty()
+            || credentials.hardware_id.is_empty()
+        {
+            return Err(BlinkError::InvalidResponse);
+        }
+        let guard = self.credential_lock().await;
+        let previous = self.inner.session.lock().await.take();
+        self.replace_session(Session {
             credentials,
             access: None,
-        });
-        drop(self.context().await?);
-        let credentials = {
-            let session = self.inner.session.lock().await;
-            session
-                .as_ref()
-                .ok_or(BlinkError::NotEnrolled)?
-                .credentials
-                .clone()
-        };
-        self.inner.store.save(&credentials).await?;
+        })
+        .await;
+        let generation = self.inner.generation.load(Ordering::SeqCst);
+        drop(guard);
+        if let Err(error) = self.context().await {
+            let _guard = self.credential_lock().await;
+            if self.inner.generation.load(Ordering::SeqCst) == generation {
+                if let Some(previous) = previous {
+                    self.replace_session(previous).await;
+                } else {
+                    *self.inner.session.lock().await = None;
+                }
+            }
+            return Err(error);
+        }
+        let guard = self.credential_lock().await;
+        self.persist_locked().await?;
+        drop(guard);
         self.refresh_state().await
     }
 
@@ -130,53 +185,8 @@ impl BlinkClient {
     pub async fn state(&self) -> ProviderState {
         self.inner.state.read().await.clone()
     }
-
-    pub(crate) async fn context(&self) -> Result<RequestContext, BlinkError> {
-        let mut guard = self.inner.session.lock().await;
-        let session = guard.as_mut().ok_or(BlinkError::NotEnrolled)?;
-        let refresh_needed = session.access.as_ref().is_none_or(|access| {
-            access
-                .expires_at
-                .duration_since(SystemTime::now())
-                .unwrap_or_default()
-                < Duration::from_secs(60)
-        });
-        if refresh_needed {
-            let tokens = oauth::refresh(
-                &session.credentials.refresh_token,
-                &session.credentials.hardware_id,
-            )
-            .await
-            .map_err(BlinkError::from_refresh)?;
-            session
-                .credentials
-                .refresh_token
-                .clone_from(&tokens.refresh_token);
-            session.access = Some(AccessToken::from(&tokens));
-            self.inner.store.save(&session.credentials).await?;
-        }
-        let result = RequestContext {
-            token: session
-                .access
-                .as_ref()
-                .ok_or(BlinkError::Authentication)?
-                .value
-                .clone(),
-            base_url: blink_api::base_url(
-                session
-                    .credentials
-                    .region_id
-                    .as_deref()
-                    .ok_or(BlinkError::InvalidResponse)?,
-            ),
-            account_id: session
-                .credentials
-                .account_id
-                .clone()
-                .ok_or(BlinkError::InvalidResponse)?,
-        };
-        drop(guard);
-        Ok(result)
+    pub fn session_health(&self) -> SessionHealthSnapshot {
+        self.inner.health.snapshot()
     }
 
     async fn tier_info(&self, token: &str) -> Result<TierInfo, BlinkError> {

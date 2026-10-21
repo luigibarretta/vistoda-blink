@@ -17,10 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Fetch the exact provider kit from the public source of truth
+        # dependencies/vistoda-provider-kit.sha is the single source of the pin.
         run: |
+          pin="$(tr -d '[:space:]' < dependencies/vistoda-provider-kit.sha)"
+          printf '%s' "${pin}" | grep -Eqx '[0-9a-f]{40}'
           git init .ci/vistoda-provider-kit
           git -C .ci/vistoda-provider-kit remote add origin https://github.com/luigibarretta/lib-vistoda-provider-kit.git
-          git -C .ci/vistoda-provider-kit fetch --depth=1 origin 46dfec1126eb7ab1067fea6dc9c98313b0842285
+          git -C .ci/vistoda-provider-kit fetch --depth=1 origin "${pin}"
           git -C .ci/vistoda-provider-kit checkout --detach FETCH_HEAD
       - name: Verify exact bootstrap dependency and lifecycle
         run: |
@@ -57,19 +60,23 @@ jobs:
       - run: python -m compileall -q custom_components tests scripts
       - run: python scripts/check_loc.py
       - run: python -m pytest
-      - uses: dtolnay/rust-toolchain@2eae45db285e407f22119950686d47e1101e071b # 1.88.0
+      # Same reachable mainline action commit as Gitea CI; version branches are rewritten upstream.
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
-          components: clippy, rustfmt
+          toolchain: "1.88.0"
+          components: clippy,rustfmt
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: addon/vistoda_blink_engine
       - run: cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
-      - run: cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --all-targets --all-features -- -D warnings
+      - run: cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --all-targets --all-features -- -D warnings
       - run: cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked
       - run: cargo build --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --release
       # Preserve the Rust 1.88 MSRV checks above while allowing audit-check to
       # compile the current cargo-audit release with its supported toolchain.
-      - uses: dtolnay/rust-toolchain@858a1ecb106d4516018578006590eb829de1f08e # 1.96.1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: "1.96.1"
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ github.token }}

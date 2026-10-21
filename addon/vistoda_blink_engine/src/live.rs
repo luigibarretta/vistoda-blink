@@ -11,6 +11,10 @@ use crate::{blink_client::BlinkClient, hub::PublisherGuard, tls::connector};
 const BATTERY_DEADLINE: Duration = Duration::from_secs(75);
 const POWERED_DEADLINE: Duration = Duration::from_secs(600);
 const CONNECT_RETRIES: usize = 30;
+/// One IMMI attempt (TCP connect plus TLS handshake) ends within this bound.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Consecutive keepalive poll errors tolerated before the poller gives up.
+const KEEPALIVE_ERRORS: u32 = 3;
 
 #[derive(Debug, Error)]
 pub enum LiveError {
@@ -60,13 +64,14 @@ async fn produce_inner(
     let command_id = descriptor.command_id;
     let polling_interval = Duration::from_secs_f64(descriptor.polling_interval.max(0.25));
     let poller = tokio::spawn(async move {
+        let mut errors = 0;
         loop {
             tokio::time::sleep(polling_interval).await;
-            if !poll_client
-                .live_active(&poll_camera, command_id)
-                .await
-                .unwrap_or(false)
-            {
+            let result = poll_client.live_active(&poll_camera, command_id).await;
+            if let Err(error) = &result {
+                tracing::debug!(error = %error.redacted(), "Blink live keepalive poll failed");
+            }
+            if keepalive_stops(result.ok(), &mut errors) {
                 break;
             }
         }
@@ -121,9 +126,13 @@ async fn receive_once(
     multi_client: Option<bool>,
 ) -> Result<bool, LiveError> {
     let target = Target::parse(server)?;
-    let tcp = TcpStream::connect((target.host.as_str(), target.port)).await?;
     let name = ServerName::try_from(target.host.clone()).map_err(|_| LiveError::Address)?;
-    let mut tls = connector().connect(name, tcp).await?;
+    let mut tls = tokio::time::timeout(CONNECT_TIMEOUT, async {
+        let tcp = TcpStream::connect((target.host.as_str(), target.port)).await?;
+        connector().connect(name, tcp).await
+    })
+    .await
+    .map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))??;
     tls.write_all(&auth_header(
         serial,
         target.client_id,
@@ -131,6 +140,17 @@ async fn receive_once(
     ))
     .await?;
     receive_stream(tls, publisher, multi_client).await
+}
+
+/// True when keepalive polling should stop: Blink reported the command done
+/// (`Some(false)`), or `KEEPALIVE_ERRORS` polls in a row failed (`None`).
+pub(crate) fn keepalive_stops(active: Option<bool>, errors: &mut u32) -> bool {
+    if let Some(active) = active {
+        *errors = 0;
+        return !active;
+    }
+    *errors = errors.saturating_add(1);
+    *errors >= KEEPALIVE_ERRORS
 }
 
 pub(crate) struct Target {

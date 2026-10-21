@@ -54,9 +54,34 @@ async fn provider_recording(
 ) -> Result<impl IntoResponse, EngineError> {
     authorize(&state, &headers)?;
     crate::api::validate_alias(&alias)?;
-    let mut status = state.request_provider_recording(&alias, input.save).await?;
-    let expected = if input.save { 1..=2 } else { 3..=3 };
-    let observed = tokio::time::timeout(std::time::Duration::from_secs(8), async {
+    let result = provider_recording_status(&state, &alias, input.save).await;
+    let error = result.as_ref().err().map(ToString::to_string);
+    // One structured record per live-save request and its provider outcome.
+    tracing::info!(
+        camera = %alias,
+        save = input.save,
+        result = if result.is_ok() { "ok" } else { "failed" },
+        status = result.as_ref().ok().copied(),
+        error = error.as_deref(),
+        "Blink live save request"
+    );
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": result?,
+            "destination": "provider_managed"
+        })),
+    ))
+}
+
+async fn provider_recording_status(
+    state: &EngineState,
+    alias: &str,
+    save: bool,
+) -> Result<u8, EngineError> {
+    let mut status = state.request_provider_recording(alias, save).await?;
+    let expected = if save { 1..=2 } else { 3..=3 };
+    tokio::time::timeout(std::time::Duration::from_secs(8), async {
         loop {
             if let Some(value) = status.borrow_and_update().provider_recording_status {
                 if expected.contains(&value) {
@@ -70,14 +95,7 @@ async fn provider_recording(
         }
     })
     .await
-    .map_err(|_| EngineError::ProviderRecordingUnavailable)??;
-    Ok((
-        StatusCode::OK,
-        Json(serde_json::json!({
-            "status": observed,
-            "destination": "provider_managed"
-        })),
-    ))
+    .map_err(|_| EngineError::ProviderRecordingUnavailable)?
 }
 
 #[derive(Default, Deserialize)]

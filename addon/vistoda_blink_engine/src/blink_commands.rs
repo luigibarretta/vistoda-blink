@@ -7,7 +7,6 @@ use tracing::warn;
 use crate::{
     blink_api::{self, CameraAction, LiveDescriptor},
     blink_client::{BlinkClient, BlinkError, RequestContext},
-    blink_http::absolute,
     blink_model::CameraState,
 };
 
@@ -104,9 +103,7 @@ impl BlinkClient {
             .iter()
             .find(|item| item.id == id)
             .ok_or(BlinkError::CameraNotFound)?;
-        let context = self.context().await?;
-        self.download(&absolute(&context.base_url, &clip.media_url), VIDEO_LIMIT)
-            .await
+        self.download(&clip.media_url, VIDEO_LIMIT).await
     }
 
     pub(crate) async fn camera(&self, alias: &str) -> Result<CameraState, BlinkError> {

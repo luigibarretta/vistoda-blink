@@ -98,13 +98,17 @@ impl BlinkClient {
         // account endpoint first.
         let user_id = canonical_ring_user_id(&account).ok_or(BlinkError::InvalidResponse)?;
         if stored_user_id.as_deref() != Some(user_id.as_str()) {
-            let credentials = {
+            // Under the credential lock, so a concurrent refresh cannot have
+            // its rotated token overwritten by this write.
+            let _guard = self.credential_lock().await;
+            {
                 let mut session = self.inner.session.lock().await;
                 let credentials = &mut session.as_mut().ok_or(BlinkError::NotEnrolled)?.credentials;
                 credentials.user_id = Some(user_id.clone());
-                credentials.clone()
-            };
-            self.inner.store.save(&credentials).await?;
+            }
+            // Memory already holds the new identity; a failed write is
+            // retried in the background and reported by `/healthz`.
+            let _ = self.persist_locked().await;
         }
         Ok(SignalingIdentity {
             token: context.token,

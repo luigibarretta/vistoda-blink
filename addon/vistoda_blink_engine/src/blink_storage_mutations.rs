@@ -14,6 +14,10 @@ pub enum StorageCommand {
 }
 
 impl StorageCommand {
+    pub const fn name(self) -> &'static str {
+        self.path()
+    }
+
     const fn path(self) -> &'static str {
         match self {
             Self::Format => "format",

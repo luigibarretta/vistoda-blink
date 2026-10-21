@@ -23,7 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match state.initialize().await {
         Ok(true) => tracing::info!("restored standalone Blink enrollment"),
         Ok(false) => tracing::info!("waiting for standalone Blink enrollment"),
-        Err(error) => tracing::warn!(%error, "could not restore Blink enrollment"),
+        Err(error) => {
+            tracing::warn!(error = %error.redacted(), "could not restore Blink enrollment")
+        }
     }
     // The motion poller tolerates a missing enrollment and starts reading once enrolled.
     tokio::spawn(vistoda_blink_engine::motion_poller::run(state.clone()));

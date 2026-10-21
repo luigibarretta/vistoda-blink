@@ -86,8 +86,8 @@ def test_addon_is_private_and_supervised() -> None:
     )
     runner = (ROOT / "addon/vistoda_blink_engine/rootfs/run.sh").read_text()
     bootstrap = (ROOT / "addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh").read_text()
-    assert "vistoda_publish_discovery" in runner
-    assert "vistoda_supervisor_app_info" in runner
+    assert "vistoda_publish_app_discovery blink_live_bridge 8099" in runner
+    assert "vistoda_app_hostname" in bootstrap
     assert "http://supervisor/discovery" in bootstrap
     assert "http://supervisor/addons/self/info" in bootstrap
     assert "workload-token" in runner

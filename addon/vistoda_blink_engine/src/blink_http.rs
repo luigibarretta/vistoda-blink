@@ -5,7 +5,10 @@ use reqwest::{Method, StatusCode};
 use serde_json::Value;
 use tracing::{debug, warn};
 
-use crate::blink_client::{BlinkClient, BlinkError, RequestContext};
+use crate::{
+    blink_client::{BlinkClient, BlinkError, RequestContext},
+    blink_url::media_url,
+};
 
 const MEDIA_TIMEOUT: Duration = Duration::from_secs(90);
 
@@ -34,9 +37,7 @@ impl BlinkClient {
     ) -> Result<(), BlinkError> {
         let response = self.send_json(Method::POST, context, path, None).await?;
         let response = if response.status() == StatusCode::UNAUTHORIZED {
-            if let Some(session) = self.inner.session.lock().await.as_mut() {
-                session.access = None;
-            }
+            self.invalidate_access(&context.token).await;
             let refreshed = self.context().await?;
             self.send_json(Method::POST, &refreshed, path, None).await?
         } else {
@@ -60,20 +61,18 @@ impl BlinkClient {
         let response = self
             .send_json(method.clone(), context, path, body.as_ref())
             .await?;
-        let response = if response.status() == StatusCode::UNAUTHORIZED {
-            if let Some(session) = self.inner.session.lock().await.as_mut() {
-                session.access = None;
-            }
+        let (response, used) = if response.status() == StatusCode::UNAUTHORIZED {
+            self.invalidate_access(&context.token).await;
             let refreshed = self.context().await?;
-            self.send_json(method, &refreshed, path, body.as_ref())
-                .await?
+            let response = self
+                .send_json(method, &refreshed, path, body.as_ref())
+                .await?;
+            (response, refreshed.token)
         } else {
-            response
+            (response, context.token.clone())
         };
         if response.status() == StatusCode::UNAUTHORIZED {
-            if let Some(session) = self.inner.session.lock().await.as_mut() {
-                session.access = None;
-            }
+            self.invalidate_access(&used).await;
             warn!(
                 endpoint = endpoint_class(path),
                 "Blink cloud rejected refreshed access"
@@ -82,6 +81,20 @@ impl BlinkClient {
         }
         log_failure(response.status(), path);
         Ok(response.error_for_status()?.json().await?)
+    }
+
+    /// Forget the access token that Blink just refused, unless a concurrent
+    /// caller already replaced it: a late 401 must not discard a fresh token.
+    async fn invalidate_access(&self, refused: &str) {
+        let mut session = self.inner.session.lock().await;
+        if let Some(session) = session.as_mut().filter(|session| {
+            session
+                .access
+                .as_ref()
+                .is_some_and(|access| access.value.as_str() == refused)
+        }) {
+            session.access = None;
+        }
     }
 
     async fn send_json(
@@ -102,12 +115,18 @@ impl BlinkClient {
         Ok(request.send().await?)
     }
 
+    /// Download Blink media. `url` is a tier-relative path or an absolute URL
+    /// from Blink JSON; the bearer token is only ever sent to Blink HTTPS hosts.
     pub(crate) async fn download(&self, url: &str, limit: usize) -> Result<Bytes, BlinkError> {
         let context = self.context().await?;
+        let Some(url) = media_url(&context.base_url, url) else {
+            warn!("Blink media URL is not an HTTPS Blink host; download refused");
+            return Err(BlinkError::InvalidResponse);
+        };
         let response = self
             .inner
             .http
-            .get(url)
+            .get(&url)
             .bearer_auth(context.token.as_str())
             .timeout(MEDIA_TIMEOUT)
             .send()
@@ -146,7 +165,7 @@ fn log_failure(status: StatusCode, path: &str) {
     );
 }
 
-fn endpoint_class(path: &str) -> &'static str {
+pub fn endpoint_class(path: &str) -> &'static str {
     if path.contains("homescreen") {
         "homescreen"
     } else if path == "/networks" {

@@ -68,6 +68,7 @@ def test_motion_thumbnail_is_a_blink_hosted_still_behind_ha_auth() -> None:
     assert "{event_id:[0-9]{{1,20}}}" in view and "MotionThumbnailView," in http
     sensor = read(COMPONENT / "binary_sensor.py")
     assert 'motion.get("thumbnail_available")' in sensor
-    media = read(ENGINE / "blink_media_v4.rs")
+    media = read(ENGINE / "blink_url.rs")
     assert 'BLINK_HOST_SUFFIX: &str = ".immedia-semi.com"' in media
+    assert "media_url(&context.base_url, url)" in read(ENGINE / "blink_http.rs")
     assert '"/v1/motion/events/{id}/thumbnail.jpg"' in read(ENGINE / "api_motion.rs")

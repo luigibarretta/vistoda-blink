@@ -4,6 +4,8 @@ use crate::blink_model::CameraState;
 #[path = "live_timing.rs"]
 pub mod timing;
 
+pub use crate::blink_url::base_url;
+
 pub const TIER_URL: &str = "https://rest-prod.immedia-semi.com/api/v1/users/tier_info";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -49,10 +51,6 @@ pub enum CameraAction {
 pub struct RequestSpec {
     pub path: String,
     pub body: Option<serde_json::Value>,
-}
-
-pub fn base_url(tier: &str) -> String {
-    format!("https://rest-{tier}.immedia-semi.com")
 }
 
 pub fn homescreen(account: &str) -> String {

@@ -1,22 +1,17 @@
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::sync::Arc;
 
-use reqwest::{Client, StatusCode, cookie::Jar, redirect::Policy};
+use reqwest::{Client, StatusCode, cookie::Jar};
 use serde::Deserialize;
 use thiserror::Error;
 use url::Url;
 use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use crate::oauth_support::{authorize_parameters, extract_csrf, pkce, refresh_revoked};
+pub use crate::oauth_support::{AccessToken, Endpoints};
+use crate::oauth_support::{
+    authorize_parameters, extract_csrf, oauth_client, pkce, refresh_revoked,
+};
 
-const BASE: &str = "https://api.oauth.blink.com";
-const AUTHORIZE: &str = "https://api.oauth.blink.com/oauth/v2/authorize";
-const SIGN_IN: &str = "https://api.oauth.blink.com/oauth/v2/signin";
-const VERIFY_2FA: &str = "https://api.oauth.blink.com/oauth/v2/2fa/verify";
-const TOKEN: &str = "https://api.oauth.blink.com/oauth/token";
 const REDIRECT_URI: &str = "immedia-blink://applinks.blink.com/signin/callback";
 const USER_AGENT: &str = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.1 Mobile/15E148 Safari/604.1";
 const TOKEN_USER_AGENT: &str = "Blink/2511191620 CFNetwork/3860.200.71 Darwin/25.1.0";
@@ -45,20 +40,6 @@ pub struct TokenResponse {
     pub expires_in: u64,
 }
 
-pub struct AccessToken {
-    pub value: Zeroizing<String>,
-    pub expires_at: SystemTime,
-}
-
-impl From<&TokenResponse> for AccessToken {
-    fn from(value: &TokenResponse) -> Self {
-        Self {
-            value: Zeroizing::new(value.access_token.clone()),
-            expires_at: SystemTime::now() + Duration::from_secs(value.expires_in),
-        }
-    }
-}
-
 pub struct OAuthCompletion {
     pub tokens: TokenResponse,
     pub hardware_id: String,
@@ -70,6 +51,7 @@ pub enum SignInResult {
 }
 
 pub struct PendingOAuth {
+    endpoints: Endpoints,
     client: Client,
     csrf: Zeroizing<String>,
     verifier: Zeroizing<String>,
@@ -80,10 +62,10 @@ impl PendingOAuth {
     pub async fn complete(self, code: &str) -> Result<OAuthCompletion, OAuthError> {
         let response = self
             .client
-            .post(VERIFY_2FA)
+            .post(self.endpoints.verify_2fa())
             .header("User-Agent", USER_AGENT)
-            .header("Origin", BASE)
-            .header("Referer", SIGN_IN)
+            .header("Origin", self.endpoints.origin())
+            .header("Referer", self.endpoints.sign_in())
             .form(&[
                 ("2fa_code", code),
                 ("csrf-token", self.csrf.as_str()),
@@ -98,7 +80,13 @@ impl PendingOAuth {
         if result.get("status").and_then(|value| value.as_str()) != Some("auth-completed") {
             return Err(OAuthError::InvalidTwoFactor);
         }
-        let tokens = finish(&self.client, &self.verifier, &self.hardware_id).await?;
+        let tokens = finish(
+            &self.endpoints,
+            &self.client,
+            &self.verifier,
+            &self.hardware_id,
+        )
+        .await?;
         Ok(OAuthCompletion {
             tokens,
             hardware_id: self.hardware_id,
@@ -107,16 +95,21 @@ impl PendingOAuth {
 }
 
 pub async fn sign_in(username: &str, password: &str) -> Result<SignInResult, OAuthError> {
+    sign_in_at(&Endpoints::production(), username, password).await
+}
+
+pub async fn sign_in_at(
+    endpoints: &Endpoints,
+    username: &str,
+    password: &str,
+) -> Result<SignInResult, OAuthError> {
     let cookies = Arc::new(Jar::default());
-    let browser = Client::builder().cookie_provider(cookies.clone()).build()?;
-    let client = Client::builder()
-        .cookie_provider(cookies)
-        .redirect(Policy::none())
-        .build()?;
+    let browser = oauth_client(Some(cookies.clone()), true)?;
+    let client = oauth_client(Some(cookies), false)?;
     let hardware_id = Uuid::new_v4().hyphenated().to_string().to_uppercase();
     let (verifier, challenge) = pkce();
     let response = browser
-        .get(AUTHORIZE)
+        .get(endpoints.authorize())
         .header("User-Agent", USER_AGENT)
         .query(&authorize_parameters(&hardware_id, &challenge))
         .send()
@@ -125,7 +118,7 @@ pub async fn sign_in(username: &str, password: &str) -> Result<SignInResult, OAu
         return Err(OAuthError::Unexpected);
     }
     let html = browser
-        .get(SIGN_IN)
+        .get(endpoints.sign_in())
         .header("User-Agent", USER_AGENT)
         .send()
         .await?
@@ -134,10 +127,10 @@ pub async fn sign_in(username: &str, password: &str) -> Result<SignInResult, OAu
         .await?;
     let csrf = Zeroizing::new(extract_csrf(&html).ok_or(OAuthError::MissingCsrf)?);
     let response = client
-        .post(SIGN_IN)
+        .post(endpoints.sign_in())
         .header("User-Agent", USER_AGENT)
-        .header("Origin", BASE)
-        .header("Referer", SIGN_IN)
+        .header("Origin", endpoints.origin())
+        .header("Referer", endpoints.sign_in())
         .form(&[
             ("username", username),
             ("password", password),
@@ -149,6 +142,7 @@ pub async fn sign_in(username: &str, password: &str) -> Result<SignInResult, OAu
         || response.status() == StatusCode::ACCEPTED
     {
         return Ok(SignInResult::TwoFactor(PendingOAuth {
+            endpoints: endpoints.clone(),
             client,
             csrf,
             verifier,
@@ -158,17 +152,21 @@ pub async fn sign_in(username: &str, password: &str) -> Result<SignInResult, OAu
     if !response.status().is_redirection() {
         return Err(OAuthError::InvalidCredentials);
     }
-    let tokens = finish(&client, &verifier, &hardware_id).await?;
+    let tokens = finish(endpoints, &client, &verifier, &hardware_id).await?;
     Ok(SignInResult::Complete(OAuthCompletion {
         tokens,
         hardware_id,
     }))
 }
 
-pub async fn refresh(refresh_token: &str, hardware_id: &str) -> Result<TokenResponse, OAuthError> {
-    let client = Client::builder().redirect(Policy::none()).build()?;
+pub async fn refresh(
+    endpoints: &Endpoints,
+    refresh_token: &str,
+    hardware_id: &str,
+) -> Result<TokenResponse, OAuthError> {
+    let client = oauth_client(None, false)?;
     let response = client
-        .post(TOKEN)
+        .post(endpoints.token())
         .header("User-Agent", TOKEN_USER_AGENT)
         .form(&[
             ("grant_type", "refresh_token"),
@@ -192,14 +190,15 @@ pub async fn refresh(refresh_token: &str, hardware_id: &str) -> Result<TokenResp
 }
 
 async fn finish(
+    endpoints: &Endpoints,
     client: &Client,
     verifier: &str,
     hardware_id: &str,
 ) -> Result<TokenResponse, OAuthError> {
     let response = client
-        .get(AUTHORIZE)
+        .get(endpoints.authorize())
         .header("User-Agent", USER_AGENT)
-        .header("Referer", SIGN_IN)
+        .header("Referer", endpoints.sign_in())
         .send()
         .await?;
     let location = response
@@ -216,7 +215,7 @@ async fn finish(
         })
         .ok_or(OAuthError::MissingCode)?;
     let response = client
-        .post(TOKEN)
+        .post(endpoints.token())
         .header("User-Agent", TOKEN_USER_AGENT)
         .form(&[
             ("app_brand", "blink"),
@@ -232,3 +231,7 @@ async fn finish(
         .await?;
     Ok(response.error_for_status()?.json().await?)
 }
+
+#[cfg(test)]
+#[path = "oauth_tests.rs"]
+mod tests;

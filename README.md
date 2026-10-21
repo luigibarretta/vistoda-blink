@@ -78,7 +78,8 @@ The API remains mounted below `/api/blink_live_bridge`:
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /healthz` | readiness and non-secret camera count |
+| `GET /healthz` | readiness, non-secret camera count, `reauth_required` and `credentials_persisted` |
+| `GET /metrics` | Prometheus text: live sessions, motion poller state, rate-limit hold, OAuth refresh results, credential-write state |
 | `GET /v1/cameras` | stable aliases and power class |
 | `GET /v1/cameras/{alias}/snapshot.jpg` | cached Blink JPEG |
 | `GET /v1/cameras/{alias}/live.ts` | bounded MPEG-TS stream |
@@ -153,8 +154,9 @@ python -m compileall -q custom_components tests scripts
 python scripts/check_loc.py
 python -m pytest
 cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
-cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --all-targets --all-features -- -D warnings
-cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml
+cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --all-targets --all-features -- -D warnings
+cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked
+(cd addon/vistoda_blink_engine && cargo audit --deny warnings)
 ```
 
 Tests are deterministic and require no Blink account, network or secret.

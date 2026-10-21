@@ -9,15 +9,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Fetch the exact provider kit from the public source of truth
+        # dependencies/vistoda-provider-kit.sha is the single source of the pin.
         run: |
+          pin="$(tr -d '[:space:]' < dependencies/vistoda-provider-kit.sha)"
+          printf '%s' "${pin}" | grep -Eqx '[0-9a-f]{40}'
           git init .ci/vistoda-provider-kit
           git -C .ci/vistoda-provider-kit remote add origin https://github.com/luigibarretta/lib-vistoda-provider-kit.git
-          git -C .ci/vistoda-provider-kit fetch --depth=1 origin 46dfec1126eb7ab1067fea6dc9c98313b0842285
+          git -C .ci/vistoda-provider-kit fetch --depth=1 origin "${pin}"
           git -C .ci/vistoda-provider-kit checkout --detach FETCH_HEAD
       - name: Verify pinned Vistoda provider kit
         run: |
           pin="$(tr -d '[:space:]' < dependencies/vistoda-provider-kit.sha)"
-          test "${pin}" = "46dfec1126eb7ab1067fea6dc9c98313b0842285"
           test "$(git -C .ci/vistoda-provider-kit rev-parse HEAD)" = "${pin}"
           cmp .ci/vistoda-provider-kit/dist/vistoda-app-bootstrap.sh \
             addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh
@@ -44,3 +46,27 @@ jobs:
       - run: cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
       - run: cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --all-targets --all-features -- -D warnings
       - run: cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked
+      - run: cargo install cargo-audit --version 0.22.2 --locked
+      # Reviewed exceptions live in addon/vistoda_blink_engine/.cargo/audit.toml.
+      - run: cargo audit --deny warnings
+        working-directory: addon/vistoda_blink_engine
+  secret-scan:
+    # Mirrors the GitHub secret-scan job. It runs the gitleaks binary directly so
+    # the scan does not depend on GitHub's API; version and checksum are pinned.
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install pinned gitleaks
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLo "/tmp/${archive}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  /tmp/${archive}" | sha256sum -c -
+          tar -xzf "/tmp/${archive}" -C /tmp gitleaks
+      - name: Scan the full history for secrets
+        run: /tmp/gitleaks git --redact --no-banner --exit-code 1 .

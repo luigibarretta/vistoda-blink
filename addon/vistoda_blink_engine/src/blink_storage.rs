@@ -6,7 +6,6 @@ use std::collections::BTreeSet;
 use crate::{
     blink_api,
     blink_client::{BlinkClient, BlinkError},
-    blink_http::absolute,
     error::EngineError,
     pagination::{self, Pagination},
 };
@@ -158,8 +157,7 @@ impl BlinkClient {
         let requested = self.post_json(&context, &path, None).await?;
         self.wait_current_command(&context, &network.to_string(), &requested)
             .await?;
-        self.download(&absolute(&context.base_url, &path), CLIP_LIMIT)
-            .await
+        self.download(&path, CLIP_LIMIT).await
     }
 }
 

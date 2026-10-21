@@ -1,4 +1,4 @@
-use crate::live::{Target, auth_header};
+use crate::live::{Target, auth_header, keepalive_stops};
 use crate::{hub::CameraHub, live::receive_stream};
 use std::{error::Error, sync::Arc, time::Duration};
 use tokio::{
@@ -105,4 +105,20 @@ async fn audio_offer_does_not_replace_or_enable_any_media() -> Result<(), Box<dy
     let mut byte = [0];
     assert_eq!(server.read(&mut byte).await?, 0);
     Ok(())
+}
+
+#[test]
+fn keepalive_tolerates_transient_poll_errors() {
+    let mut errors = 0;
+    assert!(!keepalive_stops(None, &mut errors));
+    assert!(!keepalive_stops(None, &mut errors));
+    // A successful poll resets the count.
+    assert!(!keepalive_stops(Some(true), &mut errors));
+    assert_eq!(errors, 0);
+    assert!(!keepalive_stops(None, &mut errors));
+    assert!(!keepalive_stops(None, &mut errors));
+    assert!(keepalive_stops(None, &mut errors));
+    // Blink reporting the command done always stops at once.
+    let mut errors = 0;
+    assert!(keepalive_stops(Some(false), &mut errors));
 }

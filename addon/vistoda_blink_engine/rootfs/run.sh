@@ -21,14 +21,9 @@ vistoda_secure_file bridge:bridge "${data_dir}/provider.sealed"
 vistoda_start_child su-exec bridge:bridge vistoda-blink-engine --config "${engine_config}"
 vistoda_wait_for_health http://127.0.0.1:8099/healthz 30 1
 
-app_hostname="$(vistoda_supervisor_app_info | jq -er '.data.hostname')"
-private_url="http://${app_hostname}:8099"
-jq -n \
-    --arg service blink_live_bridge \
-    --arg url "${private_url}" \
-    --rawfile token "${token_file}" \
-    '{service: $service, config: {url: $url,
-      token: ($token | gsub("\\s"; "")), managed_app: true}}' |
-    vistoda_publish_discovery
+# discovery-begin: the kit adds url (http://HOSTNAME:8099) and managed_app: true.
+jq -n --rawfile token "${token_file}" '{token: ($token | gsub("\\s"; ""))}' |
+    vistoda_publish_app_discovery blink_live_bridge 8099
+# discovery-end
 
 vistoda_wait_child
