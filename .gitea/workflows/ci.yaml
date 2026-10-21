@@ -47,9 +47,9 @@ jobs:
       - run: cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --all-targets --all-features -- -D warnings
       - run: cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked
       - run: cargo install cargo-audit --version 0.22.2 --locked
-      # Reviewed exceptions live in addon/vistoda_blink_engine/.cargo/audit.toml.
-      - run: cargo audit --deny warnings
-        working-directory: addon/vistoda_blink_engine
+      # Reviewed exceptions live in .cargo/audit.toml, which GitHub's audit-check
+      # also reads from the repository root.
+      - run: cargo audit --deny warnings --file addon/vistoda_blink_engine/Cargo.lock
   secret-scan:
     # Mirrors the GitHub secret-scan job. It runs the gitleaks binary directly so
     # the scan does not depend on GitHub's API; version and checksum are pinned.

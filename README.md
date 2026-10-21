@@ -156,7 +156,7 @@ python -m pytest
 cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
 cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --all-targets --all-features -- -D warnings
 cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked
-(cd addon/vistoda_blink_engine && cargo audit --deny warnings)
+cargo audit --deny warnings --file addon/vistoda_blink_engine/Cargo.lock
 ```
 
 Tests are deterministic and require no Blink account, network or secret.
