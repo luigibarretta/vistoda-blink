@@ -20,6 +20,12 @@ device validation. See [audio requirements and boundaries](docs/AUDIO_CODEC.md).
 Start a HAOS installation with the shared
 [setup guide](https://github.com/luigibarretta/vistoda-addons/blob/main/GETTING_STARTED.md).
 
+<p align="center">
+  <img src="docs/images/blink-camera.png" alt="Vistoda Blink camera page in Home Assistant: system arm control, latest image, live, snapshot and motion buttons, battery and temperature" width="49%">
+  <img src="docs/images/blink-archive.png" alt="Blink USB archive: per-camera clips with play, download, backup and delete" width="49%">
+</p>
+<p align="center"><sub>Blink cameras and the USB archive in the Vistoda panel. Camera images are blurred.</sub></p>
+
 ## Architecture
 
 ```text
