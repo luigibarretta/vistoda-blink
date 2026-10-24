@@ -235,7 +235,7 @@ def test_webrtc_signaling_is_typed_owner_bound_and_media_free() -> None:
 
 def test_every_maintained_file_stays_bounded() -> None:
     """Keep every responsibility below the product LOC budget."""
-    excluded = {".git", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__"}
+    excluded = {".ci", ".git", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__"}
     suffixes = {".json", ".md", ".py", ".rs", ".toml", ".yaml", ".yml"}
     for path in ROOT.rglob("*"):
         if (
