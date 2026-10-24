@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "strict": true,
+  "logMaxKbPerStep": 256,
+  "defaults": {
+    "timeout_s": 600,
+    "env": { "CARGO_INCREMENTAL": "0", "RUSTUP_TOOLCHAIN": "1.88.0" }
+  },
+  "pressure": { "maxSomeAvg60": 20 },
+  "steps": [
+    {
+      "name": "ci-local-jobs",
+      "description": "Every manifest step runs in exactly one CI job (scripts/check_ci_local_jobs.py)",
+      "run": ["python", "scripts/check_ci_local_jobs.py"],
+      "quick": true,
+      "timeout_s": 60
+    },
+    {
+      "name": "provider-kit",
+      "description": "Pinned lib-vistoda-provider-kit: exact commit, byte-identical bootstrap, kit lifecycle test",
+      "run": ["sh", "scripts/check-provider-kit.sh"],
+      "quick": true,
+      "timeout_s": 300
+    },
+    {
+      "name": "secret-scan",
+      "description": "gitleaks 8.30.1 over the full git history",
+      "run": ["sh", "scripts/secret-scan.sh"],
+      "quick": true,
+      "timeout_s": 600
+    },
+    {
+      "name": "python-format",
+      "description": "ruff format check",
+      "run": ["python", "-m", "ruff", "format", "--check", "."],
+      "quick": true,
+      "timeout_s": 120
+    },
+    {
+      "name": "python-lint",
+      "description": "ruff lint",
+      "run": ["python", "-m", "ruff", "check", "."],
+      "quick": true,
+      "timeout_s": 120
+    },
+    {
+      "name": "python-compile",
+      "description": "Byte-compile the adapter, tests and scripts",
+      "run": ["python", "-m", "compileall", "-q", "custom_components", "tests", "scripts"],
+      "quick": true,
+      "timeout_s": 120
+    },
+    {
+      "name": "loc",
+      "description": "250-line budget (scripts/check_loc.py)",
+      "run": ["python", "scripts/check_loc.py"],
+      "quick": true,
+      "timeout_s": 120
+    },
+    {
+      "name": "release-check",
+      "description": "Release identity across the adapter, app and engine (scripts/check-release.py)",
+      "run": ["python", "scripts/check-release.py"],
+      "quick": true,
+      "timeout_s": 120
+    },
+    {
+      "name": "pytest",
+      "description": "Home Assistant adapter and repository tests",
+      "run": ["python", "-m", "pytest"],
+      "quick": true,
+      "timeout_s": 600
+    },
+    {
+      "name": "rust-fmt",
+      "description": "rustfmt check of the engine",
+      "run": ["cargo", "fmt", "--manifest-path", "addon/vistoda_blink_engine/Cargo.toml", "--check"],
+      "quick": true,
+      "timeout_s": 300
+    },
+    {
+      "name": "audit-lockfiles",
+      "description": "cargo audit --deny warnings on the engine Cargo.lock",
+      "uses": "audit-all-lockfiles",
+      "quick": true,
+      "timeout_s": 900,
+      "with": {
+        "ecosystems": ["cargo"],
+        "cargo": {
+          "ignore": [
+            {
+              "id": "RUSTSEC-2026-0381",
+              "reason": "webpki-roots 0.26.11 is a semver-trick shim re-exporting the fixed 1.0.10; tokio-tungstenite 0.28 still requires the 0.26 name. Mirrors .cargo/audit.toml, which ci-local does not read because it audits from the engine directory"
+            }
+          ],
+          "args": ["--deny", "warnings"]
+        }
+      }
+    },
+    {
+      "name": "rust-clippy",
+      "description": "clippy, all targets and features, warnings denied",
+      "run": ["cargo", "clippy", "--manifest-path", "addon/vistoda_blink_engine/Cargo.toml", "--locked", "--all-targets", "--all-features", "--", "-D", "warnings"],
+      "heavy": true,
+      "timeout_s": 3600
+    },
+    {
+      "name": "rust-test",
+      "description": "Engine tests",
+      "run": ["cargo", "test", "--manifest-path", "addon/vistoda_blink_engine/Cargo.toml", "--locked"],
+      "heavy": true,
+      "timeout_s": 3600
+    }
+  ]
+}

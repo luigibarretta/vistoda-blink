@@ -152,17 +152,18 @@ Only exact version tags passing quality, security and provenance gates are relea
 Read the family [contribution guide](https://github.com/luigibarretta/vistoda-home-assistant/blob/main/CONTRIBUTING.md)
 first to understand repository ownership and cross-repository release order.
 
+Every CI check is listed in [`ci-local.json`](ci-local.json) and runs through
+the vendored [`ci-local`](https://git.luigibarretta.com/luigibarretta/repo-tooling)
+gate (`third_party/repo-tooling`, pinned in `dependencies/repo-tooling.sha`);
+each Gitea job calls the same steps with `--ci`, and
+`scripts/check_ci_local_jobs.py` keeps every step in exactly one job. It needs
+Node.js 20+, Rust 1.88, `cargo-audit` 0.22.2 and the dev dependencies on `PATH`:
+
 ```bash
-python -m pip install ".[dev]"
-python -m ruff format --check .
-python -m ruff check .
-python -m compileall -q custom_components tests scripts
-python scripts/check_loc.py
-python -m pytest
-cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
-cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --all-targets --all-features -- -D warnings
-cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked
-cargo audit --deny warnings --file addon/vistoda_blink_engine/Cargo.lock
+python -m venv .venv && .venv/bin/python -m pip install ".[dev]"
+export PATH="$PWD/.venv/bin:$PATH"
+node third_party/repo-tooling/ci-local.mjs --quick   # Python checks, kit, secrets, audit
+node third_party/repo-tooling/ci-local.mjs           # full gate before a push
 ```
 
 Tests are deterministic and require no Blink account, network or secret.

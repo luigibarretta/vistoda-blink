@@ -3,38 +3,39 @@ on:
   push:
     branches: [main]
   pull_request:
+# Checks come from ci-local.json through the vendored ci-local runner, the same
+# entry point used before a push (`node third_party/repo-tooling/ci-local.mjs
+# --quick`, then the full gate). Every manifest step runs in exactly one call
+# below (scripts/check_ci_local_jobs.py). Plain workflow steps are CI-only:
+# checkouts, the repo-tooling pin check, Python and Rust toolchains, caches,
+# the dev-dependency install and cargo-audit installation.
 jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Fetch the exact provider kit from the public source of truth
-        # dependencies/vistoda-provider-kit.sha is the single source of the pin.
-        run: |
-          pin="$(tr -d '[:space:]' < dependencies/vistoda-provider-kit.sha)"
-          printf '%s' "${pin}" | grep -Eqx '[0-9a-f]{40}'
-          git init .ci/vistoda-provider-kit
-          git -C .ci/vistoda-provider-kit remote add origin https://github.com/luigibarretta/lib-vistoda-provider-kit.git
-          git -C .ci/vistoda-provider-kit fetch --depth=1 origin "${pin}"
-          git -C .ci/vistoda-provider-kit checkout --detach FETCH_HEAD
-      - name: Verify pinned Vistoda provider kit
-        run: |
-          pin="$(tr -d '[:space:]' < dependencies/vistoda-provider-kit.sha)"
-          test "$(git -C .ci/vistoda-provider-kit rev-parse HEAD)" = "${pin}"
-          cmp .ci/vistoda-provider-kit/dist/vistoda-app-bootstrap.sh \
-            addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh
+      # CI-only: verifies third_party/repo-tooling against a checkout of the
+      # commit pinned in dependencies/repo-tooling.sha.
+      - name: Checkout pinned repository tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: luigibarretta/repo-tooling
+          ref: da53160c52a8cb3f83201e57b333ec399b87bcde
+          path: .ci/repo-tooling
+      - name: Verify pinned repository tooling
+        run: scripts/check-repo-tooling-sync.sh
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
           cache: pip
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install ".[dev]"
-      - run: python -m ruff format --check .
-      - run: python -m ruff check .
-      - run: python -m compileall -q custom_components tests scripts
-      - run: python scripts/check_loc.py
-      - run: python scripts/check-release.py
-      - run: python -m pytest
+      - name: Install the adapter's development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[dev]"
+      # The provider-kit step fetches lib-vistoda-provider-kit at
+      # dependencies/vistoda-provider-kit.sha from its public source of truth.
+      - name: Job ownership, provider kit, Python adapter checks, LOC and release identity
+        run: node third_party/repo-tooling/ci-local.mjs --ci --only ci-local-jobs,provider-kit,python-format,python-lint,python-compile,loc,release-check,pytest
       # Use a reachable mainline action commit; version branches are rewritten upstream.
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
@@ -43,30 +44,20 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: addon/vistoda_blink_engine
-      - run: cargo fmt --manifest-path addon/vistoda_blink_engine/Cargo.toml --check
-      - run: cargo clippy --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked --all-targets --all-features -- -D warnings
-      - run: cargo test --manifest-path addon/vistoda_blink_engine/Cargo.toml --locked
-      - run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Install pinned cargo-audit
+        run: cargo install cargo-audit --version 0.22.2 --locked
       # Reviewed exceptions live in .cargo/audit.toml, which GitHub's audit-check
-      # also reads from the repository root.
-      - run: cargo audit --deny warnings --file addon/vistoda_blink_engine/Cargo.lock
+      # reads; the audit-lockfiles step repeats them (checked by ci-local-jobs).
+      - name: Engine rustfmt, dependency audit, clippy and tests
+        run: node third_party/repo-tooling/ci-local.mjs --ci --only rust-fmt,audit-lockfiles,rust-clippy,rust-test
   secret-scan:
-    # Mirrors the GitHub secret-scan job. It runs the gitleaks binary directly so
-    # the scan does not depend on GitHub's API; version and checksum are pinned.
+    # Mirrors the GitHub secret-scan job without GitHub's API: the secret-scan
+    # step installs gitleaks at a pinned version and checksum and scans the
+    # full history.
     runs-on: ubuntu-latest
-    env:
-      GITLEAKS_VERSION: "8.30.1"
-      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Install pinned gitleaks
-        run: |
-          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          curl -fsSLo "/tmp/${archive}" \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
-          echo "${GITLEAKS_SHA256}  /tmp/${archive}" | sha256sum -c -
-          tar -xzf "/tmp/${archive}" -C /tmp gitleaks
       - name: Scan the full history for secrets
-        run: /tmp/gitleaks git --redact --no-banner --exit-code 1 .
+        run: node third_party/repo-tooling/ci-local.mjs --ci --only secret-scan
