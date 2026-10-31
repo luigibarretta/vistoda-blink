@@ -1,3 +1,6 @@
+# Development copy for local builds (slug vistoda_blink_engine, legacy `token`
+# migration). The published app, its DOCS and option texts live in the
+# vistoda-addons catalog (vistoda_blink); keep user-facing text in sync there.
 name: Vistoda Blink Engine
 version: 0.24.2
 slug: vistoda_blink_engine

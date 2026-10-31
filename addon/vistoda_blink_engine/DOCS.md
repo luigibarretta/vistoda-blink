@@ -1,44 +1,46 @@
-# Vistoda Blink Engine
+# Vistoda Blink
 
-This supervised Rust app is installed automatically with Vistoda Blink. It has
-no public port. It independently owns Blink enrollment, token refresh,
-discovery, state, controls, snapshots, clips and live IMMI sessions. The small
-Home Assistant integration talks only to its private API; the official Blink
-integration is not required.
+La procedura completa è nella [guida italiana](https://github.com/luigibarretta/vistoda-addons/blob/main/GETTING_STARTED.it.md);
+the complete procedure is in the [English setup guide](https://github.com/luigibarretta/vistoda-addons/blob/main/GETTING_STARTED.md).
 
-The app reports Sync Module status, firmware and provider storage-used values.
-It can delete one revalidated USB clip, format provider-declared compatible
-media, and safely eject or remount the USB drive; each of these mutations is
-written to the app log with its network, Sync Module and result. Wi-Fi
-migration and Sync Module removal have no engine route: the Vistoda panel may
-show them as unavailable so users know to use the official Blink recovery flow.
+Install and start the app, then complete the automatically discovered
+**Vistoda Blink** flow under Settings → Devices & services. Enter the email and
+password used by the Blink app and, when requested, the newest verification
+code sent by Blink.
 
-Enrollment is normally completed from **Settings → Devices & services → Add
-integration → Vistoda Blink**. Email and password exist only for the duration
-of the OAuth exchange. The long-lived refresh token is sealed in
-`/data/provider.sealed` with a key derived from the workload token, which is
-stored beside it in `/data/workload-token`. An app backup therefore contains
-both the sealed token and its key: protect app backups like the Blink account
-itself. Blink rotates the refresh token on every refresh; if the new token
-cannot be written, the app keeps it in memory, retries the write and reports
-`credentials_persisted: false` in `/healthz` until disk and memory agree.
+The official Blink integration is not required. Vistoda owns one independent
+rotating session and exposes native Home Assistant entities and services.
 
-The `token` option is managed as a secret by the production deployment. It must
-contain exactly 64 lowercase hexadecimal characters. Do not publish it or add a
-host port for the engine. Production pins engine and adapter versions
-independently so an adapter-only fix does not rebuild the Rust app.
+The Vistoda Blink panel uses Blink's supported Walnut/IMMI live transport.
+Multiple viewers can share video; only one viewer can hold the Walnut microphone
+lease at a time. Simultaneous listening while talking is enabled only when the
+actual provider offer and browser/camera echo cancellation support it. Cayuga
+remains disabled by Blink's current provider policy.
+If a verification code is rejected or expires, enter the account credentials
+again to request a fresh challenge, then use only the newest code.
 
-Named camera-settings backups live in Home Assistant storage, not in this app's
-credential file. Restore still uses this app's typed setting endpoint and
-optimistic provider revisions; it never copies OAuth material into a settings
-backup.
+Vistoda reads the real provider state for each supported camera setting. On
+verified v1 cameras it also manages the native 20×15 activity grid and up to
+two privacy zones with revision checks, provider read-back and rollback. Zone
+controls stay unavailable on Owl/Mini v2 devices while Blink rejects the
+enrolled route; no empty or guessed configuration is displayed.
 
-Blink arm/disarm programs keep running on Blink's servers after the official
-app is removed. The app reads them every 10 minutes and Home Assistant shows
-one "Programma: …" switch per program to enable or disable it (ADR 0014).
-While a network is armed, motion events are read every 15 seconds (30 seconds
-for half an hour after a Blink rate limit). After a failed read the poller
-backs off to at most two minutes while armed, and to at most 15 minutes after
-a rate limit or while disarmed. With motion recording enabled, a
-JPEG still from the recording backs notifications when Blink sends no event
-image (ADR 0015).
+The system card can retain up to 25 named settings backups for all enrolled
+cameras. Restore matches stable provider serials/IDs, creates a rollback
+snapshot, preflights every field and fails on a concurrent revision or an
+uninitialized threshold that cannot be reversed.
+
+Vistoda can also record finite 15, 30 or 60 second clips from the shared live
+stream. Its standalone archive is distinct from Blink cloud clips and Sync
+Module USB storage. Download, confirmed deletion and verified NFS backup are
+managed from the Vistoda camera page through Home Assistant. The Sync Module
+USB archive has a separate paginated list with playback, download and
+checksum-verified NFS copy. Administrators may delete selected exact clips or
+format compatible media only after the explicit destructive confirmation.
+The panel reports Sync Module firmware, status and storage used. Administrators
+can safely eject the USB drive and mount it again from the panel; this path has
+not yet been verified on a live drive. Wi-Fi migration and Sync Module removal
+remain unavailable.
+
+The app API remains private to the Supervisor network. Do not publish port
+8099 unless an advanced external consumer has a separately reviewed need.
