@@ -179,12 +179,15 @@ fn audit(
     clip: Option<(u64, u64)>,
     result: &Result<(), BlinkError>,
 ) {
-    let (manifest, clip) = clip.unzip();
+    // Fingerprints correlate records without putting Blink account ids in
+    // logs users share for support.
+    let (network, sync_module) = (fingerprint(network), fingerprint(sync));
+    let (manifest, clip) = clip.map(|(m, c)| (fingerprint(m), fingerprint(c))).unzip();
     match result {
         Ok(()) => tracing::info!(
             action,
             network,
-            sync_module = sync,
+            sync_module,
             manifest,
             clip,
             result = "ok",
@@ -193,7 +196,7 @@ fn audit(
         Err(error) => tracing::info!(
             action,
             network,
-            sync_module = sync,
+            sync_module,
             manifest,
             clip,
             result = "failed",
@@ -201,6 +204,14 @@ fn audit(
             "Blink USB storage mutation"
         ),
     }
+}
+
+/// Short, stable, non-reversible tag of a Blink identifier for logs.
+fn fingerprint(value: u64) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(format!("vistoda-blink:{value}").as_bytes());
+    let prefix = u32::from_be_bytes([digest[0], digest[1], digest[2], digest[3]]);
+    format!("{prefix:08x}")
 }
 
 #[cfg(test)]
@@ -228,5 +239,12 @@ mod tests {
         assert!(parse_camera_filter("[]").is_err());
         assert!(parse_camera_filter("not-json").is_err());
         Ok(())
+    }
+
+    #[test]
+    fn audit_fingerprints_are_stable_and_hide_the_id() {
+        assert_eq!(super::fingerprint(123_456), super::fingerprint(123_456));
+        assert_ne!(super::fingerprint(123_456), super::fingerprint(123_457));
+        assert_eq!(super::fingerprint(123_456).len(), 8);
     }
 }
