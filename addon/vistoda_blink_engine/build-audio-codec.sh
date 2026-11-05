@@ -7,7 +7,10 @@ archive="ffmpeg-${version}.tar.xz"
 checksum=cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635
 mkdir -p /build-audio /audio-output/sources /audio-output/bin
 cd /build-audio
-curl --fail --silent --show-error --max-time 120 \
+# ffmpeg.org is intermittently slow from CI runners; the checksum below
+# remains the integrity gate for whatever is downloaded.
+curl --fail --silent --show-error --connect-timeout 30 --max-time 180 \
+    --retry 4 --retry-delay 10 --retry-all-errors \
     -o "${archive}" "https://ffmpeg.org/releases/${archive}"
 printf '%s  %s\n' "${checksum}" "${archive}" | sha256sum -c -
 tar -xJf "${archive}"
