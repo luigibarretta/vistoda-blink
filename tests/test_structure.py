@@ -38,9 +38,13 @@ def test_vistoda_discovery_and_device_identity_stay_stable() -> None:
     """Prevent duplicate provider entries, devices and camera sessions."""
     setup = (COMPONENT / "__init__.py").read_text()
     constants = (COMPONENT / "const.py").read_text()
-    assert 'VISTODA_DOMAIN = "media_bridge"' in constants
     assert 'data={"provider": "blink"}' in setup
-    assert 'VISTODA_BLINK_IDENTIFIER = "blink:blink"' in constants
+    # Own-domain device; the legacy tuple only migrates this entry's device.
+    assert 'PARENT_IDENTIFIER = (DOMAIN, "adapter")' in constants
+    assert 'LEGACY_PARENT_IDENTIFIER = ("media_bridge", "blink:blink")' in constants
+    assert "identifiers={PARENT_IDENTIFIER}" in setup
+    assert "legacy.config_entries == {entry.entry_id}" in setup
+    assert "new_identifiers=" in setup
 
 
 def test_device_hierarchy_uses_the_single_entry_registry_contract() -> None:

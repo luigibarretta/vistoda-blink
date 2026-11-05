@@ -3,7 +3,7 @@
   "name": "Vistoda Blink",
   "codeowners": ["@luigibarretta"],
   "config_flow": true,
-  "dependencies": ["stream", "websocket_api"],
+  "dependencies": ["http", "stream", "websocket_api"],
   "documentation": "https://github.com/luigibarretta/vistoda-blink",
   "integration_type": "service",
   "iot_class": "cloud_polling",

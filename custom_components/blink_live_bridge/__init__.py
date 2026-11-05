@@ -14,12 +14,11 @@ from .const import (
     CONF_URL,
     DOMAIN,
     ENGINE_URL,
+    LEGACY_PARENT_IDENTIFIER,
+    PARENT_IDENTIFIER,
     PLATFORMS,
-    VISTODA_BLINK_IDENTIFIER,
-    VISTODA_DOMAIN,
 )
 from .http import register_views
-from .migration import async_import_official_credentials
 from .motion import BlinkMotionCoordinator
 from .motion_websocket import async_register as async_register_motion_websocket
 from .recording_websocket import async_register as async_register_recording_websocket
@@ -70,7 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("Vistoda Blink workload credential is unavailable")
     client = EngineClient(hass, token, entry.data.get(CONF_URL, ENGINE_URL))
     status = await _status_or_retry(client)
-    if not status.get("enrolled") and not await async_import_official_credentials(hass, client):
+    if not status.get("enrolled"):
         raise ConfigEntryNotReady("Vistoda Blink requires standalone enrollment")
     coordinator = BlinkCoordinator(hass, client, scan_interval(entry.options))
     await coordinator.async_config_entry_first_refresh()
@@ -83,13 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if any(network.get("has_sync_module") for network in coordinator.data.get("networks", [])):
         storage = BlinkStorageCoordinator(hass, client)
         await storage.async_refresh()
-    parent_device = dr.async_get(hass).async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers={(VISTODA_DOMAIN, VISTODA_BLINK_IDENTIFIER)},
-        manufacturer="Vistoda",
-        model="Local Home Assistant adapter",
-        name="Vistoda · BLINK Live",
-    )
+    parent_device = _parent_device(hass, entry)
     data[entry.entry_id] = BridgeRuntime(
         client=client,
         coordinator=coordinator,
@@ -118,6 +111,28 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN].pop(entry.entry_id, None)
     hass.data[DOMAIN].pop("runtime", None)
     return True
+
+
+def _parent_device(hass: HomeAssistant, entry: ConfigEntry) -> dr.DeviceEntry:
+    """Create the adapter device under this domain, migrating our legacy one."""
+    registry = dr.async_get(hass)
+    legacy = registry.async_get_device(identifiers={LEGACY_PARENT_IDENTIFIER})
+    if (
+        legacy
+        and legacy.config_entries == {entry.entry_id}
+        and not registry.async_get_device(identifiers={PARENT_IDENTIFIER})
+    ):
+        registry.async_update_device(
+            legacy.id,
+            new_identifiers=(legacy.identifiers - {LEGACY_PARENT_IDENTIFIER}) | {PARENT_IDENTIFIER},
+        )
+    return registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={PARENT_IDENTIFIER},
+        manufacturer="Vistoda",
+        model="Local Home Assistant adapter",
+        name="Vistoda · BLINK Live",
+    )
 
 
 async def _status_or_retry(client: EngineClient) -> dict[str, object]:

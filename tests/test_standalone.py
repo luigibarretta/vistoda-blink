@@ -17,18 +17,13 @@ def test_adapter_has_no_blinkpy_or_official_runtime_dependency() -> None:
         assert "import blinkpy" not in source
         assert "from blinkpy" not in source
         assert "loaded_blink_coordinator" not in source
-    migration = (COMPONENT / "migration.py").read_text()
-    assert "async_import_official_credentials" in migration
-    assert "one-time migration" in migration
-    assert 'async_entries("blink")' in migration
-    assert "dict(entries[0].data)" in migration
-    assert "runtime_data" not in migration
-    assert "str(attributes[key])" in migration
-    assert '(*required, "username")' in migration
-    assert '(*required, "user_id", "username")' not in migration
+    assert not (COMPONENT / "migration.py").exists()
     for path in COMPONENT.rglob("*.py"):
-        if path.name != "migration.py":
-            assert 'async_loaded_entries("blink")' not in path.read_text()
+        source = path.read_text()
+        # Another integration's stored credentials are off limits (HACS review).
+        assert 'async_entries("blink")' not in source
+        assert 'async_loaded_entries("blink")' not in source
+        assert "/v1/enrollment/import" not in source
 
 
 def test_rust_owns_every_blink_protocol_responsibility() -> None:

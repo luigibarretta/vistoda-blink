@@ -15,9 +15,10 @@ class BridgeView(HomeAssistantView):
 
     requires_auth = False
 
-    def runtime(self, request: web.Request) -> BridgeRuntime:
+    def runtime(self, request: web.Request, alias: str | None = None) -> BridgeRuntime:
         runtime: BridgeRuntime = request.app["hass"].data[DOMAIN]["runtime"]
-        require_bridge_auth(request, runtime.token)
+        stream_token = runtime.stream_tokens.get(alias) if alias else None
+        require_bridge_auth(request, runtime.token, stream_token)
         return runtime
 
 
@@ -92,7 +93,7 @@ class LiveView(BridgeView):
         stream_format: str,
     ) -> web.StreamResponse:
         del stream_format
-        runtime = self.runtime(request)
+        runtime = self.runtime(request, alias)
         try:
             upstream = await runtime.client.stream(f"/v1/cameras/{alias}/live.ts")
         except EngineError as error:

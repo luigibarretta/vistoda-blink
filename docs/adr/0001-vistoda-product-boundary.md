@@ -38,3 +38,11 @@ consumer cutover. Ansible pins and deploys an exact clean repository revision
 instead of embedding application code. The technical domain retains its legacy
 wording until a future Home Assistant-supported migration can prove preservation
 of config entries and entity identities.
+
+## Amendment 2026-11-05: adapter device identifier
+
+The adapter's parent device moves from `("media_bridge", "blink:blink")`, which
+belongs to Vistoda's domain, to `("blink_live_bridge", "adapter")`. Setup
+rewrites the identifier of this config entry's existing device in place, so the
+device ID, its `via_device_id` children and user customisations are preserved.
+Vistoda Home Assistant never looked the device up by that identifier.

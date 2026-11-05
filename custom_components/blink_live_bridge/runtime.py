@@ -1,7 +1,7 @@
 """Home Assistant runtime backed only by the standalone Rust provider."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
@@ -72,6 +72,9 @@ class BridgeRuntime:
     parent_device_id: str
     motion: BlinkMotionCoordinator | None = None
     storage: BlinkStorageCoordinator | None = None
+    # Per-camera secrets accepted only by that camera's live route; they live
+    # as long as the entity and its Home Assistant stream worker.
+    stream_tokens: dict[str, str] = field(default_factory=dict)
 
     @property
     def cameras(self) -> list[dict[str, Any]]:

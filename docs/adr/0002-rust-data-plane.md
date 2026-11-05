@@ -25,8 +25,8 @@ Vistoda Blink becomes a standalone Rust provider in release 0.3.0:
 - a minimal Python adapter handles only Home Assistant config flow, entities,
   service registration and authenticated proxying to the private Rust API;
 - neither runtime imports `blinkpy` nor reads the official Blink coordinator;
-- an explicit one-time migration endpoint may import a refresh token from a
-  loaded official integration, but normal operation never calls it;
+- ~~an explicit one-time migration endpoint may import a refresh token from a
+  loaded official integration~~ (withdrawn, see the 2026-11-05 amendment);
 - direct username/password/2FA enrollment remains available when no official
   integration exists;
 - no engine port is published to the host or LAN, and the existing 64-hex
@@ -44,3 +44,17 @@ custom integrations are Python entry points, but no Blink protocol code does.
 Deployment independently pins and content-compares the HA app and adapter before
 restarting Core only for changed Python. Rollback material for both components
 remains under the dedicated Home Assistant backup directory.
+
+## Amendment 2026-11-05: no credential import
+
+The Home Assistant adapter no longer reads the official Blink integration's
+config entries; another integration's stored credentials are off limits even
+for a one-time copy (HACS default-list review). Users sign in through the
+Vistoda Blink flow only. The engine's import endpoint is now unused by the
+adapter.
+
+The bridge also stopped trusting a loopback TCP peer: behind a reverse proxy or
+tunnel on the same host every remote request arrives from loopback. Requests
+need Home Assistant authentication or the bridge token, and each camera's
+`stream_source` carries a random per-entity token accepted only by its own live
+route.

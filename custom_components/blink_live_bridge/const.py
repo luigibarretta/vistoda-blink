@@ -3,8 +3,10 @@
 from homeassistant.const import Platform
 
 DOMAIN = "blink_live_bridge"
-VISTODA_DOMAIN = "media_bridge"
-VISTODA_BLINK_IDENTIFIER = "blink:blink"
+PARENT_IDENTIFIER = (DOMAIN, "adapter")
+# Releases up to 0.24.3 registered the adapter device under Vistoda's domain;
+# matched only to move this entry's own device to PARENT_IDENTIFIER.
+LEGACY_PARENT_IDENTIFIER = ("media_bridge", "blink:blink")
 CONF_TOKEN = "token"
 CONF_URL = "url"
 CONF_MANAGED_APP = "managed_app"

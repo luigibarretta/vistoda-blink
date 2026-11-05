@@ -4,11 +4,10 @@ import base64
 import hmac
 
 from aiohttp import web
+from homeassistant.components.http import KEY_AUTHENTICATED
 
-
-def _peer_is_loopback(request: web.Request) -> bool:
-    peer = request.transport.get_extra_info("peername") if request.transport else None
-    return bool(peer and peer[0] in {"127.0.0.1", "::1"})
+# Home Assistant redacts this query parameter when it logs a stream source.
+STREAM_TOKEN_PARAM = "auth"
 
 
 def _presented_token(request: web.Request) -> str:
@@ -25,9 +24,28 @@ def _presented_token(request: web.Request) -> str:
     return password if separator else ""
 
 
-def require_bridge_auth(request: web.Request, expected_token: str) -> None:
-    """Allow Core loopback or a constant-time Bearer/Basic token match."""
-    if _peer_is_loopback(request):
+def _matches(presented: str, expected: str | None) -> bool:
+    # Bytes: compare_digest raises TypeError on non-ASCII str input.
+    return bool(presented and expected) and hmac.compare_digest(
+        presented.encode(), expected.encode()
+    )
+
+
+def require_bridge_auth(
+    request: web.Request,
+    expected_token: str,
+    stream_token: str | None = None,
+) -> None:
+    """Require Home Assistant authentication or a constant-time token match.
+
+    The TCP peer is never trusted: behind a reverse proxy or tunnel every
+    remote request arrives from loopback. ``stream_token`` is the per-camera
+    secret embedded in that camera's own ``stream_source`` URL.
+    """
+    if request.get(KEY_AUTHENTICATED):
         return
-    if not hmac.compare_digest(_presented_token(request), expected_token):
-        raise web.HTTPUnauthorized(headers={"WWW-Authenticate": 'Bearer realm="blink"'})
+    if _matches(_presented_token(request), expected_token):
+        return
+    if _matches(request.query.get(STREAM_TOKEN_PARAM, ""), stream_token):
+        return
+    raise web.HTTPUnauthorized(headers={"WWW-Authenticate": 'Bearer realm="blink"'})

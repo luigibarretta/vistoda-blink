@@ -154,6 +154,7 @@ def coordinator(error: Exception | None):
             "ir": issues,
             "DOMAIN": "blink_live_bridge",
             "BRIDGE_TOKEN_ISSUE": "bridge_token_rejected",
+            "field": lambda **_: None,
         },
         {"BlinkCoordinator"},
     )

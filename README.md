@@ -6,9 +6,8 @@ archives and bounded Walnut/IMMI live video.
 
 The supervised Rust engine owns Blink OAuth2/2FA, token refresh, discovery,
 polling, controls and media. The small Python custom integration is only the
-native Home Assistant adapter. The official Blink integration is not required;
-it can coexist temporarily as a parity oracle or one-time credential migration
-source.
+native Home Assistant adapter. The official Blink integration is not required
+and is never read: sign in through the Vistoda Blink flow.
 
 It does not claim parity with every Blink-app setting or camera model. Cayuga
 WebRTC signaling is implemented but remains disabled by the enrolled provider
@@ -116,9 +115,12 @@ The API remains mounted below `/api/blink_live_bridge`:
 | `POST /v1/cameras/{alias}/audio/probe` | authenticate native signaling without starting media |
 | `GET /v1/cameras/{alias}/webrtc` | gated Cayuga WebSocket signaling; media stays browser-to-Blink |
 
-Core loopback is trusted so HA camera state never contains credentials. Other
-clients must send a dedicated high-entropy token. Keep the endpoint private;
-do not publish it through Traefik.
+Every bridge request needs Home Assistant authentication (a session, a
+long-lived token or a signed path) or the dedicated high-entropy bridge token;
+the TCP peer address is never trusted, so a reverse proxy on the same host
+grants nothing. Each camera's `stream_source` carries its own random token,
+valid only for that camera's live route until the entity is reloaded. Keep the
+endpoint private; do not publish it through Traefik.
 
 ## Installation
 
@@ -133,8 +135,8 @@ bridge URL or a user-managed token. Complete login/2FA in the discovered flow.
 
 Existing YAML-token installations remain supported and are migrated without
 changing the key used to seal the provider session.
-You may remove or disable the official Blink integration after parity has been
-verified; normal Vistoda operation never reads it.
+You may remove or disable the official Blink integration at any time; Vistoda
+never reads it.
 The powered Blink Mini is the only automatic production media canary; battery
 cameras are never opened by CI or routine deployment checks.
 

@@ -1,5 +1,6 @@
 """Standalone Blink snapshot and live camera entities."""
 
+import secrets
 from pathlib import Path
 from typing import Any, override
 from uuid import uuid4
@@ -9,7 +10,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from yarl import URL
 
+from .auth import STREAM_TOKEN_PARAM
 from .client import EngineError
 from .const import API_PREFIX, DOMAIN
 from .entity import BlinkCameraEntity, camera_device, identity
@@ -99,7 +102,19 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
 
     @override
     async def stream_source(self) -> str:
-        return f"http://127.0.0.1:8123{API_PREFIX}/v1/cameras/{self.alias}/live.ts"
+        # The stream worker reuses this URL for every reconnect, so it carries
+        # a per-entity token instead of an expiring signed path.
+        token = self.runtime.stream_tokens.setdefault(self.alias, secrets.token_urlsafe(32))
+        api = self.hass.config.api
+        return str(
+            URL.build(
+                scheme="https" if api.use_ssl else "http",
+                host="127.0.0.1",
+                port=api.port,
+                path=f"{API_PREFIX}/v1/cameras/{self.alias}/live.ts",
+                query={STREAM_TOKEN_PARAM: token},
+            )
+        )
 
     @override
     async def async_enable_motion_detection(self) -> None:
@@ -120,7 +135,7 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
         await self._refresh_image()
 
     async def save_video(self, filename: str) -> None:
-        self._validate_path(filename)
+        await self._validate_path(filename)
         await self.coordinator.async_request_refresh()
         clips = self._camera_clips()
         if not clips:
@@ -129,7 +144,7 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
         await self.hass.async_add_executor_job(Path(filename).write_bytes, content)
 
     async def save_recent_clips(self, file_path: str) -> None:
-        self._validate_path(file_path)
+        await self._validate_path(file_path)
         await self.coordinator.async_request_refresh()
         directory = Path(file_path)
         for index, clip in enumerate(self._camera_clips(), start=1):
@@ -187,6 +202,7 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
         )
         return network.get("name") if network else None
 
-    def _validate_path(self, path: str) -> None:
-        if not self.hass.config.is_allowed_path(path):
+    async def _validate_path(self, path: str) -> None:
+        # is_allowed_path resolves the path on disk; keep it off the event loop.
+        if not await self.hass.async_add_executor_job(self.hass.config.is_allowed_path, path):
             raise ServiceValidationError(f"Path is not allowed: {path}")
