@@ -15,10 +15,12 @@ class BridgeView(HomeAssistantView):
 
     requires_auth = False
 
-    def runtime(self, request: web.Request, alias: str | None = None) -> BridgeRuntime:
+    def runtime(
+        self, request: web.Request, alias: str | None = None, *, admin: bool = False
+    ) -> BridgeRuntime:
         runtime: BridgeRuntime = request.app["hass"].data[DOMAIN]["runtime"]
         stream_token = runtime.stream_tokens.get(alias) if alias else None
-        require_bridge_auth(request, runtime.token, stream_token)
+        require_bridge_auth(request, runtime.token, stream_token, admin=admin)
         return runtime
 
 
@@ -124,6 +126,8 @@ class ProviderRecordingView(BridgeView):
     name = f"api:{DOMAIN}:provider-recording"
 
     async def post(self, request: web.Request, alias: str) -> web.Response:
+        # A write: Home Assistant users must be administrators, as over WebSocket.
+        runtime = self.runtime(request, admin=True)
         try:
             payload = await request.json()
         except (ValueError, TypeError) as error:
@@ -135,9 +139,7 @@ class ProviderRecordingView(BridgeView):
         ):
             raise web.HTTPBadRequest(text="invalid recording request")
         try:
-            result = await self.runtime(request).client.post(
-                f"/v1/cameras/{alias}/provider-recording", payload
-            )
+            result = await runtime.client.post(f"/v1/cameras/{alias}/provider-recording", payload)
         except EngineError as error:
             raise web.HTTPBadGateway(text="provider recording unavailable") from error
         return self.json(result)

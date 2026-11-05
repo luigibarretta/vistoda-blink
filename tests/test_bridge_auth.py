@@ -13,6 +13,7 @@ from aiohttp.test_utils import make_mocked_request
 
 COMPONENT = Path(__file__).parents[1] / "custom_components/blink_live_bridge"
 KEY_AUTHENTICATED = "ha_authenticated"
+KEY_HASS_USER = "hass_user"
 TOKEN = "a" * 64
 
 
@@ -20,6 +21,7 @@ TOKEN = "a" * 64
 def auth():
     http = ModuleType("homeassistant.components.http")
     http.KEY_AUTHENTICATED = KEY_AUTHENTICATED
+    http.KEY_HASS_USER = KEY_HASS_USER
     modules = {
         "homeassistant": ModuleType("homeassistant"),
         "homeassistant.components": ModuleType("homeassistant.components"),
@@ -40,13 +42,17 @@ def auth():
                 sys.modules[name] = module
 
 
-def request(path="/live.ts", headers=None, peer=("127.0.0.1", 50000), authenticated=False):
+def request(
+    path="/live.ts", headers=None, peer=("127.0.0.1", 50000), authenticated=False, user=None
+):
     transport = MagicMock()
     transport.get_extra_info.side_effect = lambda name, default=None: (
         peer if name == "peername" else default
     )
     req = make_mocked_request("GET", path, headers=headers or {}, transport=transport)
     req[KEY_AUTHENTICATED] = authenticated
+    if user is not None:
+        req[KEY_HASS_USER] = user
     return req
 
 
@@ -58,6 +64,28 @@ def test_no_credential_is_rejected_even_from_loopback(auth, peer) -> None:
 
 def test_home_assistant_authentication_is_accepted(auth) -> None:
     auth.require_bridge_auth(request(authenticated=True), TOKEN)
+
+
+def test_writes_require_an_administrator_for_home_assistant_users(auth) -> None:
+    admin = SimpleNamespace(is_admin=True)
+    user = SimpleNamespace(is_admin=False)
+    auth.require_bridge_auth(request(authenticated=True, user=admin), TOKEN, admin=True)
+    for who in (user, None):
+        with pytest.raises(web.HTTPForbidden):
+            auth.require_bridge_auth(request(authenticated=True, user=who), TOKEN, admin=True)
+    # Non-admin users keep read access; the bridge token keeps write access.
+    auth.require_bridge_auth(request(authenticated=True, user=user), TOKEN)
+    bearer = {"Authorization": f"Bearer {TOKEN}"}
+    auth.require_bridge_auth(request(headers=bearer), TOKEN, admin=True)
+    with pytest.raises(web.HTTPUnauthorized):
+        auth.require_bridge_auth(request(), TOKEN, admin=True)
+
+
+def test_provider_recording_post_checks_admin_before_reading_the_body() -> None:
+    source = (COMPONENT / "http.py").read_text()
+    post = source[source.index("class ProviderRecordingView") :]
+    post = post[: post.index("class RecordingMediaView")]
+    assert post.index("self.runtime(request, admin=True)") < post.index("await request.json()")
 
 
 @pytest.mark.parametrize(

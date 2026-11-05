@@ -4,7 +4,7 @@ import base64
 import hmac
 
 from aiohttp import web
-from homeassistant.components.http import KEY_AUTHENTICATED
+from homeassistant.components.http import KEY_AUTHENTICATED, KEY_HASS_USER
 
 # Home Assistant redacts this query parameter when it logs a stream source.
 STREAM_TOKEN_PARAM = "auth"
@@ -35,14 +35,21 @@ def require_bridge_auth(
     request: web.Request,
     expected_token: str,
     stream_token: str | None = None,
+    *,
+    admin: bool = False,
 ) -> None:
     """Require Home Assistant authentication or a constant-time token match.
 
     The TCP peer is never trusted: behind a reverse proxy or tunnel every
     remote request arrives from loopback. ``stream_token`` is the per-camera
-    secret embedded in that camera's own ``stream_source`` URL.
+    secret embedded in that camera's own ``stream_source`` URL. ``admin``
+    restricts Home Assistant users to administrators, matching the WebSocket
+    commands for the same write; the bridge token keeps full access.
     """
     if request.get(KEY_AUTHENTICATED):
+        user = request.get(KEY_HASS_USER)
+        if admin and not (user and user.is_admin):
+            raise web.HTTPForbidden(text="Administrator access required")
         return
     if _matches(_presented_token(request), expected_token):
         return
