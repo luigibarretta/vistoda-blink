@@ -169,8 +169,9 @@ node third_party/repo-tooling/ci-local.mjs           # full gate before a push
 ```
 
 Tests are deterministic and require no Blink account, network or secret.
-Every maintained source, configuration and documentation file is limited to
-250 physical lines.
+Source files follow the repo-tooling `fleet-default` preset: 400 physical lines
+per Rust or Python file, no growth, ratchet down (`scripts/loc-baseline.json`),
+plus NASA/JPL-inspired counters that may not rise (`scripts/nasa-baseline.json`).
 The supervised app bootstrap is vendored from
 [`lib-vistoda-provider-kit`](https://git.luigibarretta.com/luigibarretta/lib-vistoda-provider-kit)
 at the commit in `dependencies/vistoda-provider-kit.sha` and verified byte-for-byte in CI.

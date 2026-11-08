@@ -7,23 +7,21 @@ on:
 # entry point used before a push (`node third_party/repo-tooling/ci-local.mjs
 # --quick`, then the full gate). Every manifest step runs in exactly one call
 # below (scripts/check_ci_local_jobs.py). Plain workflow steps are CI-only:
-# checkouts, the repo-tooling pin check, Python and Rust toolchains, caches,
-# the dev-dependency install and cargo-audit installation.
+# checkouts, the repo-tooling checkout at the pin, Python and Rust toolchains,
+# caches, the dev-dependency install and cargo-audit installation.
 jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # CI-only: verifies third_party/repo-tooling against a checkout of the
-      # commit pinned in dependencies/repo-tooling.sha.
+      # CI-only: the repo-tooling-sync step compares third_party/repo-tooling
+      # with this checkout of the commit pinned in dependencies/repo-tooling.sha.
       - name: Checkout pinned repository tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: luigibarretta/repo-tooling
-          ref: 7c1288562bb7ae8c5e111cf7da965cc69830cdd7
+          ref: b8ee6b7218d4d01c90403d1d24826006242a6a23
           path: .ci/repo-tooling
-      - name: Verify pinned repository tooling
-        run: scripts/check-repo-tooling-sync.sh
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
@@ -33,9 +31,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[dev]"
       # The provider-kit step fetches lib-vistoda-provider-kit at
-      # dependencies/vistoda-provider-kit.sha from its public source of truth.
-      - name: Job ownership, provider kit, Python adapter checks, LOC and release identity
-        run: node third_party/repo-tooling/ci-local.mjs --ci --only ci-local-jobs,provider-kit,python-format,python-lint,python-compile,loc,release-check,pytest
+      # dependencies/vistoda-provider-kit.sha from its public source of truth
+      # (dependencies/vendored.json).
+      - name: Job ownership, vendored tooling and provider kit, Python adapter checks, LOC and NASA ratchets, release identity
+        run: node third_party/repo-tooling/ci-local.mjs --ci --only ci-local-jobs,repo-tooling-sync,provider-kit,provider-kit-test,python-format,python-lint,python-compile,loc,nasa,release-check,pytest
       # Use a reachable mainline action commit; version branches are rewritten upstream.
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
