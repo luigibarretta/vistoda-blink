@@ -9,6 +9,7 @@ RUN apk add --no-cache musl-dev
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
+COPY vendor/auth-modules ./vendor/auth-modules
 RUN cargo build --locked --release
 
 COPY collect-licenses.sh /usr/local/bin/collect-licenses

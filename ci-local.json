@@ -38,6 +38,8 @@
       "timeout_s": 300,
       "with": {
         "args": [
+          "--only",
+          "vistoda-provider-kit",
           "--fetch"
         ]
       }
@@ -51,6 +53,19 @@
       ],
       "quick": true,
       "timeout_s": 300
+    },
+    {
+      "name": "auth-modules-vendor",
+      "description": "Vendored lib-auth-modules matches its pin and tree digest (dependencies/vendored.json); byte-compared with ../lib-auth-modules when that clone exists, never fetched (private upstream)",
+      "uses": "check-vendored-dep",
+      "quick": true,
+      "timeout_s": 120,
+      "with": {
+        "args": [
+          "--only",
+          "auth-modules"
+        ]
+      }
     },
     {
       "name": "secret-scan",

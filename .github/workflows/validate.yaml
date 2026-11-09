@@ -24,7 +24,7 @@ jobs:
       # provider-kit fetches lib-vistoda-provider-kit at
       # dependencies/vistoda-provider-kit.sha (dependencies/vendored.json).
       - name: Exact bootstrap dependency and kit lifecycle test
-        run: node third_party/repo-tooling/ci-local.mjs --ci --only provider-kit,provider-kit-test
+        run: node third_party/repo-tooling/ci-local.mjs --ci --only provider-kit,provider-kit-test,auth-modules-vendor
 
   secret-scan:
     runs-on: ubuntu-latest

@@ -12,7 +12,12 @@ not release artifacts. Update the provider app and its matching HA adapter.
 ## Security boundary
 
 - Blink credentials and rotating refresh tokens stay in the standalone Rust
-  provider's sealed private data. The official integration is not required.
+  provider's sealed private data (`/data/provider.sealed`, AES-256-GCM). Its key
+  is an HKDF sub-key of a dedicated random `/data/store.key` (owner-only), not
+  the workload token that the HA adapter also holds; stores sealed by earlier
+  releases with the token-derived key are re-sealed on first start. Anyone who
+  can read the whole `/data` (for example a full backup) can still open it.
+  The official integration is not required.
 - The private workload token must be stored outside Git and compared in
   constant time.
 - The connector must remain on the trusted Home Assistant listener; it must not

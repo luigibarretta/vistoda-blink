@@ -1,8 +1,9 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
-use tokio::io::AsyncWriteExt;
-
-use crate::{blink_model::CameraState, credentials::StoreError};
+use crate::{
+    blink_model::CameraState,
+    credentials::{StoreError, write_private},
+};
 
 #[derive(Clone)]
 pub struct AliasStore {
@@ -55,16 +56,7 @@ impl AliasStore {
     }
 
     async fn save(&self, aliases: &BTreeMap<String, String>) -> Result<(), StoreError> {
-        let temporary = self.path.with_extension("json.new");
-        let mut file = tokio::fs::File::create(&temporary).await?;
-        file.write_all(&serde_json::to_vec(aliases)?).await?;
-        file.sync_all().await?;
-        drop(file);
-        tokio::fs::rename(&temporary, &self.path).await?;
-        if let Some(parent) = self.path.parent() {
-            tokio::fs::File::open(parent).await?.sync_all().await?;
-        }
-        Ok(())
+        write_private(self.path.clone(), serde_json::to_vec(aliases)?).await
     }
 }
 

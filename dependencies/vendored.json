@@ -3,11 +3,26 @@
   "dependencies": [
     {
       "name": "vistoda-provider-kit",
-      "files": { "dist/vistoda-app-bootstrap.sh": "addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh" },
+      "files": {
+        "dist/vistoda-app-bootstrap.sh": "addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh"
+      },
       "pinFile": "dependencies/vistoda-provider-kit.sha",
       "upstream": {
         "checkout": ".ci/vistoda-provider-kit",
         "url": "https://github.com/luigibarretta/lib-vistoda-provider-kit.git"
+      }
+    },
+    {
+      "name": "auth-modules",
+      "description": "lib-auth-modules (tag v0.2.0), an exact git archive of the pinned commit inside the engine's Docker build context. The repository is private, so public CI verifies the tree digest only; a local ../lib-auth-modules clone is byte-compared. Refresh pin, tree and digest together (addon/vistoda_blink_engine/vendor/auth-modules.provenance.md)",
+      "path": "addon/vistoda_blink_engine/vendor/auth-modules",
+      "pinFile": "dependencies/auth-modules.sha",
+      "treeSha256File": "dependencies/auth-modules-vendor.sha256",
+      "upstream": {
+        "checkout": [
+          "../lib-auth-modules"
+        ],
+        "subdir": ""
       }
     }
   ]

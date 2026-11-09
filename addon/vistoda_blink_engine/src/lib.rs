@@ -76,6 +76,7 @@ mod parse_tests;
 pub mod recordings;
 #[cfg(test)]
 mod settings_tests;
+mod store_key;
 mod tls;
 mod tls_pins;
 mod walnut_microphone;

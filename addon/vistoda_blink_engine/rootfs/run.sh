@@ -17,6 +17,7 @@ jq -n --rawfile token "${token_file}" \
 chmod 0600 "${engine_config}"
 chown bridge:bridge "${engine_config}"
 vistoda_secure_file bridge:bridge "${data_dir}/provider.sealed"
+vistoda_secure_file bridge:bridge "${data_dir}/store.key"
 
 vistoda_start_child su-exec bridge:bridge vistoda-blink-engine --config "${engine_config}"
 vistoda_wait_for_health http://127.0.0.1:8099/healthz 30 1

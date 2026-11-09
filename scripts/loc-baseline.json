@@ -22,6 +22,10 @@
       "kind": "generated",
       "optional": true,
       "reason": "setuptools build output (gitignored)"
+    },
+    "addon/vistoda_blink_engine/vendor": {
+      "kind": "third_party",
+      "reason": "lib-auth-modules archive of the pinned commit, byte-verified by the auth-modules-vendor step (dependencies/vendored.json)"
     }
   },
   "allow": {}

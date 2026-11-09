@@ -76,7 +76,7 @@ def test_supervisor_discovery_removes_the_yaml_requirement() -> None:
     runner = (ROOT / "addon/vistoda_blink_engine/rootfs/run.sh").read_text()
     bootstrap = (ROOT / "addon/vistoda_blink_engine/rootfs/vistoda-app-bootstrap.sh").read_text()
     assert 'vistoda_prepare_data_dir bridge:bridge "${data_dir}"' in runner
-    assert 'vistoda_secure_file bridge:bridge "${data_dir}/provider.sealed"' in runner
+    assert all(f'bridge "${{data_dir}}/{n}"' in runner for n in ("provider.sealed", "store.key"))
     assert "vistoda_prepare_data_dir" in bootstrap
 
 
@@ -239,7 +239,7 @@ def test_webrtc_signaling_is_typed_owner_bound_and_media_free() -> None:
 
 def test_every_maintained_file_stays_bounded() -> None:
     """Keep every responsibility below the product LOC budget."""
-    excluded = {".ci", ".git", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__"}
+    excluded = {".ci", ".git", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__", "vendor"}
     suffixes = {".json", ".md", ".py", ".rs", ".toml", ".yaml", ".yml"}
     for path in ROOT.rglob("*"):
         if (
