@@ -13,6 +13,18 @@
       }
     },
     {
+      "name": "vistoda-provider-kit-crate",
+      "description": "The kit's Rust crate (crates/vistoda-provider-kit) at the same pin, a path dependency of the engine; its ../auth-modules dependency is the auth-modules entry below, identical to the kit's crates/auth-modules",
+      "path": "addon/vistoda_blink_engine/vendor/vistoda-provider-kit",
+      "pinFile": "dependencies/vistoda-provider-kit.sha",
+      "treeSha256File": "dependencies/vistoda-provider-kit-crate.sha256",
+      "upstream": {
+        "checkout": ".ci/vistoda-provider-kit",
+        "url": "https://github.com/luigibarretta/lib-vistoda-provider-kit.git",
+        "subdir": "crates/vistoda-provider-kit"
+      }
+    },
+    {
       "name": "auth-modules",
       "description": "lib-auth-modules (tag v0.2.0), an exact git archive of the pinned commit inside the engine's Docker build context. The repository is private, so public CI verifies the tree digest only; a local ../lib-auth-modules clone is byte-compared. Refresh pin, tree and digest together (addon/vistoda_blink_engine/vendor/auth-modules.provenance.md)",
       "path": "addon/vistoda_blink_engine/vendor/auth-modules",

@@ -9,11 +9,7 @@ license = "MIT"
 repository = "https://git.luigibarretta.com/luigibarretta/vistoda-blink"
 
 [dependencies]
-aes-gcm = "0.10"
 async-stream = "0.3"
-# Vendored lib-auth-modules (vendor/auth-modules.provenance.md): HKDF sub-key
-# derivation and owner-private secret files only.
-auth-modules = { path = "vendor/auth-modules", default-features = false, features = ["keys", "secret-files"] }
 axum = { version = "0.8", features = ["json", "ws"] }
 base64 = "0.22"
 bytes = "1.10"
@@ -25,7 +21,6 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-subtle = "2.6"
 thiserror = "2"
 time = { version = "0.3", features = ["formatting", "parsing"] }
 tokio = { version = "1.47", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
@@ -36,6 +31,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 url = "2.5"
 uuid = { version = "1.18", features = ["serde", "v4"] }
+# lib-vistoda-provider-kit crate (sealed store, private files, bearer check),
+# vendored at dependencies/vistoda-provider-kit.sha with its ../auth-modules
+# dependency (vendor/auth-modules.provenance.md, ADR 0017).
+vistoda-provider-kit = { path = "vendor/vistoda-provider-kit" }
 webpki-roots = "1"
 zeroize = { version = "1.8", features = ["derive", "serde"] }
 

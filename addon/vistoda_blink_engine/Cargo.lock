@@ -534,7 +534,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1253,7 +1253,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1445,15 +1445,15 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.1.4"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6fe4565b9518b83ef4f91bb47ce29620ca828bd32cb7e408f0062e9930ba190"
+checksum = "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa"
 dependencies = [
  "bitflags",
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1711,7 +1711,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2125,9 +2125,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "vistoda-blink-engine"
 version = "0.25.1"
 dependencies = [
- "aes-gcm",
  "async-stream",
- "auth-modules",
  "axum",
  "base64",
  "bytes",
@@ -2141,7 +2139,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "subtle",
  "tempfile",
  "thiserror",
  "time",
@@ -2154,7 +2151,24 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "uuid",
+ "vistoda-provider-kit",
  "webpki-roots 1.0.10",
+ "zeroize",
+]
+
+[[package]]
+name = "vistoda-provider-kit"
+version = "0.2.0"
+dependencies = [
+ "aes-gcm",
+ "auth-modules",
+ "axum",
+ "base64",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tracing",
  "zeroize",
 ]
 

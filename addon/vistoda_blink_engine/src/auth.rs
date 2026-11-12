@@ -1,19 +1,11 @@
-use axum::http::{HeaderMap, header};
-use subtle::ConstantTimeEq;
+use axum::http::HeaderMap;
+use vistoda_provider_kit::auth::bearer_matches;
 
 use crate::error::EngineError;
 
+/// Constant-time bearer check (lib-vistoda-provider-kit `auth`).
 pub fn require_bearer(headers: &HeaderMap, expected: &str) -> Result<(), EngineError> {
-    let Some(value) = headers.get(header::AUTHORIZATION) else {
-        return Err(EngineError::Unauthorized);
-    };
-    let Ok(value) = value.to_str() else {
-        return Err(EngineError::Unauthorized);
-    };
-    let Some(presented) = value.strip_prefix("Bearer ") else {
-        return Err(EngineError::Unauthorized);
-    };
-    if presented.as_bytes().ct_eq(expected.as_bytes()).into() {
+    if bearer_matches(headers, expected.as_bytes()) {
         Ok(())
     } else {
         Err(EngineError::Unauthorized)

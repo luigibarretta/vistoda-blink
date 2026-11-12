@@ -25,3 +25,9 @@ git -C ../lib-auth-modules rev-parse <commit> > dependencies/auth-modules.sha
 node third_party/repo-tooling/check-vendored-dep.mjs --only auth-modules --update-digest
 node third_party/repo-tooling/check-vendored-dep.mjs --only auth-modules --require-upstream
 ```
+
+Since ADR 0017 the engine reaches auth-modules only through the vendored
+lib-vistoda-provider-kit crate (`vendor/vistoda-provider-kit`, path dependency
+`../auth-modules`). The kit vendors the same archive as `crates/auth-modules`;
+keep this copy, `dependencies/auth-modules.sha` and the kit pin on the same
+lib-auth-modules commit when refreshing either.

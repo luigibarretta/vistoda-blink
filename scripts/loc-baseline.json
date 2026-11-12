@@ -25,7 +25,7 @@
     },
     "addon/vistoda_blink_engine/vendor": {
       "kind": "third_party",
-      "reason": "lib-auth-modules archive of the pinned commit, byte-verified by the auth-modules-vendor step (dependencies/vendored.json)"
+      "reason": "lib-auth-modules archive of the pinned commit and the lib-vistoda-provider-kit crate, byte-verified by the auth-modules-vendor and provider-kit steps (dependencies/vendored.json)"
     }
   },
   "allow": {}

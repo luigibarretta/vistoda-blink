@@ -16,6 +16,7 @@
 - [0014 — Blink arm/disarm schedules (programs)](0014-blink-arm-schedules.md)
 - [0015 — Faster motion notifications and local motion stills](0015-faster-motion-and-local-stills.md)
 - [0016 — Dedicated provider-store key and shared secret-file primitives](0016-dedicated-provider-store-key.md)
+- [0017 — Shared provider kit crate for sealing, private files and bearer checks](0017-shared-provider-kit-crate.md)
 
 ADRs record durable decisions and their consequences. Superseded decisions
 remain in the index with their replacement instead of being silently rewritten.
