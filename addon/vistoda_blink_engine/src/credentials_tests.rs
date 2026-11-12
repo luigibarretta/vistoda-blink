@@ -93,7 +93,7 @@ async fn a_missing_key_file_fails_closed_for_a_sealed_store() {
     let store = CredentialStore::new(path, &"a".repeat(64));
     assert!(matches!(
         store.load().await,
-        Err(StoreError::Sealed(SealError::File(error))) if error.is_not_found()
+        Err(StoreError::Sealed(SealError::MissingKey(_)))
     ));
     assert!(!directory.path().join(KEY_FILE_NAME).exists());
 }
