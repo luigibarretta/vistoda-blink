@@ -2,7 +2,7 @@
 # migration). The published app, its DOCS and option texts live in the
 # vistoda-addons catalog (vistoda_blink); keep user-facing text in sync there.
 name: Vistoda Blink Engine
-version: 0.25.1
+version: 0.26.0
 slug: vistoda_blink_engine
 description: Standalone Rust Blink provider for Home Assistant and Vistoda
 url: https://github.com/luigibarretta/vistoda-blink
