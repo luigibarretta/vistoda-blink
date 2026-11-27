@@ -35,6 +35,12 @@ impl BlinkClient {
                 Err(error @ (BlinkError::Authentication | BlinkError::OAuth(_))) => {
                     return Err(error);
                 }
+                // No USB drive (or no local storage) is the normal state of many accounts:
+                // report "nothing" instead of failing every refresh.
+                Err(error) if error.is_no_local_storage() => {
+                    tracing::debug!("Blink Sync Module has no local storage");
+                    continue;
+                }
                 Err(error) => {
                     tracing::warn!(error = %error.redacted(),
                         "Blink USB status unavailable for one Sync Module");
