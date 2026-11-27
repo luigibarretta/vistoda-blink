@@ -43,7 +43,7 @@ def test_vistoda_discovery_and_device_identity_stay_stable() -> None:
     assert 'PARENT_IDENTIFIER = (DOMAIN, "adapter")' in constants
     assert 'LEGACY_PARENT_IDENTIFIER = ("media_bridge", "blink:blink")' in constants
     assert "identifiers={PARENT_IDENTIFIER}" in setup
-    assert "legacy.config_entries == {entry.entry_id}" in setup
+    assert "_registered_device(registry, LEGACY_PARENT_IDENTIFIER, entry.entry_id)" in setup
     assert "new_identifiers=" in setup
 
 
