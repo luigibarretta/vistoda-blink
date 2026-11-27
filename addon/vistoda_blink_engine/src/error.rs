@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    http::StatusCode,
+    http::{HeaderValue, StatusCode, header::RETRY_AFTER},
     response::{IntoResponse, Response},
 };
 use serde::Serialize;
@@ -21,6 +21,9 @@ pub enum EngineError {
     InvalidAlias,
     #[error("camera publisher already active")]
     PublisherBusy,
+    /// Blink refused a live view a moment ago; the value is the seconds left to wait.
+    #[error("Blink refused the live view; try again in a moment")]
+    LiveCoolingDown(u64),
     #[error("invalid IMMI frame: {0}")]
     Protocol(String),
     #[error("websocket transport failed: {0}")]
@@ -90,7 +93,7 @@ impl IntoResponse for EngineError {
             | Self::ProviderRecordingUnavailable
             | Self::ProviderCommandFailed => StatusCode::CONFLICT,
             Self::ProviderCommandPending => StatusCode::GATEWAY_TIMEOUT,
-            Self::RecordingCapacity => StatusCode::TOO_MANY_REQUESTS,
+            Self::RecordingCapacity | Self::LiveCoolingDown(_) => StatusCode::TOO_MANY_REQUESTS,
             Self::NotEnrolled => StatusCode::PRECONDITION_REQUIRED,
             Self::WebRtcLegacyDevice | Self::WebRtcFeatureDisabled => {
                 StatusCode::PRECONDITION_FAILED
@@ -104,13 +107,23 @@ impl IntoResponse for EngineError {
             }
             Self::RecordingInvalid | Self::InvalidPage => StatusCode::BAD_REQUEST,
         };
-        (
+        let retry_after = match self {
+            Self::LiveCoolingDown(seconds) => Some(seconds),
+            _ => None,
+        };
+        let mut response = (
             status,
             Json(ErrorBody {
                 error: self.to_string(),
             }),
         )
-            .into_response()
+            .into_response();
+        if let Some(seconds) = retry_after {
+            response
+                .headers_mut()
+                .insert(RETRY_AFTER, HeaderValue::from(seconds));
+        }
+        response
     }
 }
 

@@ -16,10 +16,16 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Consecutive keepalive poll errors tolerated before the poller gives up.
 const KEEPALIVE_ERRORS: u32 = 3;
 
+/// How long to leave a camera alone after Blink refused a live view (HTTP 409).
+const BUSY_COOLDOWN: Duration = Duration::from_secs(30);
+
 #[derive(Debug, Error)]
 pub enum LiveError {
-    #[error("Blink live negotiation failed")]
-    Negotiation,
+    /// Blink answers 409 when the camera is busy or another live view is open.
+    #[error("Blink refused the live view: camera busy or another live is open (HTTP 409)")]
+    Busy,
+    #[error("Blink live negotiation failed: {0}")]
+    Negotiation(String),
     #[error("Blink IMMI address is invalid")]
     Address,
     #[error("Blink IMMI transport failed: {0}")]
@@ -32,11 +38,19 @@ pub enum LiveError {
     NoMedia,
 }
 
-pub async fn produce(client: BlinkClient, alias: String, publisher: PublisherGuard) {
-    if let Err(error) = produce_inner(&client, &alias, &publisher).await {
-        publisher.record_protocol_error();
-        tracing::warn!(%error, camera = %alias, "Blink live session ended");
-    }
+/// Runs one live session. Returns how long the camera should be left alone, when Blink
+/// refused the live view, so that the next subscribers are not sent back to Blink at once.
+pub async fn produce(
+    client: BlinkClient,
+    alias: String,
+    publisher: PublisherGuard,
+) -> Option<Duration> {
+    let Err(error) = produce_inner(&client, &alias, &publisher).await else {
+        return None;
+    };
+    publisher.record_protocol_error();
+    tracing::warn!(%error, camera = %alias, "Blink live session ended");
+    matches!(error, LiveError::Busy).then_some(BUSY_COOLDOWN)
 }
 
 async fn produce_inner(
@@ -44,10 +58,14 @@ async fn produce_inner(
     alias: &str,
     publisher: &PublisherGuard,
 ) -> Result<(), LiveError> {
-    let (camera, descriptor) = client
-        .start_live(alias)
-        .await
-        .map_err(|_| LiveError::Negotiation)?;
+    let (camera, descriptor) =
+        client
+            .start_live(alias)
+            .await
+            .map_err(|error| match error.http_status() {
+                Some(reqwest::StatusCode::CONFLICT) => LiveError::Busy,
+                _ => LiveError::Negotiation(error.redacted()),
+            })?;
     tracing::info!(multi_client = ?descriptor.is_multi_client_live_view,
         "Blink live session policy observation");
     let deadline = if camera.powered {

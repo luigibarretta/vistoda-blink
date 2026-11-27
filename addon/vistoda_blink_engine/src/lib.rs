@@ -59,6 +59,7 @@ pub mod immi_audio_lease;
 pub mod immi_audio_wire;
 pub mod live;
 mod live_audio;
+mod live_cooldown;
 #[cfg(test)]
 mod live_tests;
 pub mod motion;

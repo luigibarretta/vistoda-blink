@@ -84,6 +84,17 @@ class MotionThumbnailView(HomeAssistantView):
         )
 
 
+def live_unavailable(error: EngineError) -> web.HTTPException:
+    """Blink refused the live view a moment ago (HTTP 429): say when to come back."""
+    if error.status == 429:
+        wait = error.retry_after or 30
+        return web.HTTPTooManyRequests(
+            text="Blink refused the live view; try again in a moment",
+            headers={"Retry-After": str(wait)},
+        )
+    return web.HTTPBadGateway(text="live stream unavailable")
+
+
 class LiveView(BridgeView):
     url = f"{API_PREFIX}/v1/cameras/{{alias}}/{{stream_format:live\\.(?:ts|mpegts)}}"
     name = f"api:{DOMAIN}:live"
@@ -99,7 +110,7 @@ class LiveView(BridgeView):
         try:
             upstream = await runtime.client.stream(f"/v1/cameras/{alias}/live.ts")
         except EngineError as error:
-            raise web.HTTPBadGateway(text="live stream unavailable") from error
+            raise live_unavailable(error) from error
         response = web.StreamResponse(
             status=200,
             headers={

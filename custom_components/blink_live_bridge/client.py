@@ -18,10 +18,17 @@ from .const import ENGINE_URL
 class EngineError(Exception):
     """Safe provider failure without response-body secret leakage."""
 
-    def __init__(self, message: str, status: int | None = None, code: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        status: int | None = None,
+        code: str | None = None,
+        retry_after: int | None = None,
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.code = code
+        self.retry_after = retry_after  # Seconds the engine asked to wait (HTTP 429).
 
     @property
     def reauth_required(self) -> bool:
@@ -109,11 +116,21 @@ class EngineClient:
             if response.status >= 400:
                 status = response.status
                 code = await _error_code(response) if status == 403 else None
+                retry_after = (
+                    _retry_after(response.headers.get("Retry-After")) if status == 429 else None
+                )
                 response.release()
-                raise EngineError(f"provider returned HTTP {status}", status, code)
+                raise EngineError(f"provider returned HTTP {status}", status, code, retry_after)
             return response
         except (ClientError, TimeoutError) as error:
             raise EngineError("standalone provider request failed") from error
+
+
+def _retry_after(value: str | None) -> int | None:
+    """Seconds from a `Retry-After` header, kept small: only whole seconds up to five minutes."""
+    if value is None or not value.isdigit():
+        return None
+    return min(int(value), 300)
 
 
 async def _error_code(response: ClientResponse) -> str | None:
