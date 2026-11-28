@@ -49,5 +49,19 @@
       "title": "Vistoda Blink engine rejected the bridge token",
       "description": "The local Vistoda Blink Engine rejected the token Home Assistant uses to reach it. This is not a Blink sign-in problem: restart the Vistoda Blink Engine app so Supervisor re-announces the token, or correct the token in configuration.yaml, then reload the integration."
     }
+  },
+  "exceptions": {
+    "blink_busy": {
+      "message": "Blink is busy with another operation on this system (is a live view open?). Close it and try again in a moment."
+    },
+    "blink_slow_down": {
+      "message": "Blink asked to slow down. Wait a moment and try again."
+    },
+    "blink_signin": {
+      "message": "Blink needs you to sign in again. Reconnect the account in Vistoda Blink."
+    },
+    "blink_unavailable": {
+      "message": "Blink did not answer or refused the command. Try again in a moment."
+    }
   }
 }

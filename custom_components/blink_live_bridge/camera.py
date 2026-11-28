@@ -14,6 +14,7 @@ from yarl import URL
 
 from .auth import STREAM_TOKEN_PARAM
 from .client import EngineError
+from .command_errors import blink_command
 from .const import API_PREFIX, DOMAIN
 from .entity import BlinkCameraEntity, camera_device, identity
 from .runtime import BridgeRuntime
@@ -125,10 +126,11 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
         await self._command("motion", enabled=False)
 
     async def record(self) -> None:
-        await self.runtime.client.post(
-            f"/v1/cameras/{self.alias}/recordings",
-            {"duration_seconds": 30, "request_id": str(uuid4())},
-        )
+        with blink_command():
+            await self.runtime.client.post(
+                f"/v1/cameras/{self.alias}/recordings",
+                {"duration_seconds": 30, "request_id": str(uuid4())},
+            )
 
     async def trigger_camera(self) -> None:
         await self._command("snapshot")
@@ -153,10 +155,11 @@ class BlinkLiveCamera(BlinkCameraEntity, Camera):
             await self.hass.async_add_executor_job(target.write_bytes, content)
 
     async def _command(self, action: str, **values: Any) -> None:
-        await self.runtime.client.post(
-            f"/v1/cameras/{self.alias}/commands",
-            {"action": action, **values},
-        )
+        with blink_command():
+            await self.runtime.client.post(
+                f"/v1/cameras/{self.alias}/commands",
+                {"action": action, **values},
+            )
         await self.coordinator.async_request_refresh()
 
     async def _refresh_image(self) -> None:
