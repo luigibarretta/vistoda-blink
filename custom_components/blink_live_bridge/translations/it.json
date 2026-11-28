@@ -61,7 +61,7 @@
       "message": "Blink richiede un nuovo accesso. Ricollega l'account in Vistoda Blink."
     },
     "blink_unavailable": {
-      "message": "Blink non ha risposto o ha rifiutato il comando. Riprova fra poco."
+      "message": "Blink ha rifiutato il comando o non ha risposto. Se c'è una live aperta, chiudila e riprova fra poco."
     }
   }
 }

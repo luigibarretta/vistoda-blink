@@ -61,7 +61,7 @@
       "message": "Blink needs you to sign in again. Reconnect the account in Vistoda Blink."
     },
     "blink_unavailable": {
-      "message": "Blink did not answer or refused the command. Try again in a moment."
+      "message": "Blink refused the command or did not answer. If a live view is open, close it and try again in a moment."
     }
   }
 }
