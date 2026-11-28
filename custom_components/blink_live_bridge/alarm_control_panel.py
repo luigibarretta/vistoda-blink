@@ -13,6 +13,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .command_errors import blink_command
 from .const import DOMAIN
 from .runtime import BlinkCoordinator, BridgeRuntime
 
@@ -79,5 +80,8 @@ class BlinkAlarm(CoordinatorEntity[BlinkCoordinator], AlarmControlPanelEntity):
         await self._armed(True)
 
     async def _armed(self, value: bool) -> None:
-        await self.runtime.client.post(f"/v1/networks/{self.network_id}/armed", {"armed": value})
+        with blink_command():
+            await self.runtime.client.post(
+                f"/v1/networks/{self.network_id}/armed", {"armed": value}
+            )
         await self.coordinator.async_request_refresh()

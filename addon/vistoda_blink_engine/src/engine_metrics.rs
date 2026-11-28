@@ -2,10 +2,16 @@ use std::fmt::Write;
 
 use serde::Serialize;
 
-use crate::{
-    blink_session_health::SessionHealthSnapshot,
-    hub::{EngineState, HubSnapshot},
-};
+use crate::{blink_session_health::SessionHealthSnapshot, hub::EngineState};
+
+/// One camera hub as the metrics see it (built by `CameraHub::snapshot`).
+pub struct HubSnapshot {
+    pub publisher: bool,
+    pub subscribers: usize,
+    pub packets: u64,
+    pub lagged: u64,
+    pub protocol_errors: u64,
+}
 
 /// Every motion poller state, exported one-hot so dashboards see transitions.
 const POLLER_STATES: [&str; 6] = [

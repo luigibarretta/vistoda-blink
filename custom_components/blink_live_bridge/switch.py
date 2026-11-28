@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .command_errors import blink_command
 from .const import DOMAIN
 from .entity import BlinkCameraEntity
 from .program import program_switches
@@ -55,8 +56,9 @@ class BlinkMotionSwitch(BlinkCameraEntity, SwitchEntity):
         await self._set(False)
 
     async def _set(self, enabled: bool) -> None:
-        await self.runtime.client.post(
-            f"/v1/cameras/{self.alias}/commands",
-            {"action": "motion", "enabled": enabled},
-        )
+        with blink_command():
+            await self.runtime.client.post(
+                f"/v1/cameras/{self.alias}/commands",
+                {"action": "motion", "enabled": enabled},
+            )
         await self.coordinator.async_request_refresh()

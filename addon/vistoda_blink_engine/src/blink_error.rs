@@ -41,6 +41,22 @@ pub enum BlinkError {
 }
 
 impl BlinkError {
+    /// HTTP status of a rejected cloud request, when the failure was one.
+    pub(crate) fn http_status(&self) -> Option<reqwest::StatusCode> {
+        match self {
+            Self::Transport(error) => error.status(),
+            _ => None,
+        }
+    }
+
+    /// Blink answers 400 (or 404) to a Sync Module that has no local storage or no USB
+    /// drive. That is an answer ("nothing here"), not a failure of the cloud.
+    pub(crate) fn is_no_local_storage(&self) -> bool {
+        matches!(self.http_status(),
+            Some(status) if status == reqwest::StatusCode::BAD_REQUEST
+                || status == reqwest::StatusCode::NOT_FOUND)
+    }
+
     /// Blink answers HTTP 429, or 403 outside the OAuth refresh, when a client
     /// polls too often (ADR 0015).
     pub(crate) fn is_rate_limited(&self) -> bool {
@@ -107,6 +123,31 @@ fn transport_detail(endpoint: &str, error: &reqwest::Error) -> String {
 mod tests {
     use super::BlinkError;
     use crate::oauth::OAuthError;
+
+    #[allow(clippy::expect_used)] // A hand-made test response cannot fail to build.
+    fn rejected(status: u16) -> BlinkError {
+        let response = reqwest::Response::from(
+            axum::http::Response::builder()
+                .status(status)
+                .body("")
+                .expect("a valid test response"),
+        );
+        BlinkError::Transport(response.error_for_status().expect_err("an error status"))
+    }
+
+    #[test]
+    fn a_sync_module_without_local_storage_is_not_a_failure() {
+        assert!(rejected(400).is_no_local_storage());
+        assert!(rejected(404).is_no_local_storage());
+        assert!(!rejected(500).is_no_local_storage());
+        assert!(!rejected(429).is_no_local_storage());
+        assert!(!BlinkError::Authentication.is_no_local_storage());
+        assert_eq!(
+            rejected(409).http_status(),
+            Some(reqwest::StatusCode::CONFLICT)
+        );
+        assert_eq!(BlinkError::InvalidResponse.http_status(), None);
+    }
 
     #[tokio::test]
     async fn redacted_transport_errors_never_carry_the_url() {

@@ -113,15 +113,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+def _registered_device(
+    registry: dr.DeviceRegistry, identifier: tuple[str, str], entry_id: str
+) -> dr.DeviceEntry | None:
+    """The device with `identifier` that belongs to this entry alone.
+
+    Home Assistant now keeps one config entry per device and deprecates looking a device up by
+    identifier alone (it stops working in 2027.8); older releases only have the old lookup.
+    """
+    by_identifier = getattr(registry, "async_get_device_by_identifier", None)
+    if by_identifier is not None:
+        return by_identifier(identifier, entry_id)
+    device = registry.async_get_device(identifiers={identifier})
+    return device if device is not None and device.config_entries == {entry_id} else None
+
+
 def _parent_device(hass: HomeAssistant, entry: ConfigEntry) -> dr.DeviceEntry:
     """Create the adapter device under this domain, migrating our legacy one."""
     registry = dr.async_get(hass)
-    legacy = registry.async_get_device(identifiers={LEGACY_PARENT_IDENTIFIER})
-    if (
-        legacy
-        and legacy.config_entries == {entry.entry_id}
-        and not registry.async_get_device(identifiers={PARENT_IDENTIFIER})
-    ):
+    legacy = _registered_device(registry, LEGACY_PARENT_IDENTIFIER, entry.entry_id)
+    if legacy and not _registered_device(registry, PARENT_IDENTIFIER, entry.entry_id):
         registry.async_update_device(
             legacy.id,
             new_identifiers=(legacy.identifiers - {LEGACY_PARENT_IDENTIFIER}) | {PARENT_IDENTIFIER},

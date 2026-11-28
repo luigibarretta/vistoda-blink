@@ -2,10 +2,11 @@ use crate::{
     alias_store::AliasStore,
     blink_client::{BlinkClient, BlinkError},
     credentials::CredentialStore,
+    engine_metrics::HubSnapshot,
     enrollment::EnrollmentManager,
     error::EngineError,
     immi_audio_lease::AudioRuntime,
-    live,
+    live_cooldown::LiveCooldowns,
     motion::MotionTracker,
     motion_settings::MotionSettingsStore,
     recordings::RecordingManager,
@@ -148,6 +149,7 @@ pub struct EngineState {
     recordings: Arc<RecordingManager>,
     pub(crate) motion: Arc<MotionTracker>,
     pub(crate) motion_settings: Arc<MotionSettingsStore>,
+    live_cooldowns: Arc<LiveCooldowns>,
 }
 
 impl EngineState {
@@ -179,6 +181,7 @@ impl EngineState {
             client,
             motion: Arc::new(MotionTracker::default()),
             motion_settings,
+            live_cooldowns: Arc::default(),
         })
     }
 
@@ -216,6 +219,7 @@ impl EngineState {
         if !self.camera_exists(alias).await {
             return Err(EngineError::CameraNotFound);
         }
+        self.live_cooldowns.ensure_open(alias)?;
         let hub = self.hub(alias).await;
         if hub.owner() == OWNER_WEBRTC {
             return Err(EngineError::PublisherBusy);
@@ -227,7 +231,8 @@ impl EngineState {
         };
         let subscriber = hub.subscribe();
         if let Some(guard) = publisher {
-            tokio::spawn(live::produce(self.client.clone(), alias.to_owned(), guard));
+            self.live_cooldowns
+                .run(self.client.clone(), alias.to_owned(), guard);
         }
         Ok(subscriber)
     }
@@ -241,10 +246,3 @@ impl EngineState {
 }
 #[path = "hub_provider_recording.rs"]
 mod provider_recording;
-pub(crate) struct HubSnapshot {
-    pub publisher: bool,
-    pub subscribers: usize,
-    pub packets: u64,
-    pub lagged: u64,
-    pub protocol_errors: u64,
-}

@@ -150,11 +150,14 @@ fn log_failure(status: StatusCode, path: &str) {
     if status.is_success() {
         return;
     }
-    if status == StatusCode::NOT_FOUND && (is_optional_sync_module(path) || is_programs(path)) {
+    let absent = status == StatusCode::NOT_FOUND;
+    if (absent && (is_optional_sync_module(path) || is_programs(path)))
+        || (is_local_storage_status(path) && (absent || status == StatusCode::BAD_REQUEST))
+    {
         debug!(
             endpoint = endpoint_class(path),
             status = status.as_u16(),
-            "Blink account has no optional Sync Module or program endpoint"
+            "Blink account has no optional Sync Module, program or local storage endpoint"
         );
         return;
     }
@@ -184,9 +187,16 @@ pub fn endpoint_class(path: &str) -> &'static str {
         "sync_module"
     } else if is_programs(path) {
         "programs"
+    } else if is_local_storage_status(path) {
+        "local_storage"
     } else {
         "provider"
     }
+}
+
+/// A Sync Module without local storage answers 400 or 404 here; that is not an error.
+fn is_local_storage_status(path: &str) -> bool {
+    path.ends_with("/local_storage/status")
 }
 
 fn is_programs(path: &str) -> bool {
@@ -207,7 +217,17 @@ pub fn absolute(base: &str, path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{endpoint_class, is_optional_sync_module};
+    use super::{endpoint_class, is_local_storage_status, is_optional_sync_module};
+
+    #[test]
+    fn classifies_the_local_storage_status_probe() {
+        let path = "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/status";
+        assert!(is_local_storage_status(path));
+        assert_eq!(endpoint_class(path), "local_storage");
+        assert!(!is_local_storage_status(
+            "/api/v1/accounts/1/networks/2/sync_modules/3/local_storage/manifest/request"
+        ));
+    }
 
     #[test]
     fn classifies_optional_sync_module_without_provider_noise() {
